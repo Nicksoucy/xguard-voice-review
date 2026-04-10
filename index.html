@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Voice Review — XGuard Academy</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0A0E1A;color:#F0F0F0;padding:24px;min-height:100vh}
+h1{color:#E74C3C;font-size:22px;margin-bottom:4px}
+.sub{color:#94A3B8;font-size:13px;margin-bottom:20px}
+.info{background:rgba(255,255,255,0.04);border-left:3px solid #E74C3C;padding:12px 16px;margin-bottom:20px;border-radius:0 8px 8px 0}
+.info label{color:#94A3B8;font-size:13px;margin-right:8px}
+.info input{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:6px 12px;color:#F0F0F0;font-size:14px;width:220px}
+.list{display:flex;flex-direction:column;gap:8px;max-width:700px}
+a{text-decoration:none}
+.item{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:14px 18px;display:flex;align-items:center;gap:12px;transition:all .15s}
+.item:hover{background:rgba(255,255,255,0.08);border-color:rgba(231,76,60,0.3)}
+.item .n{color:#C0392B;font-weight:700;min-width:26px}
+.item .t{color:#F0F0F0;font-size:14px;flex:1}
+.item .arrow{color:#555;font-size:16px}
+</style></head><body>
+<h1>Voice Review — Tireur Actif</h1>
+<p class="sub">Écoute chaque leçon et clique sur les mots qui sonnent mal</p>
+<div class="info"><label>Ton nom :</label><input type="text" id="name" placeholder="Ex: Vanessa" oninput="localStorage.setItem('rn',this.value)"></div>
+<div class="list" id="list"></div>
+<script>
+document.getElementById('name').value=localStorage.getItem('rn')||'';
+var lessons=[
+  {id:'module-01-introduction/01-definitions',title:'Module 1 / Définitions et contexte'},
+  {id:'module-01-introduction/02-incidents-marquants',title:'Module 1 / Incidents marquants'},
+  {id:'module-01-introduction/03-responsabilites-agent',title:'Module 1 / Responsabilités agent'},
+  {id:'module-02-comprendre-la-menace/01-caracteristiques-incidents',title:'Module 2 / Caractéristiques des incidents'},
+  {id:'module-02-comprendre-la-menace/02-typologies-espaces',title:"Module 2 / Typologies d'espaces"},
+  {id:'module-02-comprendre-la-menace/03-facteurs-risque',title:'Module 2 / Facteurs de risque'},
+  {id:'module-03-run-hide-fight/01-fuir',title:'Module 3 / FUIR'},
+  {id:'module-03-run-hide-fight/02-se-cacher',title:'Module 3 / SE CACHER'},
+  {id:'module-03-run-hide-fight/03-combattre',title:'Module 3 / COMBATTRE'},
+  {id:'module-03-run-hide-fight/04-arrivee-police',title:'Module 3 / Arrivée de la police'}
+];
+var list=document.getElementById('list');
+lessons.forEach(function(l,i){
+  var a=document.createElement('a');
+  a.href='review.html?lesson='+i;
+  a.innerHTML='<div class="item"><span class="n">'+(i+1)+'</span><span class="t">'+l.title+'</span><span class="arrow">→</span></div>';
+  list.appendChild(a);
+});
+</script>
+</body></html>
