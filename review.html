@@ -83,16 +83,60 @@ var STORAGE = SUPA_URL + '/storage/v1/object/public/voiceovers';
 var API = SUPA_URL + '/rest/v1';
 
 var lessons = [
-  {id:'module-01-introduction/01-definitions',title:'Module 1 / Définitions et contexte'},
-  {id:'module-01-introduction/02-incidents-marquants',title:'Module 1 / Incidents marquants'},
-  {id:'module-01-introduction/03-responsabilites-agent',title:'Module 1 / Responsabilités agent'},
-  {id:'module-02-comprendre-la-menace/01-caracteristiques-incidents',title:'Module 2 / Caractéristiques des incidents'},
-  {id:'module-02-comprendre-la-menace/02-typologies-espaces',title:"Module 2 / Typologies d'espaces"},
-  {id:'module-02-comprendre-la-menace/03-facteurs-risque',title:'Module 2 / Facteurs de risque'},
-  {id:'module-03-run-hide-fight/01-fuir',title:'Module 3 / FUIR'},
-  {id:'module-03-run-hide-fight/02-se-cacher',title:'Module 3 / SE CACHER'},
-  {id:'module-03-run-hide-fight/03-combattre',title:'Module 3 / COMBATTRE'},
-  {id:'module-03-run-hide-fight/04-arrivee-police',title:'Module 3 / Arrivée de la police'}
+  // Tireur Actif (18)
+  {id:'module-01-introduction/01-definitions',course:'tireur-actif',title:'[Tireur Actif] M1 / Définitions'},
+  {id:'module-01-introduction/02-incidents-marquants',course:'tireur-actif',title:'[Tireur Actif] M1 / Incidents marquants'},
+  {id:'module-01-introduction/03-responsabilites-agent',course:'tireur-actif',title:'[Tireur Actif] M1 / Responsabilités agent'},
+  {id:'module-02-comprendre-la-menace/01-caracteristiques-incidents',course:'tireur-actif',title:'[Tireur Actif] M2 / Caractéristiques'},
+  {id:'module-02-comprendre-la-menace/02-typologies-espaces',course:'tireur-actif',title:"[Tireur Actif] M2 / Typologies d'espaces"},
+  {id:'module-02-comprendre-la-menace/03-facteurs-risque',course:'tireur-actif',title:'[Tireur Actif] M2 / Facteurs de risque'},
+  {id:'module-03-run-hide-fight/01-fuir',course:'tireur-actif',title:'[Tireur Actif] M3 / FUIR'},
+  {id:'module-03-run-hide-fight/02-se-cacher',course:'tireur-actif',title:'[Tireur Actif] M3 / SE CACHER'},
+  {id:'module-03-run-hide-fight/03-combattre',course:'tireur-actif',title:'[Tireur Actif] M3 / COMBATTRE'},
+  {id:'module-03-run-hide-fight/04-arrivee-police',course:'tireur-actif',title:'[Tireur Actif] M3 / Arrivée police'},
+  {id:'module-04-plans-urgence/01-plan-urgence-site',course:'tireur-actif',title:'[Tireur Actif] M4 / Plan urgence'},
+  {id:'module-04-plans-urgence/02-roles-responsabilites',course:'tireur-actif',title:'[Tireur Actif] M4 / Rôles'},
+  {id:'module-04-plans-urgence/03-exercices-simulations',course:'tireur-actif',title:'[Tireur Actif] M4 / Exercices'},
+  {id:'module-05-prevention/01-signaux-alerte',course:'tireur-actif',title:'[Tireur Actif] M5 / Signaux alerte'},
+  {id:'module-05-prevention/02-mecanismes-signalement',course:'tireur-actif',title:'[Tireur Actif] M5 / Signalement'},
+  {id:'module-05-prevention/03-role-prevention',course:'tireur-actif',title:'[Tireur Actif] M5 / Prévention'},
+  {id:'module-06-etudes-de-cas/01-scenarios',course:'tireur-actif',title:'[Tireur Actif] M6 / Scénarios'},
+  {id:'module-07-post-incident/01-post-incident',course:'tireur-actif',title:'[Tireur Actif] M7 / Post-incident'},
+  // Harcèlement (16)
+  {id:'module-01-introduction/01-pourquoi-cette-formation',course:'harcelement-travail',title:'[Harcèlement] M1 / Pourquoi'},
+  {id:'module-01-introduction/02-definitions',course:'harcelement-travail',title:'[Harcèlement] M1 / Définitions'},
+  {id:'module-02-cadre-legal/01-loi-normes-travail',course:'harcelement-travail',title:'[Harcèlement] M2 / Loi normes travail'},
+  {id:'module-02-cadre-legal/02-obligations-employeur',course:'harcelement-travail',title:'[Harcèlement] M2 / Obligations employeur'},
+  {id:'module-02-cadre-legal/03-droits-recours',course:'harcelement-travail',title:'[Harcèlement] M2 / Droits et recours'},
+  {id:'module-03-types-harcelement/01-harcelement-psychologique',course:'harcelement-travail',title:'[Harcèlement] M3 / Psychologique'},
+  {id:'module-03-types-harcelement/02-harcelement-sexuel',course:'harcelement-travail',title:'[Harcèlement] M3 / Sexuel'},
+  {id:'module-03-types-harcelement/03-autres-formes',course:'harcelement-travail',title:'[Harcèlement] M3 / Autres formes'},
+  {id:'module-04-reconnaitre/01-signes-indicateurs',course:'harcelement-travail',title:'[Harcèlement] M4 / Signes'},
+  {id:'module-04-reconnaitre/02-zones-grises',course:'harcelement-travail',title:'[Harcèlement] M4 / Zones grises'},
+  {id:'module-05-agir/01-victime',course:'harcelement-travail',title:'[Harcèlement] M5 / Victime'},
+  {id:'module-05-agir/02-temoin',course:'harcelement-travail',title:'[Harcèlement] M5 / Témoin'},
+  {id:'module-05-agir/03-mis-en-cause',course:'harcelement-travail',title:'[Harcèlement] M5 / Mis en cause'},
+  {id:'module-06-prevention/01-culture-respect',course:'harcelement-travail',title:'[Harcèlement] M6 / Culture respect'},
+  {id:'module-06-prevention/02-role-chacun',course:'harcelement-travail',title:'[Harcèlement] M6 / Rôle de chacun'},
+  {id:'module-07-etudes-de-cas/01-scenarios',course:'harcelement-travail',title:'[Harcèlement] M7 / Scénarios'},
+  // Santé mentale (6)
+  {id:'module-01-comprendre/01-demystifier',course:'sante-mentale',title:'[Santé mentale] M1 / Démystifier'},
+  {id:'module-02-reconnaitre/01-signes-detresse',course:'sante-mentale',title:'[Santé mentale] M2 / Signes détresse'},
+  {id:'module-03-agir/01-comment-aider',course:'sante-mentale',title:'[Santé mentale] M3 / Comment aider'},
+  {id:'module-04-ressources/01-ressources-conclusion',course:'sante-mentale',title:'[Santé mentale] M4 / Ressources'},
+  {id:'module-05-accommodement/01-accommodement-retour',course:'sante-mentale',title:'[Santé mentale] M5 / Accommodement'},
+  {id:'module-06-substances/01-substances-sante-mentale',course:'sante-mentale',title:'[Santé mentale] M6 / Substances'},
+  // Bombe/Terrorisme (10)
+  {id:'module-01-introduction/01-contexte-menaces',course:'alerte-bombe-terrorisme',title:'[Bombe/Terrorisme] M1 / Contexte'},
+  {id:'module-01-introduction/02-cadre-legal',course:'alerte-bombe-terrorisme',title:'[Bombe/Terrorisme] M1 / Cadre légal'},
+  {id:'module-02-alerte-bombe/01-recevoir-alerte',course:'alerte-bombe-terrorisme',title:'[Bombe/Terrorisme] M2 / Recevoir alerte'},
+  {id:'module-02-alerte-bombe/02-evaluer-reagir',course:'alerte-bombe-terrorisme',title:'[Bombe/Terrorisme] M2 / Évaluer réagir'},
+  {id:'module-03-menace-terroriste/01-comprendre-terrorisme',course:'alerte-bombe-terrorisme',title:'[Bombe/Terrorisme] M3 / Comprendre'},
+  {id:'module-03-menace-terroriste/02-indicateurs-vigilance',course:'alerte-bombe-terrorisme',title:'[Bombe/Terrorisme] M3 / Indicateurs'},
+  {id:'module-04-procedures/01-procedures-evacuation',course:'alerte-bombe-terrorisme',title:'[Bombe/Terrorisme] M4 / Évacuation'},
+  {id:'module-04-procedures/02-confinement-perimetre',course:'alerte-bombe-terrorisme',title:'[Bombe/Terrorisme] M4 / Périmètre'},
+  {id:'module-05-colis-suspect/01-identifier-colis-suspect',course:'alerte-bombe-terrorisme',title:'[Bombe/Terrorisme] M5 / Colis suspect'},
+  {id:'module-06-etudes-de-cas/01-scenarios',course:'alerte-bombe-terrorisme',title:'[Bombe/Terrorisme] M6 / Scénarios'}
 ];
 
 var params = new URLSearchParams(window.location.search);
@@ -109,11 +153,11 @@ nav.innerHTML = (idx > 0 ? '<a href="review.html?lesson='+(idx-1)+'">← Préc</
   + '<a href="index.html">Index</a>';
 
 // Audio
-var au = new Audio(STORAGE + '/' + L.id + '/voiceover.mp3');
+var au = new Audio(STORAGE + '/' + (L.course ? L.course + '/' : '') + L.id + '/voiceover.mp3');
 var W = [], els = [], flags = new Map(), glitches = [], prevIdx = -1;
 
 // Load timestamps
-fetch(STORAGE + '/' + L.id + '/timestamps.json').then(function(r){return r.json()}).then(function(d){W=d;buildWords()});
+fetch(STORAGE + '/' + (L.course ? L.course + '/' : '') + L.id + '/timestamps.json').then(function(r){return r.json()}).then(function(d){W=d;buildWords()});
 
 function getCtx(i){var s=Math.max(0,i-4),e=Math.min(W.length-1,i+4);var r=[];for(var k=s;k<=e;k++){r.push(k===i?'**'+W[k].word+'**':W[k].word)}return r.join(' ')}
 function gsi(i){return W[i] && W[i].sentenceIndex!=null ? W[i].sentenceIndex : '?'}
