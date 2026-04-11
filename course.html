@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Voice Review</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0A0E1A;color:#F0F0F0;padding:24px;min-height:100vh;max-width:700px;margin:0 auto}
+h1{color:#E74C3C;font-size:18px;margin-bottom:4px}
+.sub{color:#94A3B8;font-size:12px;margin-bottom:16px}
+.back{color:#94A3B8;font-size:12px;text-decoration:none;display:inline-block;margin-bottom:16px;padding:5px 12px;border-radius:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1)}
+.back:hover{background:rgba(255,255,255,0.12);color:#fff}
+.list{display:flex;flex-direction:column;gap:6px}
+a{text-decoration:none}
+.item{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:10px 14px;display:flex;align-items:center;gap:10px;transition:all .15s;font-size:13px}
+.item:hover{background:rgba(255,255,255,0.08);border-color:rgba(231,76,60,0.3)}
+.item .n{color:#C0392B;font-weight:700;min-width:22px;font-size:12px}
+.item .t{color:#F0F0F0;flex:1}
+.item .arrow{color:#555;font-size:14px}
+</style></head><body>
+<a href="index.html" class="back">← Retour aux formations</a>
+<h1 id="title"></h1>
+<p class="sub" id="sub"></p>
+<div class="list" id="list"></div>
+
+<script>
+var courses = [
+  {
+    name: 'Tireur Actif',
+    desc: '4 heures — 18 leçons — Réponse aux tireurs actifs',
+    start: 0,
+    lessons: [
+      'M1 / Définitions et contexte','M1 / Incidents marquants','M1 / Responsabilités agent',
+      'M2 / Caractéristiques des incidents',"M2 / Typologies d'espaces",'M2 / Facteurs de risque',
+      'M3 / FUIR','M3 / SE CACHER','M3 / COMBATTRE','M3 / Arrivée de la police',
+      'M4 / Plan urgence du site','M4 / Rôles et responsabilités','M4 / Exercices et simulations',
+      'M5 / Signaux alerte','M5 / Mécanismes signalement','M5 / Rôle prévention',
+      'M6 / Scénarios','M7 / Post-incident et soutien'
+    ]
+  },
+  {
+    name: 'Harcèlement au travail',
+    desc: '3 heures — 16 leçons — Cadre légal québécois',
+    start: 18,
+    lessons: [
+      'M1 / Pourquoi cette formation','M1 / Définitions légales',
+      'M2 / Loi normes du travail','M2 / Obligations employeur','M2 / Droits et recours',
+      'M3 / Harcèlement psychologique','M3 / Harcèlement sexuel','M3 / Autres formes',
+      'M4 / Signes et indicateurs','M4 / Zones grises',
+      'M5 / Si vous êtes victime','M5 / Si vous êtes témoin','M5 / Si vous êtes mis en cause',
+      'M6 / Culture de respect','M6 / Rôle de chacun',
+      'M7 / Scénarios'
+    ]
+  },
+  {
+    name: 'Santé mentale',
+    desc: '2 heures — 6 leçons — Sensibilisation',
+    start: 34,
+    lessons: [
+      'M1 / Démystifier la santé mentale','M2 / Reconnaître les signes',
+      'M3 / Comment aider','M4 / Ressources disponibles',
+      'M5 / Accommodement et retour','M6 / Substances et santé mentale'
+    ]
+  },
+  {
+    name: 'Alerte à la bombe et terrorisme',
+    desc: '2.5 heures — 10 leçons — Procédures et vigilance',
+    start: 40,
+    lessons: [
+      'M1 / Contexte et menaces','M1 / Cadre légal',
+      'M2 / Recevoir une alerte','M2 / Évaluer et réagir',
+      'M3 / Comprendre le terrorisme','M3 / Indicateurs de vigilance',
+      'M4 / Procédures évacuation','M4 / Confinement et périmètre',
+      'M5 / Colis et objets suspects','M6 / Scénarios'
+    ]
+  }
+];
+
+var idx = parseInt(new URLSearchParams(window.location.search).get('course') || '0');
+if (idx < 0 || idx >= courses.length) idx = 0;
+var c = courses[idx];
+
+document.getElementById('title').textContent = c.name;
+document.getElementById('sub').textContent = c.desc;
+
+var list = document.getElementById('list');
+c.lessons.forEach(function(title, i) {
+  var a = document.createElement('a');
+  a.href = 'review.html?lesson=' + (c.start + i);
+  a.innerHTML = '<div class="item"><span class="n">' + (i+1) + '</span><span class="t">' + title + '</span><span class="arrow">→</span></div>';
+  list.appendChild(a);
+});
+</script>
+</body></html>

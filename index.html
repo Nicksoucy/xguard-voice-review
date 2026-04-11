@@ -3,86 +3,47 @@
 <title>Voice Review — XGuard Academy</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#0A0E1A;color:#F0F0F0;padding:24px;min-height:100vh;max-width:960px;margin:0 auto}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0A0E1A;color:#F0F0F0;padding:24px;min-height:100vh;max-width:700px;margin:0 auto}
 h1{color:#E74C3C;font-size:22px;margin-bottom:4px}
-.sub{color:#94A3B8;font-size:13px;margin-bottom:20px}
-.info{background:rgba(255,255,255,0.04);border-left:3px solid #E74C3C;padding:12px 16px;margin-bottom:20px;border-radius:0 8px 8px 0}
+.sub{color:#94A3B8;font-size:13px;margin-bottom:24px}
+.info{background:rgba(255,255,255,0.04);border-left:3px solid #E74C3C;padding:12px 16px;margin-bottom:24px;border-radius:0 8px 8px 0}
 .info label{color:#94A3B8;font-size:13px;margin-right:8px}
 .info input{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:6px 12px;color:#F0F0F0;font-size:14px;width:220px}
-h2{color:#E74C3C;font-size:16px;margin:24px 0 10px;padding-left:4px}
-.course-info{color:#94A3B8;font-size:12px;margin-bottom:8px;padding-left:4px}
-.list{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
 a{text-decoration:none}
-.item{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:10px 14px;display:flex;align-items:center;gap:10px;transition:all .15s;font-size:13px}
-.item:hover{background:rgba(255,255,255,0.08);border-color:rgba(231,76,60,0.3)}
-.item .n{color:#C0392B;font-weight:700;min-width:22px;font-size:12px}
-.item .t{color:#F0F0F0;flex:1}
-.item .arrow{color:#555;font-size:14px}
+.course{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:20px 24px;margin-bottom:12px;transition:all .15s;cursor:pointer;display:block}
+.course:hover{background:rgba(255,255,255,0.08);border-color:rgba(231,76,60,0.4);transform:translateY(-1px)}
+.course .title{color:#E74C3C;font-size:16px;font-weight:600;margin-bottom:6px}
+.course .desc{color:#94A3B8;font-size:12px;line-height:1.5}
+.course .meta{display:flex;gap:16px;margin-top:10px}
+.course .tag{background:rgba(231,76,60,0.15);color:#E74C3C;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:600}
 </style></head><body>
 <h1>Voice Review — XGuard Academy</h1>
-<p class="sub">4 formations, 50 leçons. Écoute et clique sur les mots qui sonnent mal.</p>
+<p class="sub">Sélectionne une formation pour commencer la review</p>
 <div class="info"><label>Ton nom :</label><input type="text" id="name" placeholder="Ex: Vanessa" oninput="localStorage.setItem('rn',this.value)"></div>
 
-<h2>1. Tireur Actif (4h — 18 leçons)</h2>
-<p class="course-info">Formation pour agents de sécurité sur la réponse aux tireurs actifs</p>
-<div class="list" id="list1"></div>
+<a href="course.html?course=0" class="course">
+  <div class="title">1. Tireur Actif</div>
+  <div class="desc">Réponse aux situations de tireur actif pour agents de sécurité</div>
+  <div class="meta"><span class="tag">4 heures</span><span class="tag">18 leçons</span><span class="tag">7 modules</span></div>
+</a>
 
-<h2>2. Harcèlement au travail (3h — 16 leçons)</h2>
-<p class="course-info">Formation obligatoire pour tous les employés — cadre légal québécois</p>
-<div class="list" id="list2"></div>
+<a href="course.html?course=1" class="course">
+  <div class="title">2. Harcèlement au travail</div>
+  <div class="desc">Formation obligatoire — cadre légal québécois, prévention et intervention</div>
+  <div class="meta"><span class="tag">3 heures</span><span class="tag">16 leçons</span><span class="tag">7 modules</span></div>
+</a>
 
-<h2>3. Santé mentale (2h — 6 leçons)</h2>
-<p class="course-info">Sensibilisation pour tous les employés — reconnaître, agir, ressources</p>
-<div class="list" id="list3"></div>
+<a href="course.html?course=2" class="course">
+  <div class="title">3. Santé mentale</div>
+  <div class="desc">Sensibilisation pour tous les employés — reconnaître, agir, ressources</div>
+  <div class="meta"><span class="tag">2 heures</span><span class="tag">6 leçons</span><span class="tag">6 modules</span></div>
+</a>
 
-<h2>4. Alerte à la bombe et terrorisme (2.5h — 10 leçons)</h2>
-<p class="course-info">Formation pour agents de sécurité — procédures et vigilance</p>
-<div class="list" id="list4"></div>
+<a href="course.html?course=3" class="course">
+  <div class="title">4. Alerte à la bombe et terrorisme</div>
+  <div class="desc">Procédures d'urgence, colis suspects et vigilance antiterroriste</div>
+  <div class="meta"><span class="tag">2.5 heures</span><span class="tag">10 leçons</span><span class="tag">6 modules</span></div>
+</a>
 
-<script>
-document.getElementById('name').value=localStorage.getItem('rn')||'';
-var courses = [
-  {listId:'list1', start:0, count:18},
-  {listId:'list2', start:18, count:16},
-  {listId:'list3', start:34, count:6},
-  {listId:'list4', start:40, count:10}
-];
-var titles = [
-  // Tireur Actif
-  'M1 / Définitions et contexte','M1 / Incidents marquants','M1 / Responsabilités agent',
-  'M2 / Caractéristiques des incidents',"M2 / Typologies d'espaces",'M2 / Facteurs de risque',
-  'M3 / FUIR','M3 / SE CACHER','M3 / COMBATTRE','M3 / Arrivée de la police',
-  'M4 / Plan urgence du site','M4 / Rôles et responsabilités','M4 / Exercices et simulations',
-  'M5 / Signaux alerte','M5 / Mécanismes signalement','M5 / Rôle prévention',
-  'M6 / Scénarios','M7 / Post-incident et soutien',
-  // Harcèlement
-  'M1 / Pourquoi cette formation','M1 / Définitions légales',
-  'M2 / Loi normes du travail','M2 / Obligations employeur','M2 / Droits et recours',
-  'M3 / Harcèlement psychologique','M3 / Harcèlement sexuel','M3 / Autres formes',
-  'M4 / Signes et indicateurs','M4 / Zones grises',
-  'M5 / Si vous êtes victime','M5 / Si vous êtes témoin','M5 / Si vous êtes mis en cause',
-  'M6 / Culture de respect','M6 / Rôle de chacun',
-  'M7 / Scénarios',
-  // Santé mentale
-  'M1 / Démystifier la santé mentale','M2 / Reconnaître les signes',
-  'M3 / Comment aider','M4 / Ressources disponibles',
-  'M5 / Accommodement et retour','M6 / Substances et santé mentale',
-  // Bombe/Terrorisme
-  'M1 / Contexte et menaces','M1 / Cadre légal',
-  'M2 / Recevoir une alerte','M2 / Évaluer et réagir',
-  'M3 / Comprendre le terrorisme','M3 / Indicateurs de vigilance',
-  'M4 / Procédures évacuation','M4 / Confinement et périmètre',
-  'M5 / Colis et objets suspects','M6 / Scénarios'
-];
-courses.forEach(function(c){
-  var list=document.getElementById(c.listId);
-  for(var i=0;i<c.count;i++){
-    var idx=c.start+i;
-    var a=document.createElement('a');
-    a.href='review.html?lesson='+idx;
-    a.innerHTML='<div class="item"><span class="n">'+(i+1)+'</span><span class="t">'+titles[idx]+'</span><span class="arrow">→</span></div>';
-    list.appendChild(a);
-  }
-});
-</script>
+<script>document.getElementById('name').value=localStorage.getItem('rn')||'';</script>
 </body></html>
