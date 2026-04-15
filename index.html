@@ -3,33 +3,100 @@
 <title>Voice Review — XGuard Academy</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#0A0E1A;color:#F0F0F0;padding:24px;min-height:100vh;max-width:760px;margin:0 auto}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0A0E1A;color:#F0F0F0;padding:24px;min-height:100vh;max-width:820px;margin:0 auto}
 h1{color:#E74C3C;font-size:22px;margin-bottom:4px}
-.sub{color:#94A3B8;font-size:13px;margin-bottom:20px}
-.info{background:rgba(255,255,255,0.04);border-left:3px solid #E74C3C;padding:12px 16px;margin-bottom:20px;border-radius:0 8px 8px 0}
+.sub{color:#94A3B8;font-size:13px;margin-bottom:16px}
+
+.info{background:rgba(255,255,255,0.04);border-left:3px solid #E74C3C;padding:12px 16px;margin-bottom:16px;border-radius:0 8px 8px 0}
 .info label{color:#94A3B8;font-size:13px;margin-right:8px}
 .info input{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:6px 12px;color:#F0F0F0;font-size:14px;width:220px}
+
+/* Global stats bar */
+.global-stats{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:16px 20px;margin-bottom:16px}
+.global-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;flex-wrap:wrap;gap:6px}
+.global-title{color:#F0F0F0;font-size:13px;font-weight:600}
+.global-pct{color:#2ECC71;font-size:20px;font-weight:700}
+.global-bar{height:10px;background:rgba(255,255,255,0.06);border-radius:5px;overflow:hidden;display:flex}
+.global-bar > span{height:100%;transition:width .3s}
+.seg-approved{background:#27AE60}
+.seg-recheck{background:#E74C3C}
+.seg-flagged{background:#F39C12}
+.seg-progress{background:#3B82F6}
+.seg-todo{background:rgba(255,255,255,0.08)}
+.global-legend{display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;font-size:11px;color:#94A3B8}
+.global-legend span{display:flex;align-items:center;gap:4px}
+.global-legend i{display:inline-block;width:10px;height:10px;border-radius:2px}
+
+/* Next action banner */
+.next-action{background:linear-gradient(90deg,rgba(231,76,60,0.18),rgba(231,76,60,0.08));border:1px solid rgba(231,76,60,0.4);border-radius:10px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .15s}
+.next-action:hover{background:linear-gradient(90deg,rgba(231,76,60,0.24),rgba(231,76,60,0.12));transform:translateY(-1px)}
+.next-action.hidden{display:none}
+.next-action .icon{font-size:24px}
+.next-action .text{flex:1;font-size:13px;color:#F8CACE;line-height:1.4}
+.next-action .text strong{color:#fff;display:block;font-size:14px;margin-bottom:2px}
+.next-action .arrow{color:#E74C3C;font-size:20px}
+
+/* Today stats */
+.today{background:rgba(39,174,96,0.08);border-left:3px solid #27AE60;padding:10px 14px;margin-bottom:16px;border-radius:0 8px 8px 0;font-size:12px;color:#B9E8CB}
+.today strong{color:#2ECC71}
+.today.hidden{display:none}
+
 a{text-decoration:none}
-.course{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:18px 22px;margin-bottom:12px;transition:all .15s;cursor:pointer;display:block}
+.course{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:18px 22px;margin-bottom:12px;transition:all .15s;cursor:pointer;display:block;position:relative;overflow:hidden}
 .course:hover{background:rgba(255,255,255,0.08);border-color:rgba(231,76,60,0.4);transform:translateY(-1px)}
-.course .title{color:#E74C3C;font-size:16px;font-weight:600;margin-bottom:4px}
-.course .desc{color:#94A3B8;font-size:12px;line-height:1.5;margin-bottom:10px}
+.course.priority-high{border-color:rgba(231,76,60,0.6);background:linear-gradient(90deg,rgba(231,76,60,0.08),rgba(255,255,255,0.04))}
+.course.priority-low{opacity:.65}
+.course .title{color:#E74C3C;font-size:16px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.course .urgent{background:#E74C3C;color:#fff;font-size:9px;padding:2px 6px;border-radius:3px;font-weight:700;letter-spacing:.3px}
+.course .desc{color:#94A3B8;font-size:12px;line-height:1.5;margin-bottom:8px}
 .course .meta{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
 .course .tag{background:rgba(231,76,60,0.15);color:#E74C3C;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:600}
+
+/* Course progress bar */
+.course-progress{height:8px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;display:flex;margin:10px 0 8px 0}
+.course-progress > span{height:100%;transition:width .3s}
+.course-pct{font-size:11px;color:#94A3B8;margin-bottom:8px;display:flex;justify-content:space-between}
+.course-pct strong{color:#F0F0F0}
+
 .badges{display:flex;gap:5px;flex-wrap:wrap}
 .badge{padding:3px 9px;border-radius:4px;font-size:10px;font-weight:600;letter-spacing:.3px}
 .b-approved{background:rgba(39,174,96,0.15);color:#2ECC71}
-.b-recheck{background:rgba(231,76,60,0.2);color:#F8CACE;border:1px solid rgba(231,76,60,0.5)}
+.b-recheck{background:rgba(231,76,60,0.22);color:#F8CACE;border:1px solid rgba(231,76,60,0.5)}
 .b-flagged{background:rgba(243,156,18,0.15);color:#F39C12}
 .b-progress{background:rgba(59,130,246,0.15);color:#3B82F6}
 .b-todo{background:rgba(100,116,139,0.15);color:#94A3B8}
-.skeleton{background:rgba(255,255,255,0.04);height:130px;border-radius:10px;margin-bottom:12px;animation:pulse 1.5s infinite;border:1px solid rgba(255,255,255,0.06)}
+
+.skeleton{background:rgba(255,255,255,0.04);height:150px;border-radius:10px;margin-bottom:12px;animation:pulse 1.5s infinite;border:1px solid rgba(255,255,255,0.06)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
 .err{color:#E74C3C;padding:20px;background:rgba(231,76,60,0.08);border-left:3px solid #E74C3C;border-radius:0 8px 8px 0;font-size:13px}
 </style></head><body>
 <h1>Voice Review — XGuard Academy</h1>
-<p class="sub">Sélectionne une formation pour commencer la review</p>
-<div class="info"><label>Ton nom :</label><input type="text" id="name" placeholder="Ex: Vanessa" oninput="localStorage.setItem('rn',this.value)"></div>
+<p class="sub">Tableau de bord de review des voiceovers</p>
+
+<div class="info"><label>Ton nom :</label><input type="text" id="name" placeholder="Ex: Vanessa" oninput="localStorage.setItem('rn',this.value);refreshToday()"></div>
+
+<!-- Global stats (Batch 1 C1 + A2) -->
+<div id="global-stats" class="global-stats" style="display:none">
+  <div class="global-header">
+    <span class="global-title" id="global-title">Progression globale</span>
+    <span class="global-pct" id="global-pct">—</span>
+  </div>
+  <div class="global-bar" id="global-bar"></div>
+  <div class="global-legend">
+    <span><i class="seg-approved"></i>Approuvees</span>
+    <span><i class="seg-recheck"></i>A revoir</span>
+    <span><i class="seg-flagged"></i>Flaggees</span>
+    <span><i class="seg-progress"></i>En cours</span>
+    <span><i class="seg-todo"></i>A faire</span>
+  </div>
+</div>
+
+<!-- Next action banner (Batch 3 B2) -->
+<div id="next-action" class="next-action hidden"></div>
+
+<!-- Today counter (Batch 3 C2) -->
+<div id="today" class="today hidden"></div>
+
 <div id="courses">
   <div class="skeleton"></div>
   <div class="skeleton"></div>
@@ -47,43 +114,151 @@ document.getElementById('name').value = localStorage.getItem('rn') || '';
 
 function fmtHours(m){return (m/60).toFixed(m%60===0?0:1)}
 
+function buildBar(stats, total) {
+  // Segments empiles dans l'ordre : approved, recheck, flagged, progress, todo
+  var segs = [
+    ['approved', stats.approved || 0, 'seg-approved'],
+    ['needs_recheck', stats.needs_recheck || 0, 'seg-recheck'],
+    ['flagged', stats.flagged || 0, 'seg-flagged'],
+    ['in_review', stats.in_review || 0, 'seg-progress'],
+    ['not_reviewed', stats.not_reviewed || 0, 'seg-todo']
+  ];
+  return segs.map(function(s){
+    var pct = total > 0 ? (s[1] / total * 100) : 0;
+    return pct > 0 ? '<span class="'+s[2]+'" style="width:'+pct+'%" title="'+s[0]+': '+s[1]+'"></span>' : '';
+  }).join('');
+}
+
+// Priorite : un cours est "priority-high" si il a des needs_recheck, "priority-low" si tout est approuve
+function coursePriority(stats) {
+  if (stats.needs_recheck) return 'priority-high';
+  var total = (stats.approved || 0) + (stats.needs_recheck || 0) + (stats.flagged || 0) + (stats.in_review || 0) + (stats.not_reviewed || 0);
+  if (total > 0 && stats.approved === total) return 'priority-low';
+  return '';
+}
+
+// Score pour le tri : plus haut = plus prioritaire
+function courseScore(stats) {
+  var s = 0;
+  s += (stats.needs_recheck || 0) * 1000;  // Urgent
+  s += (stats.flagged || 0) * 100;          // Important
+  s += (stats.in_review || 0) * 10;         // En cours
+  s += (stats.not_reviewed || 0) * 1;       // A faire
+  // approved ne compte pas (0)
+  return s;
+}
+
+// Refresh du compteur "aujourd'hui" quand le nom change
+function refreshToday() {
+  var rn = (document.getElementById('name').value || '').trim();
+  if (!rn) { document.getElementById('today').classList.add('hidden'); return; }
+  var today = new Date().toISOString().slice(0,10);
+  fetch(API+'/voice_reviews?reviewer_name=eq.'+encodeURIComponent(rn)+'&updated_at=gte.'+today+'&select=lesson_key,approved,updated_at',{headers:H})
+    .then(function(r){return r.json()})
+    .then(function(rows){
+      if (!rows.length) { document.getElementById('today').classList.add('hidden'); return; }
+      var approved = rows.filter(function(r){return r.approved}).length;
+      var flagged = rows.length - approved;
+      var txt = '<strong>'+rows.length+' lecon'+(rows.length>1?'s':'')+' reviewee'+(rows.length>1?'s':'')+' aujourd\'hui</strong> par '+rn;
+      if (approved) txt += ' · '+approved+' approuvee'+(approved>1?'s':'');
+      if (flagged) txt += ' · '+flagged+' avec flags';
+      document.getElementById('today').innerHTML = txt;
+      document.getElementById('today').classList.remove('hidden');
+    }).catch(function(){});
+}
+
 Promise.all([
   fetch(API+'/courses?visible=eq.true&order=sort_order.asc',{headers:H}).then(function(r){return r.json()}),
-  fetch(API+'/lesson_status?select=course_id,status',{headers:H}).then(function(r){return r.json()})
+  fetch(API+'/lesson_status?select=course_id,status,lesson_key,latest_reviewer,latest_review_at',{headers:H}).then(function(r){return r.json()})
 ]).then(function(results){
   var courses = results[0];
   var statuses = results[1];
 
-  // Agreger les stats par cours
+  // Aggreger les stats par cours
   var statsByCourse = {};
+  courses.forEach(function(c){ statsByCourse[c.id] = {approved:0,needs_recheck:0,flagged:0,in_review:0,not_reviewed:0}; });
   statuses.forEach(function(s){
-    if (!statsByCourse[s.course_id]) statsByCourse[s.course_id] = {approved:0,needs_recheck:0,flagged:0,in_review:0,not_reviewed:0};
+    if (!statsByCourse[s.course_id]) return;
     if (statsByCourse[s.course_id][s.status] !== undefined) statsByCourse[s.course_id][s.status]++;
   });
 
-  var html = courses.map(function(c){
-    var s = statsByCourse[c.id] || {};
-    var badges = [];
-    if (s.approved)       badges.push('<span class="badge b-approved">✓ '+s.approved+' approuvées</span>');
-    if (s.needs_recheck)  badges.push('<span class="badge b-recheck">↻ '+s.needs_recheck+' à revoir</span>');
-    if (s.flagged)        badges.push('<span class="badge b-flagged">⚠ '+s.flagged+' flaggées</span>');
-    if (s.in_review)      badges.push('<span class="badge b-progress">'+s.in_review+' en cours</span>');
-    if (s.not_reviewed)   badges.push('<span class="badge b-todo">'+s.not_reviewed+' à faire</span>');
-    if (!badges.length)   badges.push('<span class="badge b-todo">aucune leçon</span>');
+  // Global stats
+  var global = {approved:0,needs_recheck:0,flagged:0,in_review:0,not_reviewed:0};
+  statuses.forEach(function(s){
+    if (global[s.status] !== undefined) global[s.status]++;
+  });
+  var totalGlobal = statuses.length;
+  var globalApprovedPct = totalGlobal > 0 ? Math.round(global.approved / totalGlobal * 100) : 0;
 
-    return '<a href="course.html?course='+encodeURIComponent(c.id)+'" class="course">'
-      + '<div class="title">'+c.title+'</div>'
+  document.getElementById('global-title').textContent =
+    totalGlobal + ' lecons totales · ' + global.approved + ' approuvees';
+  document.getElementById('global-pct').textContent = globalApprovedPct + '% ✓';
+  document.getElementById('global-bar').innerHTML = buildBar(global, totalGlobal);
+  document.getElementById('global-stats').style.display = 'block';
+
+  // Next action : trouver la premiere lecon needs_recheck ou flagged a prioriser
+  var urgent = statuses.filter(function(s){return s.status === 'needs_recheck'});
+  var nextToReview = statuses.filter(function(s){return s.status === 'flagged'});
+  var nextAction = document.getElementById('next-action');
+  if (urgent.length) {
+    var first = urgent[0];
+    nextAction.innerHTML =
+      '<span class="icon">⚠</span>'
+      + '<div class="text"><strong>'+urgent.length+' lecon'+(urgent.length>1?'s':'')+' a revoir en urgence</strong>'
+      + 'Regenereees depuis ta derniere approbation. Clique pour ouvrir la premiere.</div>'
+      + '<span class="arrow">→</span>';
+    nextAction.onclick = function(){ location.href = 'review.html?key='+encodeURIComponent(first.lesson_key) };
+    nextAction.classList.remove('hidden');
+  } else if (nextToReview.length > 10) {
+    var firstFlagged = nextToReview[0];
+    nextAction.innerHTML =
+      '<span class="icon">📋</span>'
+      + '<div class="text"><strong>'+nextToReview.length+' lecons avec corrections en attente</strong>'
+      + 'Commence par la premiere.</div>'
+      + '<span class="arrow">→</span>';
+    nextAction.onclick = function(){ location.href = 'review.html?key='+encodeURIComponent(firstFlagged.lesson_key) };
+    nextAction.classList.remove('hidden');
+  }
+
+  // Ordonner les cours par priorite
+  var sortedCourses = courses.slice().sort(function(a,b){
+    return courseScore(statsByCourse[b.id]) - courseScore(statsByCourse[a.id]);
+  });
+
+  var html = sortedCourses.map(function(c){
+    var s = statsByCourse[c.id];
+    var total = c.lesson_count || 0;
+    var pct = total > 0 ? Math.round((s.approved || 0) / total * 100) : 0;
+    var priorityClass = coursePriority(s);
+
+    var badges = [];
+    if (s.approved)       badges.push('<span class="badge b-approved">✓ '+s.approved+' approuvees</span>');
+    if (s.needs_recheck)  badges.push('<span class="badge b-recheck">↻ '+s.needs_recheck+' a revoir</span>');
+    if (s.flagged)        badges.push('<span class="badge b-flagged">⚠ '+s.flagged+' flaggees</span>');
+    if (s.in_review)      badges.push('<span class="badge b-progress">'+s.in_review+' en cours</span>');
+    if (s.not_reviewed)   badges.push('<span class="badge b-todo">'+s.not_reviewed+' a faire</span>');
+    if (!badges.length)   badges.push('<span class="badge b-todo">aucune lecon</span>');
+
+    var urgentTag = s.needs_recheck ? '<span class="urgent">URGENT</span>' : '';
+
+    return '<a href="course.html?course='+encodeURIComponent(c.id)+'" class="course '+priorityClass+'">'
+      + '<div class="title">'+c.title+urgentTag+'</div>'
       + (c.subtitle ? '<div class="desc">'+c.subtitle+'</div>' : '')
       + '<div class="meta">'
         + '<span class="tag">'+fmtHours(c.duration_minutes||0)+' heures</span>'
-        + '<span class="tag">'+(c.lesson_count||0)+' leçons</span>'
+        + '<span class="tag">'+total+' lecons</span>'
         + '<span class="tag">'+(c.module_count||0)+' modules</span>'
       + '</div>'
+      + '<div class="course-progress">'+buildBar(s, total)+'</div>'
+      + '<div class="course-pct"><strong>'+pct+'% approuvees</strong><span>'+(s.approved||0)+' / '+total+'</span></div>'
       + '<div class="badges">'+badges.join('')+'</div>'
     + '</a>';
   }).join('');
 
-  document.getElementById('courses').innerHTML = html || '<div class="err">Aucune formation trouvée.</div>';
+  document.getElementById('courses').innerHTML = html || '<div class="err">Aucune formation trouvee.</div>';
+
+  // Today counter
+  refreshToday();
 }).catch(function(err){
   document.getElementById('courses').innerHTML = '<div class="err">Erreur de chargement: '+err.message+'</div>';
   console.error(err);

@@ -3,19 +3,34 @@
 <title>Voice Review</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#0A0E1A;color:#F0F0F0;padding:20px 24px;min-height:100vh;max-width:820px;margin:0 auto}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0A0E1A;color:#F0F0F0;padding:20px 24px;min-height:100vh;max-width:860px;margin:0 auto}
 h1{color:#E74C3C;font-size:18px;margin-bottom:4px}
-.sub{color:#94A3B8;font-size:12px;margin-bottom:16px}
-.back{color:#94A3B8;font-size:12px;text-decoration:none;display:inline-block;margin-bottom:14px;padding:5px 12px;border-radius:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1)}
+.sub{color:#94A3B8;font-size:12px;margin-bottom:12px}
+.back{color:#94A3B8;font-size:12px;text-decoration:none;display:inline-block;margin-bottom:12px;padding:5px 12px;border-radius:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1)}
 .back:hover{background:rgba(255,255,255,0.12);color:#fff}
+
+/* Course progress bar in header */
+.course-progress-header{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px 16px;margin-bottom:14px}
+.cph-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;flex-wrap:wrap;gap:6px}
+.cph-pct{color:#2ECC71;font-size:16px;font-weight:700}
+.cph-stats{color:#94A3B8;font-size:12px}
+.cph-bar{height:10px;background:rgba(255,255,255,0.06);border-radius:5px;overflow:hidden;display:flex}
+.cph-bar > span{height:100%;transition:width .3s}
+.seg-approved{background:#27AE60}
+.seg-recheck{background:#E74C3C}
+.seg-flagged{background:#F39C12}
+.seg-progress{background:#3B82F6}
+.seg-todo{background:rgba(255,255,255,0.08)}
 
 .filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
 .f-btn{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#94A3B8;font-size:11px;padding:5px 11px;border-radius:4px;cursor:pointer;font-family:inherit}
 .f-btn:hover{background:rgba(255,255,255,0.12);color:#fff}
 .f-btn.on{background:#C0392B;border-color:#C0392B;color:#fff}
 
-.mod-header{color:#E74C3C;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin:14px 0 6px 0;padding-left:4px}
+.mod-header{color:#E74C3C;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin:14px 0 6px 0;padding-left:4px;display:flex;justify-content:space-between;align-items:baseline}
 .mod-header:first-child{margin-top:0}
+.mod-header .mod-pct{color:#94A3B8;font-size:10px;font-weight:400;letter-spacing:normal;text-transform:none}
+.mod-header .mod-pct strong{color:#2ECC71}
 
 .list{display:flex;flex-direction:column;gap:5px}
 a{text-decoration:none}
@@ -26,15 +41,17 @@ a{text-decoration:none}
 .item .meta-r{display:flex;gap:5px;align-items:center}
 .tag-flags{background:rgba(243,156,18,0.15);color:#F39C12;font-size:10px;padding:2px 7px;border-radius:3px;font-weight:600}
 .tag-reviewer{background:rgba(255,255,255,0.06);color:#94A3B8;font-size:10px;padding:2px 7px;border-radius:3px}
+.tag-duration{background:rgba(59,130,246,0.1);color:#3B82F6;font-size:10px;padding:2px 7px;border-radius:3px}
 .badge{padding:2px 8px;border-radius:3px;font-size:9px;font-weight:700;letter-spacing:.3px}
 .b-approved{background:rgba(39,174,96,0.15);color:#2ECC71}
-.b-recheck{background:rgba(231,76,60,0.2);color:#F8CACE;border:1px solid rgba(231,76,60,0.5)}
+.b-recheck{background:rgba(231,76,60,0.22);color:#F8CACE;border:1px solid rgba(231,76,60,0.5)}
 .b-flagged{background:rgba(243,156,18,0.15);color:#F39C12}
 .b-progress{background:rgba(59,130,246,0.15);color:#3B82F6}
 .b-todo{background:rgba(100,116,139,0.15);color:#94A3B8}
 .item .arrow{color:#555;font-size:14px}
 
 .item.hidden{display:none}
+.mod-header.hidden{display:none}
 .skeleton{background:rgba(255,255,255,0.04);height:42px;border-radius:6px;margin-bottom:5px;animation:pulse 1.5s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
 .err{color:#E74C3C;padding:20px;background:rgba(231,76,60,0.08);border-left:3px solid #E74C3C;border-radius:0 8px 8px 0;font-size:13px}
@@ -43,13 +60,21 @@ a{text-decoration:none}
 <h1 id="title">Chargement...</h1>
 <p class="sub" id="sub"></p>
 
+<div id="course-progress-header" class="course-progress-header" style="display:none">
+  <div class="cph-top">
+    <span class="cph-stats" id="cph-stats">—</span>
+    <span class="cph-pct" id="cph-pct">—</span>
+  </div>
+  <div class="cph-bar" id="cph-bar"></div>
+</div>
+
 <div class="filters" id="filters" style="display:none">
   <button class="f-btn on" data-filter="all">Tout</button>
-  <button class="f-btn" data-filter="not_reviewed">À faire</button>
+  <button class="f-btn" data-filter="not_reviewed">A faire</button>
   <button class="f-btn" data-filter="in_review">En cours</button>
-  <button class="f-btn" data-filter="flagged">⚠ Flaggées</button>
-  <button class="f-btn" data-filter="approved">✓ Approuvées</button>
-  <button class="f-btn" data-filter="needs_recheck">↻ À revoir</button>
+  <button class="f-btn" data-filter="flagged">⚠ Flaggees</button>
+  <button class="f-btn" data-filter="approved">✓ Approuvees</button>
+  <button class="f-btn" data-filter="needs_recheck">↻ A revoir</button>
 </div>
 
 <div class="list" id="list">
@@ -69,7 +94,6 @@ var H = {apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY};
 var params = new URLSearchParams(location.search);
 var courseParam = params.get('course') || '';
 
-// Compat retro : accepter ?course=0..3 (index numerique)
 function resolveCourseId(cb){
   if (/^\d+$/.test(courseParam)) {
     fetch(API+'/courses?visible=eq.true&order=sort_order.asc',{headers:H})
@@ -88,7 +112,27 @@ function badgeClass(s){
   return ({approved:'b-approved',needs_recheck:'b-recheck',flagged:'b-flagged',in_review:'b-progress',not_reviewed:'b-todo'})[s] || 'b-todo';
 }
 function badgeText(s){
-  return ({approved:'✓',needs_recheck:'↻ À REVOIR',flagged:'⚠',in_review:'...',not_reviewed:'--'})[s] || '--';
+  return ({approved:'✓',needs_recheck:'↻ A REVOIR',flagged:'⚠',in_review:'...',not_reviewed:'--'})[s] || '--';
+}
+
+function buildBar(stats, total) {
+  var segs = [
+    [stats.approved || 0, 'seg-approved'],
+    [stats.needs_recheck || 0, 'seg-recheck'],
+    [stats.flagged || 0, 'seg-flagged'],
+    [stats.in_review || 0, 'seg-progress'],
+    [stats.not_reviewed || 0, 'seg-todo']
+  ];
+  return segs.map(function(s){
+    var pct = total > 0 ? (s[0] / total * 100) : 0;
+    return pct > 0 ? '<span class="'+s[1]+'" style="width:'+pct+'%"></span>' : '';
+  }).join('');
+}
+
+function fmtDuration(seconds) {
+  if (!seconds) return '';
+  var m = Math.round(seconds / 60);
+  return m + ' min';
 }
 
 resolveCourseId(function(courseId){
@@ -104,7 +148,21 @@ resolveCourseId(function(courseId){
     if (!courseRows.length) { document.body.innerHTML = '<a href="index.html" class="back">← Retour</a><div class="err">Cours introuvable.</div>'; return; }
     var c = courseRows[0];
     document.getElementById('title').textContent = c.title;
-    document.getElementById('sub').textContent = (c.duration_minutes/60).toFixed(c.duration_minutes%60===0?0:1) + ' h — ' + c.lesson_count + ' leçons — ' + c.module_count + ' modules';
+    document.getElementById('sub').textContent = (c.duration_minutes/60).toFixed(c.duration_minutes%60===0?0:1) + ' h — ' + c.lesson_count + ' lecons — ' + c.module_count + ' modules';
+
+    // Course progress header
+    var total = lessonStatuses.length;
+    var globalStats = {approved:0,needs_recheck:0,flagged:0,in_review:0,not_reviewed:0};
+    lessonStatuses.forEach(function(l){ if(globalStats[l.status]!==undefined) globalStats[l.status]++; });
+    var pct = total > 0 ? Math.round(globalStats.approved / total * 100) : 0;
+    document.getElementById('cph-pct').textContent = pct + '% ✓';
+    document.getElementById('cph-stats').innerHTML =
+      '<strong style="color:#F0F0F0">'+globalStats.approved+' / '+total+' approuvees</strong>'
+      + (globalStats.needs_recheck ? ' · <span style="color:#E74C3C">'+globalStats.needs_recheck+' a revoir</span>' : '')
+      + (globalStats.flagged ? ' · <span style="color:#F39C12">'+globalStats.flagged+' flaggees</span>' : '')
+      + (globalStats.not_reviewed ? ' · <span style="color:#94A3B8">'+globalStats.not_reviewed+' a faire</span>' : '');
+    document.getElementById('cph-bar').innerHTML = buildBar(globalStats, total);
+    document.getElementById('course-progress-header').style.display = 'block';
     document.getElementById('filters').style.display = 'flex';
 
     // Grouper par module
@@ -120,20 +178,30 @@ resolveCourseId(function(courseId){
     var modIds = Object.keys(byModule).sort(function(a,b){return byModule[a].index - byModule[b].index});
     modIds.forEach(function(modId){
       var mod = byModule[modId];
+
+      // Stats du module
+      var modStats = {approved:0,needs_recheck:0,flagged:0,in_review:0,not_reviewed:0};
+      mod.lessons.forEach(function(l){ if(modStats[l.status]!==undefined) modStats[l.status]++; });
+      var modPct = mod.lessons.length > 0 ? Math.round(modStats.approved / mod.lessons.length * 100) : 0;
+
       var header = document.createElement('div');
       header.className = 'mod-header';
-      header.textContent = 'Module ' + mod.index;
+      header.setAttribute('data-module-id', modId);
+      header.innerHTML =
+        'Module ' + mod.index
+        + '<span class="mod-pct"><strong>'+modPct+'%</strong> · '+modStats.approved+'/'+mod.lessons.length+' approuvees</span>';
       list.appendChild(header);
 
       mod.lessons.forEach(function(l){
         var a = document.createElement('a');
         a.href = 'review.html?key=' + encodeURIComponent(l.lesson_key);
         var metaR = '';
+        if (l.duration_seconds) metaR += '<span class="tag-duration">'+fmtDuration(l.duration_seconds)+'</span>';
         if (l.flags_count > 0) metaR += '<span class="tag-flags">'+l.flags_count+' flags</span>';
         if (l.latest_reviewer) metaR += '<span class="tag-reviewer">'+l.latest_reviewer+'</span>';
         metaR += '<span class="badge '+badgeClass(l.status)+'">'+badgeText(l.status)+'</span>';
 
-        a.innerHTML = '<div class="item" data-status="'+l.status+'">'
+        a.innerHTML = '<div class="item" data-status="'+l.status+'" data-module-id="'+modId+'">'
           + '<span class="n">'+l.lesson_index+'</span>'
           + '<span class="t">'+(l.short_title || l.title)+'</span>'
           + '<span class="meta-r">'+metaR+'</span>'
@@ -149,9 +217,21 @@ resolveCourseId(function(courseId){
         document.querySelectorAll('.f-btn').forEach(function(b){b.classList.remove('on')});
         btn.classList.add('on');
         var filter = btn.getAttribute('data-filter');
+        var visibleModules = {};
         document.querySelectorAll('.item').forEach(function(it){
-          if (filter === 'all' || it.getAttribute('data-status') === filter) it.classList.remove('hidden');
-          else it.classList.add('hidden');
+          var shouldShow = (filter === 'all' || it.getAttribute('data-status') === filter);
+          if (shouldShow) {
+            it.classList.remove('hidden');
+            visibleModules[it.getAttribute('data-module-id')] = true;
+          } else {
+            it.classList.add('hidden');
+          }
+        });
+        // Cacher les mod-headers vides
+        document.querySelectorAll('.mod-header').forEach(function(h){
+          var mid = h.getAttribute('data-module-id');
+          if (filter === 'all' || visibleModules[mid]) h.classList.remove('hidden');
+          else h.classList.add('hidden');
         });
       };
     });
