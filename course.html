@@ -42,6 +42,7 @@ a{text-decoration:none}
 .tag-flags{background:rgba(243,156,18,0.15);color:#F39C12;font-size:10px;padding:2px 7px;border-radius:3px;font-weight:600}
 .tag-reviewer{background:rgba(255,255,255,0.06);color:#94A3B8;font-size:10px;padding:2px 7px;border-radius:3px}
 .tag-duration{background:rgba(59,130,246,0.1);color:#3B82F6;font-size:10px;padding:2px 7px;border-radius:3px}
+.tag-regen{background:rgba(39,174,96,0.15);color:#2ECC71;font-size:10px;padding:2px 7px;border-radius:3px;font-weight:600}
 .badge{padding:2px 8px;border-radius:3px;font-size:9px;font-weight:700;letter-spacing:.3px}
 .b-approved{background:rgba(39,174,96,0.15);color:#2ECC71}
 .b-recheck{background:rgba(231,76,60,0.22);color:#F8CACE;border:1px solid rgba(231,76,60,0.5)}
@@ -140,10 +141,20 @@ resolveCourseId(function(courseId){
 
   Promise.all([
     fetch(API+'/courses?id=eq.'+encodeURIComponent(courseId),{headers:H}).then(function(r){return r.json()}),
-    fetch(API+'/lesson_status?course_id=eq.'+encodeURIComponent(courseId)+'&order=sort_order.asc',{headers:H}).then(function(r){return r.json()})
+    fetch(API+'/lesson_status?course_id=eq.'+encodeURIComponent(courseId)+'&order=sort_order.asc',{headers:H}).then(function(r){return r.json()}),
+    // Fetch des indices regenerees par lesson_key (pour afficher le badge "X a revoir")
+    fetch(API+'/voiceover_metadata?lesson_key=like.'+encodeURIComponent(courseId+'/%')+'&select=lesson_key,regenerated_sentence_indices',{headers:H}).then(function(r){return r.json()})
   ]).then(function(results){
     var courseRows = results[0];
     var lessonStatuses = results[1];
+    var metaRows = results[2] || [];
+    // Construire une map lesson_key -> nb de phrases regenerees
+    var regenCounts = {};
+    metaRows.forEach(function(m){
+      if (Array.isArray(m.regenerated_sentence_indices) && m.regenerated_sentence_indices.length > 0) {
+        regenCounts[m.lesson_key] = m.regenerated_sentence_indices.length;
+      }
+    });
 
     if (!courseRows.length) { document.body.innerHTML = '<a href="index.html" class="back">← Retour</a><div class="err">Cours introuvable.</div>'; return; }
     var c = courseRows[0];
@@ -197,6 +208,10 @@ resolveCourseId(function(courseId){
         a.href = 'review.html?key=' + encodeURIComponent(l.lesson_key);
         var metaR = '';
         if (l.duration_seconds) metaR += '<span class="tag-duration">'+fmtDuration(l.duration_seconds)+'</span>';
+        // Badge "X a revoir" si la lecon a des phrases regenerees ET elle est en needs_recheck
+        if (regenCounts[l.lesson_key] && l.status === 'needs_recheck') {
+          metaR += '<span class="tag-regen" title="Phrases regenerees depuis ta derniere review">🔄 '+regenCounts[l.lesson_key]+' a revoir</span>';
+        }
         if (l.flags_count > 0) metaR += '<span class="tag-flags">'+l.flags_count+' flags</span>';
         if (l.latest_reviewer) metaR += '<span class="tag-reviewer">'+l.latest_reviewer+'</span>';
         metaR += '<span class="badge '+badgeClass(l.status)+'">'+badgeText(l.status)+'</span>';

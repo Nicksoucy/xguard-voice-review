@@ -43,6 +43,14 @@ h1{color:#E74C3C;font-size:14px}
 .tm{color:#94A3B8;font-size:11px;font-family:monospace;min-width:80px;text-align:right}
 .spd{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:4px;padding:3px 7px;font-size:11px;cursor:pointer;font-family:inherit}
 .spd.on{background:#C0392B;border-color:#C0392B;color:#fff}
+.fltb{background:rgba(39,174,96,0.12);border:1px solid rgba(39,174,96,0.35);color:#2ECC71;border-radius:4px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:none}
+.fltb.on{background:#27AE60;border-color:#27AE60;color:#fff}
+.fltb:hover{background:rgba(39,174,96,0.22)}
+.fltb.on:hover{background:#2ECC71}
+
+/* Phrases cachees par le filtre regen : collapsed en ellipsis */
+.sentence-gap{display:inline-block;color:#444;font-size:10px;font-family:monospace;padding:2px 8px;margin:0 4px;background:rgba(255,255,255,0.02);border-radius:3px;cursor:pointer;user-select:none}
+.sentence-gap:hover{color:#94A3B8;background:rgba(255,255,255,0.05)}
 .stb{background:#E67E22;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
 .stb:hover{background:#F39C12}.stb.flash{background:#27AE60}
 
@@ -115,7 +123,8 @@ h1{color:#E74C3C;font-size:14px}
   <button class="spd" onclick="setSpd(.75,this)">.75x</button>
   <button class="spd" onclick="setSpd(.5,this)">.5x</button>
   <button class="stb" id="stb" onclick="flagStutter()">&#9889; Stutter</button>
-  <span class="shortcuts-hint"><span>Space</span> play · <span>J/K</span> -10s/+10s · <span>S</span> stutter · <span>Ctrl+S</span> save</span>
+  <button class="fltb" id="filterBtn" onclick="toggleFilterMode()" title="Afficher uniquement les phrases regenerees">&#128269; Filtrer</button>
+  <span class="shortcuts-hint"><span>Space</span> play · <span>J/K</span> -10s/+10s · <span>S</span> stutter · <span>F</span> filtre · <span>Ctrl+S</span> save</span>
 </div>
 
 <div class="wc" id="wc"><div style="color:#94A3B8;text-align:center;padding:30px">Chargement...</div></div>
@@ -167,6 +176,9 @@ var prevIdx = -1;
 var au = null;
 var saveTimer = null;
 var dirty = false;
+// Mode filtre : quand actif, n'affiche que les phrases regenerees (regenIndices)
+var regenIndices = null; // null = pas de filtre disponible pour cette lecon
+var filterModeActive = false;
 
 function getCtx(i){var s=Math.max(0,i-4),e=Math.min(W.length-1,i+4);var r=[];for(var k=s;k<=e;k++){r.push(k===i?'**'+W[k].word+'**':W[k].word)}return r.join(' ')}
 function gsi(i){return W[i] && W[i].sentenceIndex!=null ? W[i].sentenceIndex : '?'}
@@ -341,16 +353,76 @@ function pickBestTimestamps(candidates){
   loadExistingReview();
   loadStatus();
   loadHistory();
+  loadRegenIndices();
+}
+
+// Charger la liste des phrases regenerees depuis voiceover_metadata.
+// Si la lecon a ete regeneree recemment via regen-from-reviews.mjs, cette colonne
+// contient un JSON array d'indices (ex: [0, 5, 12, 18]). On affiche le bouton
+// Filtrer et, si la lecon est en needs_recheck, on active le mode filtre
+// automatiquement pour que le reviewer ne voie que les phrases a revoir.
+function loadRegenIndices(){
+  fetch(API+'/voiceover_metadata?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=regenerated_sentence_indices',{headers:H})
+    .then(function(r){return r.json()})
+    .then(function(rows){
+      if (!rows.length) return;
+      var indices = rows[0].regenerated_sentence_indices;
+      if (!Array.isArray(indices) || indices.length === 0) return;
+      regenIndices = indices;
+      // Afficher le bouton filtre avec le count
+      var btn = document.getElementById('filterBtn');
+      btn.textContent = '\u{1F50D} ' + indices.length + ' a revoir';
+      btn.style.display = 'inline-block';
+      // Auto-enable si la lecon est en needs_recheck (workflow principal)
+      fetch(API+'/lesson_status?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=status',{headers:H})
+        .then(function(r){return r.json()})
+        .then(function(rr){
+          if (rr.length && rr[0].status === 'needs_recheck') {
+            filterModeActive = true;
+            btn.classList.add('on');
+            buildWords();
+          }
+        });
+    }).catch(function(){});
 }
 
 function buildWords(){
-  var c=document.getElementById('wc');c.innerHTML='';
+  var c=document.getElementById('wc');c.innerHTML='';els=[];
   var ls=-1;
+  var regenSet = (filterModeActive && regenIndices) ? new Set(regenIndices) : null;
+  var lastSiWasHidden = false;
+  var hiddenCount = 0;
+
   for(var i=0;i<W.length;i++){
     var w=W[i];
     var si=w.sentenceIndex!=null?w.sentenceIndex:-1;
+
+    // Mode filtre : sauter les phrases non regenerees
+    if (regenSet && si >= 0 && !regenSet.has(si)) {
+      // Toujours pousser un placeholder pour que els[i] reste aligne avec W[i]
+      // (le sync audio utilise els[i] pour highlighter les mots).
+      var hidden = document.createElement('span');
+      hidden.style.display = 'none';
+      els.push(hidden);
+      if (!lastSiWasHidden) {
+        // Afficher un petit separateur "..." cliquable pour rappeler qu'il y a du contenu cache
+        var gap = document.createElement('span');
+        gap.className = 'sentence-gap';
+        gap.textContent = '· · ·';
+        gap.title = 'Phrases non regenerees masquees. Cliquer pour tout afficher.';
+        gap.onclick = function(){ toggleFilterMode(); };
+        c.appendChild(gap);
+      }
+      lastSiWasHidden = true;
+      hiddenCount++;
+      continue;
+    }
+    lastSiWasHidden = false;
+
     if(si!==ls&&si>=0){var m=document.createElement('span');m.className='sm';m.textContent='['+si+']';c.appendChild(m);ls=si}
     var s=document.createElement('span');s.className='w';s.textContent=w.word;
+    // Re-appliquer le statut flagged si cette phrase avait deja un flag
+    if (flags.has(i)) s.classList.add('flagged');
     (function(ii,sp){
       sp.onclick=function(){
         if(sp.classList.contains('flagged')){sp.classList.remove('flagged');flags.delete(ii)}
@@ -362,6 +434,15 @@ function buildWords(){
     })(i,s);
     c.appendChild(s);c.appendChild(document.createTextNode(' '));els.push(s);
   }
+}
+
+// Toggle le mode filtre (affiche seulement les phrases regenerees ou toutes)
+function toggleFilterMode(){
+  if (!regenIndices) return; // Rien a filtrer
+  filterModeActive = !filterModeActive;
+  var btn = document.getElementById('filterBtn');
+  btn.classList.toggle('on', filterModeActive);
+  buildWords();
 }
 
 function flagStutter(){
@@ -497,6 +578,10 @@ document.addEventListener('keydown', function(e){
     e.preventDefault();
     saveReview(false);
     return;
+  }
+  // F : toggle filtre phrases regenerees
+  if (e.key === 'f' || e.key === 'F') {
+    if (!e.ctrlKey && !e.metaKey) { toggleFilterMode(); return; }
   }
   // Escape : fermer le modal
   if (e.key === 'Escape') closeModal();
