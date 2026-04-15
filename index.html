@@ -3,47 +3,90 @@
 <title>Voice Review — XGuard Academy</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#0A0E1A;color:#F0F0F0;padding:24px;min-height:100vh;max-width:700px;margin:0 auto}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0A0E1A;color:#F0F0F0;padding:24px;min-height:100vh;max-width:760px;margin:0 auto}
 h1{color:#E74C3C;font-size:22px;margin-bottom:4px}
-.sub{color:#94A3B8;font-size:13px;margin-bottom:24px}
-.info{background:rgba(255,255,255,0.04);border-left:3px solid #E74C3C;padding:12px 16px;margin-bottom:24px;border-radius:0 8px 8px 0}
+.sub{color:#94A3B8;font-size:13px;margin-bottom:20px}
+.info{background:rgba(255,255,255,0.04);border-left:3px solid #E74C3C;padding:12px 16px;margin-bottom:20px;border-radius:0 8px 8px 0}
 .info label{color:#94A3B8;font-size:13px;margin-right:8px}
 .info input{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:6px 12px;color:#F0F0F0;font-size:14px;width:220px}
 a{text-decoration:none}
-.course{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:20px 24px;margin-bottom:12px;transition:all .15s;cursor:pointer;display:block}
+.course{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:18px 22px;margin-bottom:12px;transition:all .15s;cursor:pointer;display:block}
 .course:hover{background:rgba(255,255,255,0.08);border-color:rgba(231,76,60,0.4);transform:translateY(-1px)}
-.course .title{color:#E74C3C;font-size:16px;font-weight:600;margin-bottom:6px}
-.course .desc{color:#94A3B8;font-size:12px;line-height:1.5}
-.course .meta{display:flex;gap:16px;margin-top:10px}
+.course .title{color:#E74C3C;font-size:16px;font-weight:600;margin-bottom:4px}
+.course .desc{color:#94A3B8;font-size:12px;line-height:1.5;margin-bottom:10px}
+.course .meta{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
 .course .tag{background:rgba(231,76,60,0.15);color:#E74C3C;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:600}
+.badges{display:flex;gap:5px;flex-wrap:wrap}
+.badge{padding:3px 9px;border-radius:4px;font-size:10px;font-weight:600;letter-spacing:.3px}
+.b-approved{background:rgba(39,174,96,0.15);color:#2ECC71}
+.b-recheck{background:rgba(231,76,60,0.2);color:#F8CACE;border:1px solid rgba(231,76,60,0.5)}
+.b-flagged{background:rgba(243,156,18,0.15);color:#F39C12}
+.b-progress{background:rgba(59,130,246,0.15);color:#3B82F6}
+.b-todo{background:rgba(100,116,139,0.15);color:#94A3B8}
+.skeleton{background:rgba(255,255,255,0.04);height:130px;border-radius:10px;margin-bottom:12px;animation:pulse 1.5s infinite;border:1px solid rgba(255,255,255,0.06)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.err{color:#E74C3C;padding:20px;background:rgba(231,76,60,0.08);border-left:3px solid #E74C3C;border-radius:0 8px 8px 0;font-size:13px}
 </style></head><body>
 <h1>Voice Review — XGuard Academy</h1>
 <p class="sub">Sélectionne une formation pour commencer la review</p>
 <div class="info"><label>Ton nom :</label><input type="text" id="name" placeholder="Ex: Vanessa" oninput="localStorage.setItem('rn',this.value)"></div>
+<div id="courses">
+  <div class="skeleton"></div>
+  <div class="skeleton"></div>
+  <div class="skeleton"></div>
+  <div class="skeleton"></div>
+</div>
 
-<a href="course.html?course=0" class="course">
-  <div class="title">1. Tireur Actif</div>
-  <div class="desc">Réponse aux situations de tireur actif pour agents de sécurité</div>
-  <div class="meta"><span class="tag">4 heures</span><span class="tag">18 leçons</span><span class="tag">7 modules</span></div>
-</a>
+<script>
+var SUPA_URL = 'https://ctjsdpfegpsfpwjgusyi.supabase.co';
+var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN0anNkcGZlZ3BzZnB3amd1c3lpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MDU2NDQsImV4cCI6MjA4OTE4MTY0NH0.Uv2pbxbmvcbXhyDa7Y_M0HqkLuV7uJaNxl1N01q5wMo';
+var API = SUPA_URL + '/rest/v1';
+var H = {apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY};
 
-<a href="course.html?course=1" class="course">
-  <div class="title">2. Harcèlement au travail</div>
-  <div class="desc">Formation obligatoire — cadre légal québécois, prévention et intervention</div>
-  <div class="meta"><span class="tag">3 heures</span><span class="tag">16 leçons</span><span class="tag">7 modules</span></div>
-</a>
+document.getElementById('name').value = localStorage.getItem('rn') || '';
 
-<a href="course.html?course=2" class="course">
-  <div class="title">3. Santé mentale</div>
-  <div class="desc">Sensibilisation pour tous les employés — reconnaître, agir, ressources</div>
-  <div class="meta"><span class="tag">2 heures</span><span class="tag">6 leçons</span><span class="tag">6 modules</span></div>
-</a>
+function fmtHours(m){return (m/60).toFixed(m%60===0?0:1)}
 
-<a href="course.html?course=3" class="course">
-  <div class="title">4. Alerte à la bombe et terrorisme</div>
-  <div class="desc">Procédures d'urgence, colis suspects et vigilance antiterroriste</div>
-  <div class="meta"><span class="tag">2.5 heures</span><span class="tag">10 leçons</span><span class="tag">6 modules</span></div>
-</a>
+Promise.all([
+  fetch(API+'/courses?visible=eq.true&order=sort_order.asc',{headers:H}).then(function(r){return r.json()}),
+  fetch(API+'/lesson_status?select=course_id,status',{headers:H}).then(function(r){return r.json()})
+]).then(function(results){
+  var courses = results[0];
+  var statuses = results[1];
 
-<script>document.getElementById('name').value=localStorage.getItem('rn')||'';</script>
+  // Agreger les stats par cours
+  var statsByCourse = {};
+  statuses.forEach(function(s){
+    if (!statsByCourse[s.course_id]) statsByCourse[s.course_id] = {approved:0,needs_recheck:0,flagged:0,in_review:0,not_reviewed:0};
+    if (statsByCourse[s.course_id][s.status] !== undefined) statsByCourse[s.course_id][s.status]++;
+  });
+
+  var html = courses.map(function(c){
+    var s = statsByCourse[c.id] || {};
+    var badges = [];
+    if (s.approved)       badges.push('<span class="badge b-approved">✓ '+s.approved+' approuvées</span>');
+    if (s.needs_recheck)  badges.push('<span class="badge b-recheck">↻ '+s.needs_recheck+' à revoir</span>');
+    if (s.flagged)        badges.push('<span class="badge b-flagged">⚠ '+s.flagged+' flaggées</span>');
+    if (s.in_review)      badges.push('<span class="badge b-progress">'+s.in_review+' en cours</span>');
+    if (s.not_reviewed)   badges.push('<span class="badge b-todo">'+s.not_reviewed+' à faire</span>');
+    if (!badges.length)   badges.push('<span class="badge b-todo">aucune leçon</span>');
+
+    return '<a href="course.html?course='+encodeURIComponent(c.id)+'" class="course">'
+      + '<div class="title">'+c.title+'</div>'
+      + (c.subtitle ? '<div class="desc">'+c.subtitle+'</div>' : '')
+      + '<div class="meta">'
+        + '<span class="tag">'+fmtHours(c.duration_minutes||0)+' heures</span>'
+        + '<span class="tag">'+(c.lesson_count||0)+' leçons</span>'
+        + '<span class="tag">'+(c.module_count||0)+' modules</span>'
+      + '</div>'
+      + '<div class="badges">'+badges.join('')+'</div>'
+    + '</a>';
+  }).join('');
+
+  document.getElementById('courses').innerHTML = html || '<div class="err">Aucune formation trouvée.</div>';
+}).catch(function(err){
+  document.getElementById('courses').innerHTML = '<div class="err">Erreur de chargement: '+err.message+'</div>';
+  console.error(err);
+});
+</script>
 </body></html>
