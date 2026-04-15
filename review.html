@@ -6,10 +6,15 @@
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#0A0E1A;color:#F0F0F0;padding:20px 24px;min-height:100vh;max-width:960px;margin:0 auto}
 .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px}
 h1{color:#E74C3C;font-size:14px}
-.nav{display:flex;gap:6px;align-items:center}
-.nav a,.nav span{color:#94A3B8;font-size:12px;text-decoration:none;padding:5px 12px;border-radius:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1)}
-.nav a:hover{background:rgba(255,255,255,0.12);color:#fff}
-.nav .cur{color:#E74C3C}
+.nav{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.nav a,.nav span,.nav button{color:#94A3B8;font-size:12px;text-decoration:none;padding:5px 12px;border-radius:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);cursor:pointer;font-family:inherit}
+.nav a:hover,.nav button:hover{background:rgba(255,255,255,0.12);color:#fff}
+.nav .cur{color:#E74C3C;cursor:default}
+
+/* Lesson info bar (E3) */
+.info-bar{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:8px 14px;margin-bottom:10px;display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:#94A3B8}
+.info-bar strong{color:#F0F0F0}
+.info-bar .sep{color:#333}
 
 .recheck-banner{background:rgba(231,76,60,0.14);border-left:4px solid #E74C3C;padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:12px;font-size:12px;color:#F8CACE;line-height:1.6}
 .recheck-banner strong{color:#fff;font-size:13px}
@@ -18,15 +23,27 @@ h1{color:#E74C3C;font-size:14px}
 .approved-banner strong{color:#fff;font-size:13px}
 .approved-banner.hidden{display:none}
 
+/* History panel (E1) */
+.history-panel{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:11px}
+.history-panel.hidden{display:none}
+.history-header{color:#94A3B8;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.history-header:hover{color:#fff}
+.history-list{margin-top:8px;display:none}
+.history-panel.open .history-list{display:block}
+.history-panel.open .history-arrow{transform:rotate(180deg)}
+.history-arrow{transition:transform .2s;display:inline-block}
+.history-row{padding:4px 0;color:#777;border-top:1px solid rgba(255,255,255,0.06)}
+.history-row strong{color:#94A3B8}
+
 .player{background:rgba(255,255,255,0.04);border-radius:8px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .pb{background:#C0392B;color:#fff;border:none;border-radius:50%;width:32px;height:32px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .pb:hover{background:#E74C3C}
 .pbar{flex:1;min-width:150px;height:6px;background:rgba(255,255,255,0.1);border-radius:3px;cursor:pointer}
 .pfill{height:100%;background:#C0392B;border-radius:3px;width:0%;pointer-events:none}
 .tm{color:#94A3B8;font-size:11px;font-family:monospace;min-width:80px;text-align:right}
-.spd{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:4px;padding:3px 7px;font-size:11px;cursor:pointer}
+.spd{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:4px;padding:3px 7px;font-size:11px;cursor:pointer;font-family:inherit}
 .spd.on{background:#C0392B;border-color:#C0392B;color:#fff}
-.stb{background:#E67E22;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer}
+.stb{background:#E67E22;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
 .stb:hover{background:#F39C12}.stb.flash{background:#27AE60}
 
 .wc{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px 14px;line-height:1.8;min-height:80px;max-height:60vh;overflow-y:auto}
@@ -51,21 +68,44 @@ h1{color:#E74C3C;font-size:14px}
 .ri .rm{background:none;border:none;color:#666;font-size:14px;cursor:pointer;padding:2px 5px}
 .ri .rm:hover{color:#E74C3C}
 .acts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center}
-.btn{border:none;border-radius:5px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer}
+.btn{border:none;border-radius:5px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
 .br{background:#C0392B;color:#fff}.br:hover{background:#E74C3C}
 .bg{background:#27AE60;color:#fff}.bg:hover{background:#2ECC71}
 .by{background:rgba(255,255,255,0.08);color:#aaa;border:1px solid rgba(255,255,255,0.12)}.by:hover{background:rgba(255,255,255,0.15)}
 .msg{color:#27AE60;font-size:12px;margin-left:4px}
+.msg.saving{color:#94A3B8;font-style:italic}
 .empty{color:#555;font-style:italic;font-size:13px;padding:6px}
 .err{color:#E74C3C;padding:20px;background:rgba(231,76,60,0.08);border-left:3px solid #E74C3C;border-radius:0 8px 8px 0;font-size:13px}
+
+/* Shortcuts help */
+.shortcuts-hint{color:#555;font-size:10px;font-family:monospace;margin-left:auto;text-align:right}
+.shortcuts-hint span{background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:3px;margin:0 2px}
+
+/* Confirm modal (D5) */
+.modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:100}
+.modal-bg.open{display:flex}
+.modal{background:#0D1225;border:1px solid rgba(231,76,60,0.4);border-radius:10px;padding:24px;max-width:420px;width:90%}
+.modal h3{color:#2ECC71;font-size:16px;margin-bottom:10px}
+.modal p{color:#94A3B8;font-size:13px;line-height:1.5;margin-bottom:16px}
+.modal .acts{margin-top:0}
 </style></head><body>
 <div class="top">
   <h1 id="title">Chargement...</h1>
   <div class="nav" id="nav"></div>
 </div>
 
+<div class="info-bar" id="info-bar" style="display:none"></div>
+
 <div id="recheck-banner" class="recheck-banner hidden"></div>
 <div id="approved-banner" class="approved-banner hidden"></div>
+
+<div class="history-panel hidden" id="history-panel">
+  <div class="history-header" onclick="document.getElementById('history-panel').classList.toggle('open')">
+    <span id="history-title">Historique</span>
+    <span class="history-arrow">▼</span>
+  </div>
+  <div class="history-list" id="history-list"></div>
+</div>
 
 <div class="player">
   <button class="pb" id="bp" onclick="tg()">&#9654;</button>
@@ -75,21 +115,34 @@ h1{color:#E74C3C;font-size:14px}
   <button class="spd" onclick="setSpd(.75,this)">.75x</button>
   <button class="spd" onclick="setSpd(.5,this)">.5x</button>
   <button class="stb" id="stb" onclick="flagStutter()">&#9889; Stutter</button>
+  <span class="shortcuts-hint"><span>Space</span> play · <span>J/K</span> -10s/+10s · <span>S</span> stutter · <span>Ctrl+S</span> save</span>
 </div>
 
 <div class="wc" id="wc"><div style="color:#94A3B8;text-align:center;padding:30px">Chargement...</div></div>
 
 <div class="fp">
   <div class="sec o">&#9889; Stutters / Glitches</div>
-  <div id="gl"><div class="empty">Appuie &#9889; Stutter pendant l'écoute</div></div>
+  <div id="gl"><div class="empty">Appuie &#9889; Stutter pendant l'ecoute (raccourci: S)</div></div>
   <div style="height:10px"></div>
-  <div class="sec r">&#128308; Mots mal prononcés</div>
+  <div class="sec r">&#128308; Mots mal prononces</div>
   <div id="fl"><div class="empty">Clique sur les mots qui sonnent mal</div></div>
   <div class="acts">
     <button class="btn br" onclick="saveReview(false)">Sauvegarder</button>
-    <button class="btn bg" onclick="saveReview(true)">&#10003; Approuver</button>
+    <button class="btn bg" onclick="askApprove()">&#10003; Approuver</button>
     <button class="btn by" onclick="copyReview()">Copier texte</button>
     <span class="msg" id="msg"></span>
+  </div>
+</div>
+
+<!-- Confirm approve modal (D5) -->
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <h3>✓ Approuver cette lecon ?</h3>
+    <p>Cette lecon passera en status <strong>approved</strong>. Si son voiceover est regenere plus tard, elle passera automatiquement en <strong>needs_recheck</strong>.</p>
+    <div class="acts">
+      <button class="btn bg" onclick="confirmApprove()">Oui, approuver</button>
+      <button class="btn by" onclick="closeModal()">Annuler</button>
+    </div>
   </div>
 </div>
 
@@ -102,33 +155,32 @@ var H = {apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY};
 
 var params = new URLSearchParams(location.search);
 var lessonKey = params.get('key') || '';
-var legacyIdx = params.get('lesson');  // compat retro
+var legacyIdx = params.get('lesson');
 
 // Etat global
-var L = null;            // lesson object
-var W = [];              // timestamps
-var els = [];            // word DOM elements
+var L = null;
+var W = [];
+var els = [];
 var flags = new Map();
 var glitches = [];
 var prevIdx = -1;
 var au = null;
+var saveTimer = null;
+var dirty = false;
 
 function getCtx(i){var s=Math.max(0,i-4),e=Math.min(W.length-1,i+4);var r=[];for(var k=s;k<=e;k++){r.push(k===i?'**'+W[k].word+'**':W[k].word)}return r.join(' ')}
 function gsi(i){return W[i] && W[i].sentenceIndex!=null ? W[i].sentenceIndex : '?'}
 function fmt(s){return Math.floor(s/60)+':'+('0'+Math.floor(s%60)).slice(-2)}
 function fmtDate(iso){try{return new Date(iso).toLocaleString('fr-CA',{dateStyle:'medium',timeStyle:'short'})}catch(e){return iso}}
 
-// ── Resolution lesson_key (compat retro avec ?lesson=N) ────────
 function resolveLesson(cb){
   if (lessonKey) {
-    // Fetch la lesson par lesson_key
     fetch(API+'/lessons?lesson_key=eq.'+encodeURIComponent(lessonKey)+'&select=*',{headers:H})
       .then(function(r){return r.json()})
       .then(function(rows){ cb(rows[0] || null) });
     return;
   }
   if (legacyIdx !== null && /^\d+$/.test(legacyIdx)) {
-    // Compat retro : lecture par index (via sort par course sort_order puis lesson sort_order)
     fetch(API+'/lesson_status?select=lesson_key&order=course_id.asc,sort_order.asc',{headers:H})
       .then(function(r){return r.json()})
       .then(function(rows){
@@ -143,7 +195,6 @@ function resolveLesson(cb){
   cb(null);
 }
 
-// ── Charger l'historique de review pour cette reviewer ────────
 function loadExistingReview(){
   var rn = (localStorage.getItem('rn') || 'Anonyme').trim();
   fetch(API+'/voice_reviews?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&reviewer_name=eq.'+encodeURIComponent(rn)+'&select=*',{headers:H})
@@ -151,83 +202,109 @@ function loadExistingReview(){
     .then(function(rows){
       if (!rows.length) return;
       var rev = rows[0];
-      // Restaurer les flags
       if (Array.isArray(rev.flags)) {
         rev.flags.forEach(function(f){
           flags.set(f.index, f);
           if (els[f.index]) els[f.index].classList.add('flagged');
         });
       }
-      if (Array.isArray(rev.glitches)) {
-        glitches = rev.glitches.slice();
-      }
+      if (Array.isArray(rev.glitches)) glitches = rev.glitches.slice();
       renderFlags();
       renderGlitches();
     });
 }
 
-// ── Charger le status de la lecon (pour afficher les bannieres) ──
 function loadStatus(){
   fetch(API+'/lesson_status?lesson_key=eq.'+encodeURIComponent(L.lesson_key),{headers:H})
     .then(function(r){return r.json()})
     .then(function(rows){
       if (!rows.length) return;
       var s = rows[0];
+
+      // Info bar (E3) : nb phrases + derniere regen
+      var infoBar = document.getElementById('info-bar');
+      var parts = [];
+      if (W.length) {
+        var sentences = Math.max.apply(null, W.map(function(w){return w.sentenceIndex || 0})) + 1;
+        parts.push('<strong>'+sentences+'</strong> phrases · <strong>'+W.length+'</strong> mots');
+      }
+      if (L.duration_seconds) parts.push('<strong>'+Math.round(L.duration_seconds/60)+' min</strong> de voiceover');
+      if (s.voiceover_uploaded_at) parts.push('Dernier upload : <strong>'+fmtDate(s.voiceover_uploaded_at)+'</strong>');
+      if (s.voiceover_version && s.voiceover_version > 1) parts.push('Version <strong>'+s.voiceover_version+'</strong>');
+      if (s.regen_source) parts.push('Source : <strong>'+s.regen_source+'</strong>');
+      if (parts.length) {
+        infoBar.innerHTML = parts.join('<span class="sep">·</span>');
+        infoBar.style.display = 'flex';
+      }
+
       if (s.status === 'needs_recheck') {
         document.getElementById('recheck-banner').innerHTML =
-          '<strong>⚠ Cette leçon a été régénérée depuis ta dernière approbation</strong><br>'
-          + 'Voiceover régénéré : ' + fmtDate(s.voiceover_uploaded_at) + '<br>'
-          + 'Tu l\'avais approuvée : ' + fmtDate(s.latest_review_at) + '<br>'
+          '<strong>⚠ Cette lecon a ete regeneree depuis ta derniere approbation</strong><br>'
+          + 'Voiceover regenere : ' + fmtDate(s.voiceover_uploaded_at) + '<br>'
+          + 'Tu l\'avais approuvee : ' + fmtDate(s.latest_review_at) + '<br>'
           + (s.regen_source ? 'Source : ' + s.regen_source : '');
         document.getElementById('recheck-banner').classList.remove('hidden');
       } else if (s.status === 'approved') {
         document.getElementById('approved-banner').innerHTML =
-          '<strong>✓ Cette leçon est déjà approuvée</strong><br>'
-          + 'Approuvée par ' + (s.latest_reviewer || 'Anonyme') + ' le ' + fmtDate(s.latest_review_at);
+          '<strong>✓ Cette lecon est deja approuvee</strong><br>'
+          + 'Approuvee par ' + (s.latest_reviewer || 'Anonyme') + ' le ' + fmtDate(s.latest_review_at);
         document.getElementById('approved-banner').classList.remove('hidden');
       }
     });
 }
 
-// ── Initialisation ───────────────────────────────────────────
+// Load history (E1)
+function loadHistory(){
+  fetch(API+'/voice_review_history?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&order=archived_at.desc&limit=10',{headers:H})
+    .then(function(r){return r.json()})
+    .then(function(rows){
+      if (!rows.length) return;
+      var panel = document.getElementById('history-panel');
+      var list = document.getElementById('history-list');
+      document.getElementById('history-title').textContent = 'Historique (' + rows.length + ' revisions archivees)';
+      list.innerHTML = rows.map(function(r){
+        var flagsCnt = Array.isArray(r.flags) ? r.flags.length : 0;
+        var approved = r.approved ? '<span style="color:#2ECC71">✓ approuvee</span>' : (flagsCnt+' flags');
+        return '<div class="history-row"><strong>'+fmtDate(r.archived_at)+'</strong> · '+r.reviewer_name+' · '+approved+'</div>';
+      }).join('');
+      panel.classList.remove('hidden');
+    }).catch(function(){});
+}
+
 resolveLesson(function(lesson){
   if (!lesson) {
-    document.body.innerHTML = '<a href="index.html" style="color:#94A3B8">← Retour</a><div class="err">Leçon introuvable.</div>';
+    document.body.innerHTML = '<a href="index.html" style="color:#94A3B8">← Retour</a><div class="err">Lecon introuvable.</div>';
     return;
   }
   L = lesson;
 
-  // Titre + navigation
   document.getElementById('title').textContent = L.short_title || L.title;
 
   var nav = document.getElementById('nav');
   nav.innerHTML = '<a href="course.html?course='+encodeURIComponent(L.course_id)+'">← Cours</a>'
     + '<a href="index.html">Index</a>';
 
-  // Audio
   au = new Audio(STORAGE + '/' + L.lesson_key + '/voiceover.mp3');
   au.onplay = function(){document.getElementById('bp').textContent='\u23f8';requestAnimationFrame(sync)};
   au.onpause = function(){document.getElementById('bp').textContent='\u25b6'};
   au.onended = function(){document.getElementById('bp').textContent='\u25b6'};
   au.onseeked = function(){var t=au.currentTime;for(var i=0;i<els.length;i++){if(W[i].start>t){els[i].classList.remove('spoken');els[i].classList.remove('now')}else{els[i].classList.add('spoken')}}prevIdx=-1;sync()};
 
-  // Timestamps
   fetch(STORAGE + '/' + L.lesson_key + '/timestamps.json')
-    .then(function(r){return r.json()})
+    .then(function(r){if(!r.ok)throw 0;return r.json()})
     .then(function(d){
       W = d;
       buildWords();
       loadExistingReview();
-    }).catch(function(err){
-      // Fallback : l'ancien nom de fichier etait voiceover-timestamps.json
+      loadStatus();
+      loadHistory();
+    }).catch(function(){
       return fetch(STORAGE + '/' + L.lesson_key + '/voiceover-timestamps.json')
         .then(function(r){return r.json()})
-        .then(function(d){W=d; buildWords(); loadExistingReview();});
+        .then(function(d){W=d; buildWords(); loadExistingReview(); loadStatus(); loadHistory();});
     }).catch(function(err){
       document.getElementById('wc').innerHTML = '<div class="err">Impossible de charger les timestamps: '+err.message+'</div>';
     });
-
-  loadStatus();
 });
 
 function buildWords(){
@@ -242,38 +319,57 @@ function buildWords(){
       sp.onclick=function(){
         if(sp.classList.contains('flagged')){sp.classList.remove('flagged');flags.delete(ii)}
         else{sp.classList.add('flagged');flags.set(ii,{index:ii,word:W[ii].word,context:getCtx(ii),time:fmt(W[ii].start),sentenceIndex:gsi(ii),note:''})}
-        renderFlags()};
+        renderFlags();
+        scheduleAutoSave();
+      };
       sp.ondblclick=function(){au.currentTime=Math.max(0,W[ii].start-0.15);if(au.paused)au.play()};
     })(i,s);
     c.appendChild(s);c.appendChild(document.createTextNode(' '));els.push(s);
   }
 }
 
-function flagStutter(){var t=au.currentTime;var i=0;for(var j=0;j<W.length;j++){if(W[j].start<=t)i=j}
+function flagStutter(){
+  if (!au) return;
+  var t=au.currentTime;var i=0;for(var j=0;j<W.length;j++){if(W[j].start<=t)i=j}
   glitches.unshift({time:fmt(t),timeSec:t,context:getCtx(i),sentenceIndex:gsi(i),note:''});
   var b=document.getElementById('stb');b.classList.add('flash');b.textContent='\u2713';
-  setTimeout(function(){b.classList.remove('flash');b.textContent='\u26a1 Stutter'},700);renderGlitches()}
+  setTimeout(function(){b.classList.remove('flash');b.textContent='\u26a1 Stutter'},700);
+  renderGlitches();
+  scheduleAutoSave();
+}
 
 function hl(ctx){return (ctx||'').replace(/\*\*(.+?)\*\*/g,'<b style="color:#E74C3C">$1</b>')}
 
 function renderGlitches(){var l=document.getElementById('gl');
-  if(!glitches.length){l.innerHTML='<div class="empty">Appuie \u26a1 Stutter pendant l\'écoute</div>';return}
+  if(!glitches.length){l.innerHTML='<div class="empty">Appuie \u26a1 Stutter pendant l\'ecoute (raccourci: S)</div>';return}
   l.innerHTML='';for(var gi=0;gi<glitches.length;gi++){(function(g,ii){var d=document.createElement('div');d.className='ri g';
-    d.innerHTML='<span class="rt" onclick="jmp('+g.timeSec+')">'+g.time+'</span><span class="rs">#'+g.sentenceIndex+'</span><span class="rc">'+hl(g.context)+'</span><input placeholder="Note" value="'+(g.note||'').replace(/"/g,'&quot;')+'" oninput="glitches['+ii+'].note=this.value"><button class="rm" onclick="glitches.splice('+ii+',1);renderGlitches()">\u2715</button>';
+    d.innerHTML='<span class="rt" onclick="jmp('+g.timeSec+')">'+g.time+'</span><span class="rs">#'+g.sentenceIndex+'</span><span class="rc">'+hl(g.context)+'</span><input placeholder="Note" value="'+(g.note||'').replace(/"/g,'&quot;')+'" oninput="glitches['+ii+'].note=this.value;scheduleAutoSave()"><button class="rm" onclick="glitches.splice('+ii+',1);renderGlitches();scheduleAutoSave()">\u2715</button>';
     l.appendChild(d)})(glitches[gi],gi)}}
 
 function renderFlags(){var l=document.getElementById('fl');
   if(!flags.size){l.innerHTML='<div class="empty">Clique sur les mots qui sonnent mal</div>';return}
   l.innerHTML='';var sorted=Array.from(flags.entries()).sort(function(a,b){return a[0]-b[0]});
   for(var k=0;k<sorted.length;k++){(function(ii,d){var el=document.createElement('div');el.className='ri f';
-    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span><span class="rc">'+hl(d.context)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="flags.get('+ii+').note=this.value"><button class="rm" onclick="flags.delete('+ii+');if(els['+ii+'])els['+ii+'].classList.remove(\'flagged\');renderFlags()">\u2715</button>';
+    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span><span class="rc">'+hl(d.context)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="flags.get('+ii+').note=this.value;scheduleAutoSave()"><button class="rm" onclick="flags.delete('+ii+');if(els['+ii+'])els['+ii+'].classList.remove(\'flagged\');renderFlags();scheduleAutoSave()">\u2715</button>';
     l.appendChild(el)})(sorted[k][0],sorted[k][1])}}
 
-function jmp(t){au.currentTime=Math.max(0,t-0.5);if(au.paused)au.play()}
+function jmp(t){if(!au)return;au.currentTime=Math.max(0,t-0.5);if(au.paused)au.play()}
 
-function saveReview(approved){
+// Auto-save (D4) : debounce de 2s apres la derniere modification
+function scheduleAutoSave(){
+  dirty = true;
+  if (saveTimer) clearTimeout(saveTimer);
+  showMsg('●', 'saving');
+  saveTimer = setTimeout(function(){
+    saveReview(false, true);
+  }, 2000);
+}
+
+function saveReview(approved, isAuto){
+  if (!L) return;
   var rn = (localStorage.getItem('rn') || 'Anonyme').trim();
-  var lessonId = L.lesson_key.split('/').slice(1).join('/');  // legacy : module/slug
+  var lessonId = L.lesson_key.split('/').slice(1).join('/');
+  if (isAuto) showMsg('Sauvegarde...', 'saving');
   fetch(API+'/voice_reviews?on_conflict=lesson_key,reviewer_name',{
     method:'POST',
     headers:Object.assign({},H,{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'}),
@@ -289,19 +385,38 @@ function saveReview(approved){
       updated_at: new Date().toISOString()
     })
   }).then(function(r){
-    showMsg(r.ok ? (approved ? '\u2713 Approuvé!' : 'Sauvegardé!') : 'Erreur '+r.status);
+    if (r.ok) {
+      dirty = false;
+      showMsg(approved ? '\u2713 Approuve!' : (isAuto ? '\u2713 Auto-sauvegarde' : '\u2713 Sauvegarde!'));
+    } else {
+      showMsg('Erreur '+r.status);
+    }
+  }).catch(function(e){
+    showMsg('Erreur: '+e.message);
   });
 }
 
-function copyReview(){var t='Leçon: '+(L.short_title||L.title)+'\n';
+// Confirm approve modal (D5)
+function askApprove(){
+  document.getElementById('modal-bg').classList.add('open');
+}
+function closeModal(){
+  document.getElementById('modal-bg').classList.remove('open');
+}
+function confirmApprove(){
+  closeModal();
+  saveReview(true);
+}
+
+function copyReview(){var t='Lecon: '+(L.short_title||L.title)+'\n';
   if(glitches.length){t+='\nStutters:\n';for(var i=0;i<glitches.length;i++){var g=glitches[i];t+='- ['+g.time+'] #'+g.sentenceIndex+' "'+((g.context||'').replace(/\*\*/g,''))+'"';if(g.note)t+=' \u2192 '+g.note;t+='\n'}}
   var sf=Array.from(flags.values()).sort(function(a,b){return a.index-b.index});
   if(sf.length){t+='\nMots:\n';for(var j=0;j<sf.length;j++){var f=sf[j];t+='- ['+f.time+'] #'+f.sentenceIndex+' "'+((f.context||'').replace(/\*\*/g,''))+'"';if(f.note)t+=' \u2192 '+f.note;t+='\n'}}
-  navigator.clipboard.writeText(t);showMsg('Copié!')}
+  navigator.clipboard.writeText(t);showMsg('Copie!')}
 
-function showMsg(t){var m=document.getElementById('msg');m.textContent=t;setTimeout(function(){m.textContent=''},2000)}
+function showMsg(t, cls){var m=document.getElementById('msg');m.textContent=t;m.className='msg'+(cls?' '+cls:'');if(!cls)setTimeout(function(){m.textContent=''},2500)}
 
-// Audio sync (pendant lecture)
+// Audio sync
 function sync(){var t=au.currentTime;var ii=-1,lo=0,hi=W.length-1;
   while(lo<=hi){var m=(lo+hi)>>1;if(t>=W[m].start){ii=m;lo=m+1}else{hi=m-1}}
   if(ii!==prevIdx){if(prevIdx>=0&&els[prevIdx])els[prevIdx].classList.remove('now');
@@ -319,5 +434,44 @@ function seek(e){if(!au)return;var b=document.getElementById('pbar');var go=func
   go(e);var mv=function(ev){go(ev)};var up=function(){document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up)};
   document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up)}
 function setSpd(s,b){if(!au)return;au.playbackRate=s;var btns=document.querySelectorAll('.spd');for(var i=0;i<btns.length;i++)btns[i].classList.remove('on');b.classList.add('on')}
+
+// Keyboard shortcuts (D3)
+document.addEventListener('keydown', function(e){
+  // Ne pas intercepter si on tape dans un input
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+  // Space : play/pause
+  if (e.code === 'Space') { e.preventDefault(); tg(); return; }
+  // J : -10s
+  if (e.key === 'j' || e.key === 'J') {
+    if (au) { au.currentTime = Math.max(0, au.currentTime - 10); }
+    return;
+  }
+  // K : +10s
+  if (e.key === 'k' || e.key === 'K') {
+    if (au) { au.currentTime = Math.min(au.duration || 0, au.currentTime + 10); }
+    return;
+  }
+  // S : stutter
+  if (e.key === 's' || e.key === 'S') {
+    if (!e.ctrlKey && !e.metaKey) { flagStutter(); return; }
+  }
+  // Ctrl+S : save
+  if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+    e.preventDefault();
+    saveReview(false);
+    return;
+  }
+  // Escape : fermer le modal
+  if (e.key === 'Escape') closeModal();
+});
+
+// Warn avant de quitter si dirty
+window.addEventListener('beforeunload', function(e){
+  if (dirty) {
+    e.preventDefault();
+    e.returnValue = 'Tu as des changements non sauvegardes. Quitter quand meme ?';
+  }
+});
 </script>
 </body></html>
