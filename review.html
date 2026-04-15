@@ -10,6 +10,14 @@ h1{color:#E74C3C;font-size:14px}
 .nav a,.nav span{color:#94A3B8;font-size:12px;text-decoration:none;padding:5px 12px;border-radius:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1)}
 .nav a:hover{background:rgba(255,255,255,0.12);color:#fff}
 .nav .cur{color:#E74C3C}
+
+.recheck-banner{background:rgba(231,76,60,0.14);border-left:4px solid #E74C3C;padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:12px;font-size:12px;color:#F8CACE;line-height:1.6}
+.recheck-banner strong{color:#fff;font-size:13px}
+.recheck-banner.hidden{display:none}
+.approved-banner{background:rgba(39,174,96,0.14);border-left:4px solid #27AE60;padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:12px;font-size:12px;color:#B9E8CB;line-height:1.6}
+.approved-banner strong{color:#fff;font-size:13px}
+.approved-banner.hidden{display:none}
+
 .player{background:rgba(255,255,255,0.04);border-radius:8px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .pb{background:#C0392B;color:#fff;border:none;border-radius:50%;width:32px;height:32px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .pb:hover{background:#E74C3C}
@@ -20,12 +28,14 @@ h1{color:#E74C3C;font-size:14px}
 .spd.on{background:#C0392B;border-color:#C0392B;color:#fff}
 .stb{background:#E67E22;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer}
 .stb:hover{background:#F39C12}.stb.flash{background:#27AE60}
+
 .wc{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px 14px;line-height:1.8;min-height:80px;max-height:60vh;overflow-y:auto}
 .w{display:inline;padding:1px 1px;border-radius:2px;cursor:pointer;font-size:11px;color:#444;transition:color .08s}
 .w.spoken{color:#999}.w.now{color:#fff;background:rgba(255,255,255,0.08);font-weight:600}
 .w.flagged{color:#E74C3C;border-bottom:2px solid #E74C3C;font-weight:600}
 .w.flagged.now{background:rgba(231,76,60,0.3)}.w:hover{background:rgba(255,255,255,0.05)}
 .sm{display:inline-block;color:#333;font-size:9px;font-family:monospace;vertical-align:super;margin:0 2px;user-select:none}
+
 .fp{background:rgba(231,76,60,0.06);border:1px solid rgba(231,76,60,0.15);border-radius:8px;padding:14px 18px;margin-top:12px}
 .sec{font-size:13px;font-weight:600;margin-bottom:8px}
 .sec.o{color:#E67E22}.sec.r{color:#E74C3C}
@@ -47,11 +57,16 @@ h1{color:#E74C3C;font-size:14px}
 .by{background:rgba(255,255,255,0.08);color:#aaa;border:1px solid rgba(255,255,255,0.12)}.by:hover{background:rgba(255,255,255,0.15)}
 .msg{color:#27AE60;font-size:12px;margin-left:4px}
 .empty{color:#555;font-style:italic;font-size:13px;padding:6px}
+.err{color:#E74C3C;padding:20px;background:rgba(231,76,60,0.08);border-left:3px solid #E74C3C;border-radius:0 8px 8px 0;font-size:13px}
 </style></head><body>
 <div class="top">
   <h1 id="title">Chargement...</h1>
   <div class="nav" id="nav"></div>
 </div>
+
+<div id="recheck-banner" class="recheck-banner hidden"></div>
+<div id="approved-banner" class="approved-banner hidden"></div>
+
 <div class="player">
   <button class="pb" id="bp" onclick="tg()">&#9654;</button>
   <div class="pbar" id="pbar" onmousedown="seek(event)"><div class="pfill" id="pfill"></div></div>
@@ -61,7 +76,9 @@ h1{color:#E74C3C;font-size:14px}
   <button class="spd" onclick="setSpd(.5,this)">.5x</button>
   <button class="stb" id="stb" onclick="flagStutter()">&#9889; Stutter</button>
 </div>
+
 <div class="wc" id="wc"><div style="color:#94A3B8;text-align:center;padding:30px">Chargement...</div></div>
+
 <div class="fp">
   <div class="sec o">&#9889; Stutters / Glitches</div>
   <div id="gl"><div class="empty">Appuie &#9889; Stutter pendant l'écoute</div></div>
@@ -69,8 +86,8 @@ h1{color:#E74C3C;font-size:14px}
   <div class="sec r">&#128308; Mots mal prononcés</div>
   <div id="fl"><div class="empty">Clique sur les mots qui sonnent mal</div></div>
   <div class="acts">
-    <button class="btn br" onclick="saveReview()">Sauvegarder</button>
-    <button class="btn bg" onclick="approveReview()">&#10003; Approuver</button>
+    <button class="btn br" onclick="saveReview(false)">Sauvegarder</button>
+    <button class="btn bg" onclick="saveReview(true)">&#10003; Approuver</button>
     <button class="btn by" onclick="copyReview()">Copier texte</button>
     <span class="msg" id="msg"></span>
   </div>
@@ -81,87 +98,137 @@ var SUPA_URL = 'https://ctjsdpfegpsfpwjgusyi.supabase.co';
 var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN0anNkcGZlZ3BzZnB3amd1c3lpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MDU2NDQsImV4cCI6MjA4OTE4MTY0NH0.Uv2pbxbmvcbXhyDa7Y_M0HqkLuV7uJaNxl1N01q5wMo';
 var STORAGE = SUPA_URL + '/storage/v1/object/public/voiceovers';
 var API = SUPA_URL + '/rest/v1';
+var H = {apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY};
 
-var lessons = [
-  // Tireur Actif (18)
-  {id:'module-01-introduction/01-definitions',course:'tireur-actif',title:'[Tireur Actif] M1 / Définitions'},
-  {id:'module-01-introduction/02-incidents-marquants',course:'tireur-actif',title:'[Tireur Actif] M1 / Incidents marquants'},
-  {id:'module-01-introduction/03-responsabilites-agent',course:'tireur-actif',title:'[Tireur Actif] M1 / Responsabilités agent'},
-  {id:'module-02-comprendre-la-menace/01-caracteristiques-incidents',course:'tireur-actif',title:'[Tireur Actif] M2 / Caractéristiques'},
-  {id:'module-02-comprendre-la-menace/02-typologies-espaces',course:'tireur-actif',title:"[Tireur Actif] M2 / Typologies d'espaces"},
-  {id:'module-02-comprendre-la-menace/03-facteurs-risque',course:'tireur-actif',title:'[Tireur Actif] M2 / Facteurs de risque'},
-  {id:'module-03-run-hide-fight/01-fuir',course:'tireur-actif',title:'[Tireur Actif] M3 / FUIR'},
-  {id:'module-03-run-hide-fight/02-se-cacher',course:'tireur-actif',title:'[Tireur Actif] M3 / SE CACHER'},
-  {id:'module-03-run-hide-fight/03-combattre',course:'tireur-actif',title:'[Tireur Actif] M3 / COMBATTRE'},
-  {id:'module-03-run-hide-fight/04-arrivee-police',course:'tireur-actif',title:'[Tireur Actif] M3 / Arrivée police'},
-  {id:'module-04-plans-urgence/01-plan-urgence-site',course:'tireur-actif',title:'[Tireur Actif] M4 / Plan urgence'},
-  {id:'module-04-plans-urgence/02-roles-responsabilites',course:'tireur-actif',title:'[Tireur Actif] M4 / Rôles'},
-  {id:'module-04-plans-urgence/03-exercices-simulations',course:'tireur-actif',title:'[Tireur Actif] M4 / Exercices'},
-  {id:'module-05-prevention/01-signaux-alerte',course:'tireur-actif',title:'[Tireur Actif] M5 / Signaux alerte'},
-  {id:'module-05-prevention/02-mecanismes-signalement',course:'tireur-actif',title:'[Tireur Actif] M5 / Signalement'},
-  {id:'module-05-prevention/03-role-prevention',course:'tireur-actif',title:'[Tireur Actif] M5 / Prévention'},
-  {id:'module-06-etudes-de-cas/01-scenarios',course:'tireur-actif',title:'[Tireur Actif] M6 / Scénarios'},
-  {id:'module-07-post-incident/01-post-incident',course:'tireur-actif',title:'[Tireur Actif] M7 / Post-incident'},
-  // Harcèlement (16)
-  {id:'module-01-introduction/01-pourquoi-cette-formation',course:'harcelement-travail',title:'[Harcèlement] M1 / Pourquoi'},
-  {id:'module-01-introduction/02-definitions',course:'harcelement-travail',title:'[Harcèlement] M1 / Définitions'},
-  {id:'module-02-cadre-legal/01-loi-normes-travail',course:'harcelement-travail',title:'[Harcèlement] M2 / Loi normes travail'},
-  {id:'module-02-cadre-legal/02-obligations-employeur',course:'harcelement-travail',title:'[Harcèlement] M2 / Obligations employeur'},
-  {id:'module-02-cadre-legal/03-droits-recours',course:'harcelement-travail',title:'[Harcèlement] M2 / Droits et recours'},
-  {id:'module-03-types-harcelement/01-harcelement-psychologique',course:'harcelement-travail',title:'[Harcèlement] M3 / Psychologique'},
-  {id:'module-03-types-harcelement/02-harcelement-sexuel',course:'harcelement-travail',title:'[Harcèlement] M3 / Sexuel'},
-  {id:'module-03-types-harcelement/03-autres-formes',course:'harcelement-travail',title:'[Harcèlement] M3 / Autres formes'},
-  {id:'module-04-reconnaitre/01-signes-indicateurs',course:'harcelement-travail',title:'[Harcèlement] M4 / Signes'},
-  {id:'module-04-reconnaitre/02-zones-grises',course:'harcelement-travail',title:'[Harcèlement] M4 / Zones grises'},
-  {id:'module-05-agir/01-victime',course:'harcelement-travail',title:'[Harcèlement] M5 / Victime'},
-  {id:'module-05-agir/02-temoin',course:'harcelement-travail',title:'[Harcèlement] M5 / Témoin'},
-  {id:'module-05-agir/03-mis-en-cause',course:'harcelement-travail',title:'[Harcèlement] M5 / Mis en cause'},
-  {id:'module-06-prevention/01-culture-respect',course:'harcelement-travail',title:'[Harcèlement] M6 / Culture respect'},
-  {id:'module-06-prevention/02-role-chacun',course:'harcelement-travail',title:'[Harcèlement] M6 / Rôle de chacun'},
-  {id:'module-07-etudes-de-cas/01-scenarios',course:'harcelement-travail',title:'[Harcèlement] M7 / Scénarios'},
-  // Santé mentale (6)
-  {id:'module-01-comprendre/01-demystifier',course:'sante-mentale',title:'[Santé mentale] M1 / Démystifier'},
-  {id:'module-02-reconnaitre/01-signes-detresse',course:'sante-mentale',title:'[Santé mentale] M2 / Signes détresse'},
-  {id:'module-03-agir/01-comment-aider',course:'sante-mentale',title:'[Santé mentale] M3 / Comment aider'},
-  {id:'module-04-ressources/01-ressources-conclusion',course:'sante-mentale',title:'[Santé mentale] M4 / Ressources'},
-  {id:'module-05-accommodement/01-accommodement-retour',course:'sante-mentale',title:'[Santé mentale] M5 / Accommodement'},
-  {id:'module-06-substances/01-substances-sante-mentale',course:'sante-mentale',title:'[Santé mentale] M6 / Substances'},
-  // Bombe/Terrorisme (10)
-  {id:'module-01-introduction/01-contexte-menaces',course:'alerte-bombe-terrorisme',title:'[Bombe/Terrorisme] M1 / Contexte'},
-  {id:'module-01-introduction/02-cadre-legal',course:'alerte-bombe-terrorisme',title:'[Bombe/Terrorisme] M1 / Cadre légal'},
-  {id:'module-02-alerte-bombe/01-recevoir-alerte',course:'alerte-bombe-terrorisme',title:'[Bombe/Terrorisme] M2 / Recevoir alerte'},
-  {id:'module-02-alerte-bombe/02-evaluer-reagir',course:'alerte-bombe-terrorisme',title:'[Bombe/Terrorisme] M2 / Évaluer réagir'},
-  {id:'module-03-menace-terroriste/01-comprendre-terrorisme',course:'alerte-bombe-terrorisme',title:'[Bombe/Terrorisme] M3 / Comprendre'},
-  {id:'module-03-menace-terroriste/02-indicateurs-vigilance',course:'alerte-bombe-terrorisme',title:'[Bombe/Terrorisme] M3 / Indicateurs'},
-  {id:'module-04-procedures/01-procedures-evacuation',course:'alerte-bombe-terrorisme',title:'[Bombe/Terrorisme] M4 / Évacuation'},
-  {id:'module-04-procedures/02-confinement-perimetre',course:'alerte-bombe-terrorisme',title:'[Bombe/Terrorisme] M4 / Périmètre'},
-  {id:'module-05-colis-suspect/01-identifier-colis-suspect',course:'alerte-bombe-terrorisme',title:'[Bombe/Terrorisme] M5 / Colis suspect'},
-  {id:'module-06-etudes-de-cas/01-scenarios',course:'alerte-bombe-terrorisme',title:'[Bombe/Terrorisme] M6 / Scénarios'}
-];
+var params = new URLSearchParams(location.search);
+var lessonKey = params.get('key') || '';
+var legacyIdx = params.get('lesson');  // compat retro
 
-var params = new URLSearchParams(window.location.search);
-var idx = parseInt(params.get('lesson') || '0');
-if (idx < 0 || idx >= lessons.length) idx = 0;
-var L = lessons[idx];
-
-// Set title and nav
-document.getElementById('title').textContent = L.title;
-var nav = document.getElementById('nav');
-nav.innerHTML = (idx > 0 ? '<a href="review.html?lesson='+(idx-1)+'">← Préc</a>' : '<span style="opacity:.3">← Préc</span>')
-  + '<span class="cur">'+(idx+1)+'/'+lessons.length+'</span>'
-  + (idx < lessons.length-1 ? '<a href="review.html?lesson='+(idx+1)+'">Suiv →</a>' : '<span style="opacity:.3">Suiv →</span>')
-  + '<a href="index.html">Index</a>';
-
-// Audio
-var au = new Audio(STORAGE + '/' + (L.course ? L.course + '/' : '') + L.id + '/voiceover.mp3');
-var W = [], els = [], flags = new Map(), glitches = [], prevIdx = -1;
-
-// Load timestamps
-fetch(STORAGE + '/' + (L.course ? L.course + '/' : '') + L.id + '/timestamps.json').then(function(r){return r.json()}).then(function(d){W=d;buildWords()});
+// Etat global
+var L = null;            // lesson object
+var W = [];              // timestamps
+var els = [];            // word DOM elements
+var flags = new Map();
+var glitches = [];
+var prevIdx = -1;
+var au = null;
 
 function getCtx(i){var s=Math.max(0,i-4),e=Math.min(W.length-1,i+4);var r=[];for(var k=s;k<=e;k++){r.push(k===i?'**'+W[k].word+'**':W[k].word)}return r.join(' ')}
 function gsi(i){return W[i] && W[i].sentenceIndex!=null ? W[i].sentenceIndex : '?'}
 function fmt(s){return Math.floor(s/60)+':'+('0'+Math.floor(s%60)).slice(-2)}
+function fmtDate(iso){try{return new Date(iso).toLocaleString('fr-CA',{dateStyle:'medium',timeStyle:'short'})}catch(e){return iso}}
+
+// ── Resolution lesson_key (compat retro avec ?lesson=N) ────────
+function resolveLesson(cb){
+  if (lessonKey) {
+    // Fetch la lesson par lesson_key
+    fetch(API+'/lessons?lesson_key=eq.'+encodeURIComponent(lessonKey)+'&select=*',{headers:H})
+      .then(function(r){return r.json()})
+      .then(function(rows){ cb(rows[0] || null) });
+    return;
+  }
+  if (legacyIdx !== null && /^\d+$/.test(legacyIdx)) {
+    // Compat retro : lecture par index (via sort par course sort_order puis lesson sort_order)
+    fetch(API+'/lesson_status?select=lesson_key&order=course_id.asc,sort_order.asc',{headers:H})
+      .then(function(r){return r.json()})
+      .then(function(rows){
+        var idx = parseInt(legacyIdx,10);
+        if (idx >= 0 && idx < rows.length) {
+          lessonKey = rows[idx].lesson_key;
+          resolveLesson(cb);
+        } else cb(null);
+      });
+    return;
+  }
+  cb(null);
+}
+
+// ── Charger l'historique de review pour cette reviewer ────────
+function loadExistingReview(){
+  var rn = (localStorage.getItem('rn') || 'Anonyme').trim();
+  fetch(API+'/voice_reviews?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&reviewer_name=eq.'+encodeURIComponent(rn)+'&select=*',{headers:H})
+    .then(function(r){return r.json()})
+    .then(function(rows){
+      if (!rows.length) return;
+      var rev = rows[0];
+      // Restaurer les flags
+      if (Array.isArray(rev.flags)) {
+        rev.flags.forEach(function(f){
+          flags.set(f.index, f);
+          if (els[f.index]) els[f.index].classList.add('flagged');
+        });
+      }
+      if (Array.isArray(rev.glitches)) {
+        glitches = rev.glitches.slice();
+      }
+      renderFlags();
+      renderGlitches();
+    });
+}
+
+// ── Charger le status de la lecon (pour afficher les bannieres) ──
+function loadStatus(){
+  fetch(API+'/lesson_status?lesson_key=eq.'+encodeURIComponent(L.lesson_key),{headers:H})
+    .then(function(r){return r.json()})
+    .then(function(rows){
+      if (!rows.length) return;
+      var s = rows[0];
+      if (s.status === 'needs_recheck') {
+        document.getElementById('recheck-banner').innerHTML =
+          '<strong>⚠ Cette leçon a été régénérée depuis ta dernière approbation</strong><br>'
+          + 'Voiceover régénéré : ' + fmtDate(s.voiceover_uploaded_at) + '<br>'
+          + 'Tu l\'avais approuvée : ' + fmtDate(s.latest_review_at) + '<br>'
+          + (s.regen_source ? 'Source : ' + s.regen_source : '');
+        document.getElementById('recheck-banner').classList.remove('hidden');
+      } else if (s.status === 'approved') {
+        document.getElementById('approved-banner').innerHTML =
+          '<strong>✓ Cette leçon est déjà approuvée</strong><br>'
+          + 'Approuvée par ' + (s.latest_reviewer || 'Anonyme') + ' le ' + fmtDate(s.latest_review_at);
+        document.getElementById('approved-banner').classList.remove('hidden');
+      }
+    });
+}
+
+// ── Initialisation ───────────────────────────────────────────
+resolveLesson(function(lesson){
+  if (!lesson) {
+    document.body.innerHTML = '<a href="index.html" style="color:#94A3B8">← Retour</a><div class="err">Leçon introuvable.</div>';
+    return;
+  }
+  L = lesson;
+
+  // Titre + navigation
+  document.getElementById('title').textContent = L.short_title || L.title;
+
+  var nav = document.getElementById('nav');
+  nav.innerHTML = '<a href="course.html?course='+encodeURIComponent(L.course_id)+'">← Cours</a>'
+    + '<a href="index.html">Index</a>';
+
+  // Audio
+  au = new Audio(STORAGE + '/' + L.lesson_key + '/voiceover.mp3');
+  au.onplay = function(){document.getElementById('bp').textContent='\u23f8';requestAnimationFrame(sync)};
+  au.onpause = function(){document.getElementById('bp').textContent='\u25b6'};
+  au.onended = function(){document.getElementById('bp').textContent='\u25b6'};
+  au.onseeked = function(){var t=au.currentTime;for(var i=0;i<els.length;i++){if(W[i].start>t){els[i].classList.remove('spoken');els[i].classList.remove('now')}else{els[i].classList.add('spoken')}}prevIdx=-1;sync()};
+
+  // Timestamps
+  fetch(STORAGE + '/' + L.lesson_key + '/timestamps.json')
+    .then(function(r){return r.json()})
+    .then(function(d){
+      W = d;
+      buildWords();
+      loadExistingReview();
+    }).catch(function(err){
+      // Fallback : l'ancien nom de fichier etait voiceover-timestamps.json
+      return fetch(STORAGE + '/' + L.lesson_key + '/voiceover-timestamps.json')
+        .then(function(r){return r.json()})
+        .then(function(d){W=d; buildWords(); loadExistingReview();});
+    }).catch(function(err){
+      document.getElementById('wc').innerHTML = '<div class="err">Impossible de charger les timestamps: '+err.message+'</div>';
+    });
+
+  loadStatus();
+});
 
 function buildWords(){
   var c=document.getElementById('wc');c.innerHTML='';
@@ -192,25 +259,41 @@ function hl(ctx){return (ctx||'').replace(/\*\*(.+?)\*\*/g,'<b style="color:#E74
 function renderGlitches(){var l=document.getElementById('gl');
   if(!glitches.length){l.innerHTML='<div class="empty">Appuie \u26a1 Stutter pendant l\'écoute</div>';return}
   l.innerHTML='';for(var gi=0;gi<glitches.length;gi++){(function(g,ii){var d=document.createElement('div');d.className='ri g';
-    d.innerHTML='<span class="rt" onclick="jmp('+g.timeSec+')">'+g.time+'</span><span class="rs">#'+g.sentenceIndex+'</span><span class="rc">'+hl(g.context)+'</span><input placeholder="Note" value="'+(g.note||'')+'" oninput="glitches['+ii+'].note=this.value"><button class="rm" onclick="glitches.splice('+ii+',1);renderGlitches()">\u2715</button>';
+    d.innerHTML='<span class="rt" onclick="jmp('+g.timeSec+')">'+g.time+'</span><span class="rs">#'+g.sentenceIndex+'</span><span class="rc">'+hl(g.context)+'</span><input placeholder="Note" value="'+(g.note||'').replace(/"/g,'&quot;')+'" oninput="glitches['+ii+'].note=this.value"><button class="rm" onclick="glitches.splice('+ii+',1);renderGlitches()">\u2715</button>';
     l.appendChild(d)})(glitches[gi],gi)}}
 
 function renderFlags(){var l=document.getElementById('fl');
   if(!flags.size){l.innerHTML='<div class="empty">Clique sur les mots qui sonnent mal</div>';return}
-  l.innerHTML='';var sorted=Array.from(flags.entries()).sort(function(a,b){return b[0]-a[0]});
+  l.innerHTML='';var sorted=Array.from(flags.entries()).sort(function(a,b){return a[0]-b[0]});
   for(var k=0;k<sorted.length;k++){(function(ii,d){var el=document.createElement('div');el.className='ri f';
-    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span><span class="rc">'+hl(d.context)+'</span><input placeholder="Note" value="'+(d.note||'')+'" oninput="flags.get('+ii+').note=this.value"><button class="rm" onclick="flags.delete('+ii+');if(els['+ii+'])els['+ii+'].classList.remove(\'flagged\');renderFlags()">\u2715</button>';
+    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span><span class="rc">'+hl(d.context)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="flags.get('+ii+').note=this.value"><button class="rm" onclick="flags.delete('+ii+');if(els['+ii+'])els['+ii+'].classList.remove(\'flagged\');renderFlags()">\u2715</button>';
     l.appendChild(el)})(sorted[k][0],sorted[k][1])}}
 
 function jmp(t){au.currentTime=Math.max(0,t-0.5);if(au.paused)au.play()}
 
-function buildData(approved){return{lessonId:L.id,lesson:L.title,reviewer:localStorage.getItem('rn')||'Anonyme',flags:Array.from(flags.values()),glitches:glitches,approved:!!approved}}
+function saveReview(approved){
+  var rn = (localStorage.getItem('rn') || 'Anonyme').trim();
+  var lessonId = L.lesson_key.split('/').slice(1).join('/');  // legacy : module/slug
+  fetch(API+'/voice_reviews?on_conflict=lesson_key,reviewer_name',{
+    method:'POST',
+    headers:Object.assign({},H,{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'}),
+    body:JSON.stringify({
+      lesson_key: L.lesson_key,
+      course_id: L.course_id,
+      lesson_id: lessonId,
+      lesson_title: L.short_title ? '['+L.course_id+'] '+L.short_title : L.title,
+      reviewer_name: rn,
+      flags: Array.from(flags.values()),
+      glitches: glitches,
+      approved: !!approved,
+      updated_at: new Date().toISOString()
+    })
+  }).then(function(r){
+    showMsg(r.ok ? (approved ? '\u2713 Approuvé!' : 'Sauvegardé!') : 'Erreur '+r.status);
+  });
+}
 
-function saveReview(){fetch(API+'/voice_reviews',{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({lesson_id:L.id,lesson_title:L.title,reviewer_name:localStorage.getItem('rn')||'Anonyme',flags:Array.from(flags.values()),glitches:glitches,approved:false,updated_at:new Date().toISOString()})}).then(function(r){showMsg(r.ok?'Sauvegardé!':'Erreur')})}
-
-function approveReview(){fetch(API+'/voice_reviews',{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({lesson_id:L.id,lesson_title:L.title,reviewer_name:localStorage.getItem('rn')||'Anonyme',flags:Array.from(flags.values()),glitches:glitches,approved:true,updated_at:new Date().toISOString()})}).then(function(r){showMsg(r.ok?'\u2713 Approuvé!':'Erreur')})}
-
-function copyReview(){var t='Leçon: '+L.title+'\n';
+function copyReview(){var t='Leçon: '+(L.short_title||L.title)+'\n';
   if(glitches.length){t+='\nStutters:\n';for(var i=0;i<glitches.length;i++){var g=glitches[i];t+='- ['+g.time+'] #'+g.sentenceIndex+' "'+((g.context||'').replace(/\*\*/g,''))+'"';if(g.note)t+=' \u2192 '+g.note;t+='\n'}}
   var sf=Array.from(flags.values()).sort(function(a,b){return a.index-b.index});
   if(sf.length){t+='\nMots:\n';for(var j=0;j<sf.length;j++){var f=sf[j];t+='- ['+f.time+'] #'+f.sentenceIndex+' "'+((f.context||'').replace(/\*\*/g,''))+'"';if(f.note)t+=' \u2192 '+f.note;t+='\n'}}
@@ -218,9 +301,7 @@ function copyReview(){var t='Leçon: '+L.title+'\n';
 
 function showMsg(t){var m=document.getElementById('msg');m.textContent=t;setTimeout(function(){m.textContent=''},2000)}
 
-renderGlitches();renderFlags();
-
-// Audio sync
+// Audio sync (pendant lecture)
 function sync(){var t=au.currentTime;var ii=-1,lo=0,hi=W.length-1;
   while(lo<=hi){var m=(lo+hi)>>1;if(t>=W[m].start){ii=m;lo=m+1}else{hi=m-1}}
   if(ii!==prevIdx){if(prevIdx>=0&&els[prevIdx])els[prevIdx].classList.remove('now');
@@ -232,14 +313,11 @@ function sync(){var t=au.currentTime;var ii=-1,lo=0,hi=W.length-1;
   var d=au.duration||0;document.getElementById('pfill').style.width=d?(t/d*100)+'%':'0%';
   document.getElementById('ti').textContent=fmt(t)+' / '+fmt(d);
   if(!au.paused)requestAnimationFrame(sync)}
-au.onplay=function(){document.getElementById('bp').textContent='\u23f8';requestAnimationFrame(sync)};
-au.onpause=function(){document.getElementById('bp').textContent='\u25b6'};
-au.onended=function(){document.getElementById('bp').textContent='\u25b6'};
-au.onseeked=function(){var t=au.currentTime;for(var i=0;i<els.length;i++){if(W[i].start>t){els[i].classList.remove('spoken');els[i].classList.remove('now')}else{els[i].classList.add('spoken')}}prevIdx=-1;sync()};
-function tg(){if(au.paused)au.play();else au.pause()}
-function seek(e){var b=document.getElementById('pbar');var go=function(ev){var r=b.getBoundingClientRect();au.currentTime=Math.max(0,Math.min(1,(ev.clientX-r.left)/r.width))*(au.duration||0)};
+
+function tg(){if(!au)return;if(au.paused)au.play();else au.pause()}
+function seek(e){if(!au)return;var b=document.getElementById('pbar');var go=function(ev){var r=b.getBoundingClientRect();au.currentTime=Math.max(0,Math.min(1,(ev.clientX-r.left)/r.width))*(au.duration||0)};
   go(e);var mv=function(ev){go(ev)};var up=function(){document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up)};
   document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up)}
-function setSpd(s,b){au.playbackRate=s;var btns=document.querySelectorAll('.spd');for(var i=0;i<btns.length;i++)btns[i].classList.remove('on');b.classList.add('on')}
+function setSpd(s,b){if(!au)return;au.playbackRate=s;var btns=document.querySelectorAll('.spd');for(var i=0;i<btns.length;i++)btns[i].classList.remove('on');b.classList.add('on')}
 </script>
 </body></html>
