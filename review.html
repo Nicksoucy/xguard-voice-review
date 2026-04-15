@@ -290,22 +290,58 @@ resolveLesson(function(lesson){
   au.onended = function(){document.getElementById('bp').textContent='\u25b6'};
   au.onseeked = function(){var t=au.currentTime;for(var i=0;i<els.length;i++){if(W[i].start>t){els[i].classList.remove('spoken');els[i].classList.remove('now')}else{els[i].classList.add('spoken')}}prevIdx=-1;sync()};
 
-  fetch(STORAGE + '/' + L.lesson_key + '/timestamps.json')
-    .then(function(r){if(!r.ok)throw 0;return r.json()})
-    .then(function(d){
-      W = d;
-      buildWords();
-      loadExistingReview();
-      loadStatus();
-      loadHistory();
-    }).catch(function(){
-      return fetch(STORAGE + '/' + L.lesson_key + '/voiceover-timestamps.json')
-        .then(function(r){return r.json()})
-        .then(function(d){W=d; buildWords(); loadExistingReview(); loadStatus(); loadHistory();});
-    }).catch(function(err){
-      document.getElementById('wc').innerHTML = '<div class="err">Impossible de charger les timestamps: '+err.message+'</div>';
-    });
+  // Charger les timestamps en essayant les 2 fichiers possibles.
+  // On garde celui qui a la premiere phrase (sentenceIndex 0), parce que
+  // certains anciens timestamps.json sont corrompus (partiels, ne contiennent
+  // qu'une sous-partie des phrases du voiceover).
+  loadTimestamps();
 });
+
+function loadTimestamps(){
+  var urls = [
+    STORAGE + '/' + L.lesson_key + '/voiceover-timestamps.json',
+    STORAGE + '/' + L.lesson_key + '/timestamps.json'
+  ];
+  var results = [];
+  var done = 0;
+  urls.forEach(function(url, idx){
+    fetch(url)
+      .then(function(r){return r.ok ? r.json() : null})
+      .catch(function(){return null})
+      .then(function(data){
+        results[idx] = data;
+        done++;
+        if (done === urls.length) pickBestTimestamps(results);
+      });
+  });
+}
+
+function pickBestTimestamps(candidates){
+  // Trouver le meilleur : celui qui a sentenceIndex 0 ET le plus de mots
+  var best = null;
+  candidates.forEach(function(c){
+    if (!Array.isArray(c) || !c.length) return;
+    var hasStart = c.some(function(w){return w.sentenceIndex === 0});
+    if (!hasStart) return;  // fichier corrompu, ignore
+    if (!best || c.length > best.length) best = c;
+  });
+  // Si aucun fichier n'a sentenceIndex 0, on fallback sur celui qui a le plus de mots
+  if (!best) {
+    candidates.forEach(function(c){
+      if (!Array.isArray(c) || !c.length) return;
+      if (!best || c.length > best.length) best = c;
+    });
+  }
+  if (!best) {
+    document.getElementById('wc').innerHTML = '<div class="err">Impossible de charger les timestamps pour cette lecon.</div>';
+    return;
+  }
+  W = best;
+  buildWords();
+  loadExistingReview();
+  loadStatus();
+  loadHistory();
+}
 
 function buildWords(){
   var c=document.getElementById('wc');c.innerHTML='';
