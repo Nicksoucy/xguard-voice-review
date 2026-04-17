@@ -61,6 +61,8 @@ h1{color:#E74C3C;font-size:14px}
 .w.flagged.now{background:rgba(231,76,60,0.3)}.w:hover{background:rgba(255,255,255,0.05)}
 .w.resolved{color:#27AE60;border-bottom:2px solid #27AE60;font-weight:600}
 .w.resolved.now{background:rgba(39,174,96,0.3)}
+.w.approved{color:#555;border-bottom:none;font-weight:400}
+.w.approved.now{background:rgba(255,255,255,0.08)}
 .sm{display:inline-block;color:#333;font-size:9px;font-family:monospace;vertical-align:super;margin:0 2px;user-select:none}
 
 .fp{background:rgba(231,76,60,0.06);border:1px solid rgba(231,76,60,0.15);border-radius:8px;padding:14px 18px;margin-top:12px}
@@ -86,6 +88,9 @@ h1{color:#E74C3C;font-size:14px}
 .br{background:#C0392B;color:#fff}.br:hover{background:#E74C3C}
 .bg{background:#27AE60;color:#fff}.bg:hover{background:#2ECC71}
 .by{background:rgba(255,255,255,0.08);color:#aaa;border:1px solid rgba(255,255,255,0.12)}.by:hover{background:rgba(255,255,255,0.15)}
+.bApproveGreen{background:#16a34a;color:#fff;display:none}.bApproveGreen:hover{background:#22c55e}
+.toggle-approved{background:none;border:none;color:#555;font-size:10px;cursor:pointer;font-family:inherit;text-decoration:underline;padding:4px 0;margin-left:8px}
+.toggle-approved:hover{color:#94A3B8}
 .msg{color:#27AE60;font-size:12px;margin-left:4px}
 .msg.saving{color:#94A3B8;font-style:italic}
 .empty{color:#555;font-style:italic;font-size:13px;padding:6px}
@@ -143,8 +148,10 @@ h1{color:#E74C3C;font-size:14px}
   <div id="fl"><div class="empty">Clique sur les mots qui sonnent mal</div></div>
   <div class="acts">
     <button class="btn br" onclick="saveReview(false)">Sauvegarder</button>
+    <button class="btn bApproveGreen" id="btnApproveGreens" onclick="approveAllGreens()">&#10003; Approuver les corriges</button>
     <button class="btn bg" onclick="askApprove()">&#10003; Approuver</button>
     <button class="btn by" onclick="copyReview()">Copier texte</button>
+    <button class="toggle-approved" id="toggleApproved" onclick="toggleShowApproved()" style="display:none"></button>
     <span class="msg" id="msg"></span>
   </div>
 </div>
@@ -203,6 +210,11 @@ function isResolved(flag){
   if (flag.sentenceIndex === null || flag.sentenceIndex === undefined || flag.sentenceIndex === '?') return false;
   return regenIndices.indexOf(flag.sentenceIndex) !== -1;
 }
+// Un flag est "approved_after_regen" quand Nicolas a explicitement confirme
+// qu'apres regen le mot sonne bien. Il est cache de la liste par defaut.
+function isApproved(flag){ return !!flag.approved_after_regen; }
+// Variable de controle UI : afficher ou non les flags deja approuves
+var showApproved = false;
 function fmtDate(iso){try{return new Date(iso).toLocaleString('fr-CA',{dateStyle:'medium',timeStyle:'short'})}catch(e){return iso}}
 
 function resolveLesson(cb){
@@ -440,9 +452,11 @@ function refreshFlagClasses(){
     if (!el || !el.classList) continue;
     el.classList.remove('flagged');
     el.classList.remove('resolved');
+    el.classList.remove('approved');
     if (flags.has(i)) {
       var f = flags.get(i);
-      if (isResolved(f)) el.classList.add('resolved');
+      if (isApproved(f)) el.classList.add('approved');
+      else if (isResolved(f)) el.classList.add('resolved');
       else el.classList.add('flagged');
     }
   }
@@ -483,23 +497,31 @@ function buildWords(){
 
     if(si!==ls&&si>=0){var m=document.createElement('span');m.className='sm';m.textContent='['+si+']';c.appendChild(m);ls=si}
     var s=document.createElement('span');s.className='w';s.textContent=w.word;
-    // Re-appliquer le statut flagged/resolved si cette phrase avait deja un flag
+    // Re-appliquer le statut flagged/resolved/approved si cette phrase avait deja un flag
     if (flags.has(i)) {
       var fg = flags.get(i);
-      if (isResolved(fg)) s.classList.add('resolved');
+      if (isApproved(fg)) s.classList.add('approved'); // cache visuel mais flag reste en DB
+      else if (isResolved(fg)) s.classList.add('resolved');
       else s.classList.add('flagged');
     }
     (function(ii,sp){
       sp.onclick=function(){
-        // Cas 1 : mot actuellement "resolved" (vert). Clic = "ce mot est encore pas bon" -> repasse rouge (reflagged)
-        if(sp.classList.contains('resolved')){
+        // Cas 0 : mot "approved" (vert masque). Clic = annule l'approbation, repasse en resolved (vert visible)
+        if(sp.classList.contains('approved')){
+          sp.classList.remove('approved');
+          sp.classList.add('resolved');
+          var ex0 = flags.get(ii);
+          if (ex0) { delete ex0.approved_after_regen; flags.set(ii, ex0); }
+        }
+        // Cas 1 : mot "resolved" (vert). Clic = "ce mot est encore pas bon" -> repasse rouge (reflagged)
+        else if(sp.classList.contains('resolved')){
           sp.classList.remove('resolved');
           sp.classList.add('flagged');
           var existing = flags.get(ii) || {index:ii,word:W[ii].word,context:getCtx(ii),time:fmt(W[ii].start),sentenceIndex:gsi(ii),note:''};
           existing.reflagged = true; // marqueur : reste rouge meme si la phrase est dans regenIndices
           flags.set(ii, existing);
         }
-        // Cas 2 : mot actuellement "flagged" (rouge). Clic = retirer le flag
+        // Cas 2 : mot "flagged" (rouge). Clic = retirer le flag
         else if(sp.classList.contains('flagged')){
           sp.classList.remove('flagged');
           flags.delete(ii);
@@ -549,15 +571,79 @@ function renderGlitches(){var l=document.getElementById('gl');
     d.innerHTML='<span class="rt" onclick="jmp('+g.timeSec+')">'+g.time+'</span><span class="rs">#'+g.sentenceIndex+'</span><span class="rc">'+hl(g.context)+'</span><input placeholder="Note" value="'+(g.note||'').replace(/"/g,'&quot;')+'" oninput="glitches['+ii+'].note=this.value;scheduleAutoSave()"><button class="rm" onclick="glitches.splice('+ii+',1);renderGlitches();scheduleAutoSave()">\u2715</button>';
     l.appendChild(d)})(glitches[gi],gi)}}
 
-function renderFlags(){var l=document.getElementById('fl');
-  if(!flags.size){l.innerHTML='<div class="empty">Clique sur les mots qui sonnent mal</div>';return}
+function renderFlags(){
+  var l=document.getElementById('fl');
+  // Compter les categories
+  var greenCount = 0, approvedCount = 0;
+  flags.forEach(function(f){
+    if (isApproved(f)) approvedCount++;
+    else if (isResolved(f)) greenCount++;
+  });
+  // Afficher/cacher le bouton batch "Approuver les verts"
+  var btnApprove = document.getElementById('btnApproveGreens');
+  if (btnApprove) {
+    if (greenCount > 0) {
+      btnApprove.textContent = '\u2713 Approuver les ' + greenCount + ' corrige' + (greenCount>1?'s':'');
+      btnApprove.style.display = 'inline-block';
+    } else {
+      btnApprove.style.display = 'none';
+    }
+  }
+  // Mettre a jour le toggle "Afficher approuves"
+  var tog = document.getElementById('toggleApproved');
+  if (tog) {
+    if (approvedCount > 0) {
+      tog.textContent = showApproved
+        ? 'Cacher les ' + approvedCount + ' approuve' + (approvedCount>1?'s':'')
+        : 'Afficher les ' + approvedCount + ' approuve' + (approvedCount>1?'s':'');
+      tog.style.display = 'inline-block';
+    } else {
+      tog.style.display = 'none';
+    }
+  }
+  // Empty state
+  var totalVisible = 0;
+  flags.forEach(function(f){ if (showApproved || !isApproved(f)) totalVisible++; });
+  if(!totalVisible){l.innerHTML='<div class="empty">'+(flags.size?'Tous les flags ont ete approuves apres regen':'Clique sur les mots qui sonnent mal')+'</div>';return}
   l.innerHTML='';var sorted=Array.from(flags.entries()).sort(function(a,b){return a[0]-b[0]});
   for(var k=0;k<sorted.length;k++){(function(ii,d){
+    // Masquer les flags approuves sauf si showApproved
+    if (isApproved(d) && !showApproved) return;
     var resolved = isResolved(d);
+    var approved = isApproved(d);
     var el=document.createElement('div');
-    el.className='ri ' + (resolved ? 'ok' : 'f');
-    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span><span class="rc">'+hl(d.context)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="flags.get('+ii+').note=this.value;scheduleAutoSave()"><button class="rm" onclick="flags.delete('+ii+');if(els['+ii+']){els['+ii+'].classList.remove(\'flagged\');els['+ii+'].classList.remove(\'resolved\')}renderFlags();scheduleAutoSave()">\u2715</button>';
-    l.appendChild(el)})(sorted[k][0],sorted[k][1])}}
+    el.className='ri ' + (approved ? 'ok' : (resolved ? 'ok' : 'f'));
+    if (approved) el.style.opacity = '0.55';
+    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span><span class="rc">'+hl(d.context)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="flags.get('+ii+').note=this.value;scheduleAutoSave()"><button class="rm" onclick="flags.delete('+ii+');if(els['+ii+']){els['+ii+'].classList.remove(\'flagged\');els['+ii+'].classList.remove(\'resolved\');els['+ii+'].classList.remove(\'approved\')}renderFlags();scheduleAutoSave()">\u2715</button>';
+    l.appendChild(el)})(sorted[k][0],sorted[k][1])}
+}
+
+// Approuve tous les flags verts (resolved) d'un coup
+function approveAllGreens(){
+  var changed = 0;
+  flags.forEach(function(f,ii){
+    if (isResolved(f) && !isApproved(f)) {
+      f.approved_after_regen = true;
+      f.approved_at = new Date().toISOString();
+      flags.set(ii, f);
+      if (els[ii]) {
+        els[ii].classList.remove('resolved');
+        els[ii].classList.add('approved');
+      }
+      changed++;
+    }
+  });
+  if (changed > 0) {
+    renderFlags();
+    scheduleAutoSave();
+  }
+}
+
+// Toggle affichage des flags approuves
+function toggleShowApproved(){
+  showApproved = !showApproved;
+  renderFlags();
+}
 
 function jmp(t){if(!au)return;au.currentTime=Math.max(0,t-0.5);if(au.paused)au.play()}
 
