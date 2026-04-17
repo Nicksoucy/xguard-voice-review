@@ -59,6 +59,8 @@ h1{color:#E74C3C;font-size:14px}
 .w.spoken{color:#999}.w.now{color:#fff;background:rgba(255,255,255,0.08);font-weight:600}
 .w.flagged{color:#E74C3C;border-bottom:2px solid #E74C3C;font-weight:600}
 .w.flagged.now{background:rgba(231,76,60,0.3)}.w:hover{background:rgba(255,255,255,0.05)}
+.w.resolved{color:#27AE60;border-bottom:2px solid #27AE60;font-weight:600}
+.w.resolved.now{background:rgba(39,174,96,0.3)}
 .sm{display:inline-block;color:#333;font-size:9px;font-family:monospace;vertical-align:super;margin:0 2px;user-select:none}
 
 .fp{background:rgba(231,76,60,0.06);border:1px solid rgba(231,76,60,0.15);border-radius:8px;padding:14px 18px;margin-top:12px}
@@ -67,6 +69,10 @@ h1{color:#E74C3C;font-size:14px}
 .ri{display:flex;align-items:center;gap:6px;margin-bottom:5px;padding:5px 8px;border-radius:5px;flex-wrap:wrap;font-size:12px}
 .ri.g{background:rgba(230,126,34,0.08);border:1px solid rgba(230,126,34,0.2)}
 .ri.f{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)}
+.ri.ok{background:rgba(39,174,96,0.07);border:1px solid rgba(39,174,96,0.2)}
+.ri.ok .rw{color:#27AE60;text-decoration:line-through}
+.ri.ok .rc{color:#5a8a6e}
+.ri.ok::before{content:"\2713";color:#27AE60;font-weight:700;margin-right:4px}
 .ri .rt{color:#666;min-width:32px;cursor:pointer}
 .ri .rs{color:#E67E22;font-family:monospace;min-width:24px;font-size:11px}
 .ri .rw{color:#E74C3C;font-weight:600;min-width:80px}
@@ -179,10 +185,24 @@ var dirty = false;
 // Mode filtre : quand actif, n'affiche que les phrases regenerees (regenIndices)
 var regenIndices = null; // null = pas de filtre disponible pour cette lecon
 var filterModeActive = false;
+// Ranges temporels par sentenceIndex, calcules depuis W (timestamps mot-a-mot).
+// Ex: sentenceRanges[5] = {start: 12.3, end: 15.7}
+var sentenceRanges = {};
 
 function getCtx(i){var s=Math.max(0,i-4),e=Math.min(W.length-1,i+4);var r=[];for(var k=s;k<=e;k++){r.push(k===i?'**'+W[k].word+'**':W[k].word)}return r.join(' ')}
 function gsi(i){return W[i] && W[i].sentenceIndex!=null ? W[i].sentenceIndex : '?'}
 function fmt(s){return Math.floor(s/60)+':'+('0'+Math.floor(s%60)).slice(-2)}
+// Un flag est "resolved" si la phrase (sentenceIndex) a ete regeneree depuis
+// la derniere fois qu'il a ete pose. Se base sur regenerated_sentence_indices
+// de voiceover_metadata (rempli par regen-from-reviews.mjs).
+// Si le reviewer re-clique sur le mot apres regen, le flag repasse en "unresolved"
+// (= c'est un nouveau probleme sur la phrase deja regeneree).
+function isResolved(flag){
+  if (!regenIndices) return false;
+  if (flag.reflagged) return false; // re-flagge manuellement apres regen
+  if (flag.sentenceIndex === null || flag.sentenceIndex === undefined || flag.sentenceIndex === '?') return false;
+  return regenIndices.indexOf(flag.sentenceIndex) !== -1;
+}
 function fmtDate(iso){try{return new Date(iso).toLocaleString('fr-CA',{dateStyle:'medium',timeStyle:'short'})}catch(e){return iso}}
 
 function resolveLesson(cb){
@@ -217,7 +237,10 @@ function loadExistingReview(){
       if (Array.isArray(rev.flags)) {
         rev.flags.forEach(function(f){
           flags.set(f.index, f);
-          if (els[f.index]) els[f.index].classList.add('flagged');
+          if (els[f.index]) {
+            if (isResolved(f)) els[f.index].classList.add('resolved');
+            else els[f.index].classList.add('flagged');
+          }
         });
       }
       if (Array.isArray(rev.glitches)) glitches = rev.glitches.slice();
@@ -349,11 +372,30 @@ function pickBestTimestamps(candidates){
     return;
   }
   W = best;
+  computeSentenceRanges();
   buildWords();
   loadExistingReview();
   loadStatus();
   loadHistory();
   loadRegenIndices();
+}
+
+// Calcule le range temporel de chaque phrase (start du premier mot, end du dernier mot)
+// pour pouvoir sauter d'une phrase a l'autre en mode filtre.
+function computeSentenceRanges(){
+  sentenceRanges = {};
+  for (var i = 0; i < W.length; i++) {
+    var w = W[i];
+    var si = w.sentenceIndex;
+    if (si === null || si === undefined) continue;
+    if (!sentenceRanges[si]) {
+      sentenceRanges[si] = {start: w.start, end: (w.end != null ? w.end : w.start)};
+    } else {
+      if (w.start < sentenceRanges[si].start) sentenceRanges[si].start = w.start;
+      var we = (w.end != null ? w.end : w.start);
+      if (we > sentenceRanges[si].end) sentenceRanges[si].end = we;
+    }
+  }
 }
 
 // Charger la liste des phrases regenerees depuis voiceover_metadata.
@@ -373,6 +415,10 @@ function loadRegenIndices(){
       var btn = document.getElementById('filterBtn');
       btn.textContent = '\u{1F50D} ' + indices.length + ' a revoir';
       btn.style.display = 'inline-block';
+      // Re-appliquer les classes resolved/flagged sur les mots deja affiches
+      // (loadExistingReview a deja tourne mais sans connaitre regenIndices)
+      refreshFlagClasses();
+      renderFlags();
       // Auto-enable si la lecon est en needs_recheck (workflow principal)
       fetch(API+'/lesson_status?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=status',{headers:H})
         .then(function(r){return r.json()})
@@ -384,6 +430,22 @@ function loadRegenIndices(){
           }
         });
     }).catch(function(){});
+}
+
+// Re-applique les classes flagged/resolved sur tous les mots actuellement rendus.
+// Utile quand regenIndices arrive APRES loadExistingReview (async race).
+function refreshFlagClasses(){
+  for (var i = 0; i < els.length; i++) {
+    var el = els[i];
+    if (!el || !el.classList) continue;
+    el.classList.remove('flagged');
+    el.classList.remove('resolved');
+    if (flags.has(i)) {
+      var f = flags.get(i);
+      if (isResolved(f)) el.classList.add('resolved');
+      else el.classList.add('flagged');
+    }
+  }
 }
 
 function buildWords(){
@@ -421,12 +483,34 @@ function buildWords(){
 
     if(si!==ls&&si>=0){var m=document.createElement('span');m.className='sm';m.textContent='['+si+']';c.appendChild(m);ls=si}
     var s=document.createElement('span');s.className='w';s.textContent=w.word;
-    // Re-appliquer le statut flagged si cette phrase avait deja un flag
-    if (flags.has(i)) s.classList.add('flagged');
+    // Re-appliquer le statut flagged/resolved si cette phrase avait deja un flag
+    if (flags.has(i)) {
+      var fg = flags.get(i);
+      if (isResolved(fg)) s.classList.add('resolved');
+      else s.classList.add('flagged');
+    }
     (function(ii,sp){
       sp.onclick=function(){
-        if(sp.classList.contains('flagged')){sp.classList.remove('flagged');flags.delete(ii)}
-        else{sp.classList.add('flagged');flags.set(ii,{index:ii,word:W[ii].word,context:getCtx(ii),time:fmt(W[ii].start),sentenceIndex:gsi(ii),note:''})}
+        // Cas 1 : mot actuellement "resolved" (vert). Clic = "ce mot est encore pas bon" -> repasse rouge (reflagged)
+        if(sp.classList.contains('resolved')){
+          sp.classList.remove('resolved');
+          sp.classList.add('flagged');
+          var existing = flags.get(ii) || {index:ii,word:W[ii].word,context:getCtx(ii),time:fmt(W[ii].start),sentenceIndex:gsi(ii),note:''};
+          existing.reflagged = true; // marqueur : reste rouge meme si la phrase est dans regenIndices
+          flags.set(ii, existing);
+        }
+        // Cas 2 : mot actuellement "flagged" (rouge). Clic = retirer le flag
+        else if(sp.classList.contains('flagged')){
+          sp.classList.remove('flagged');
+          flags.delete(ii);
+        }
+        // Cas 3 : mot normal. Clic = ajoute un flag (rouge, sauf si phrase deja regeneree -> vert)
+        else {
+          var nf = {index:ii,word:W[ii].word,context:getCtx(ii),time:fmt(W[ii].start),sentenceIndex:gsi(ii),note:''};
+          flags.set(ii, nf);
+          if (isResolved(nf)) sp.classList.add('resolved');
+          else sp.classList.add('flagged');
+        }
         renderFlags();
         scheduleAutoSave();
       };
@@ -443,6 +527,8 @@ function toggleFilterMode(){
   var btn = document.getElementById('filterBtn');
   btn.classList.toggle('on', filterModeActive);
   buildWords();
+  // Si l'audio joue dans une phrase non-a-revoir, sauter immediatement
+  if (filterModeActive && au && !au.paused) maybeSkipUnregen();
 }
 
 function flagStutter(){
@@ -466,8 +552,11 @@ function renderGlitches(){var l=document.getElementById('gl');
 function renderFlags(){var l=document.getElementById('fl');
   if(!flags.size){l.innerHTML='<div class="empty">Clique sur les mots qui sonnent mal</div>';return}
   l.innerHTML='';var sorted=Array.from(flags.entries()).sort(function(a,b){return a[0]-b[0]});
-  for(var k=0;k<sorted.length;k++){(function(ii,d){var el=document.createElement('div');el.className='ri f';
-    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span><span class="rc">'+hl(d.context)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="flags.get('+ii+').note=this.value;scheduleAutoSave()"><button class="rm" onclick="flags.delete('+ii+');if(els['+ii+'])els['+ii+'].classList.remove(\'flagged\');renderFlags();scheduleAutoSave()">\u2715</button>';
+  for(var k=0;k<sorted.length;k++){(function(ii,d){
+    var resolved = isResolved(d);
+    var el=document.createElement('div');
+    el.className='ri ' + (resolved ? 'ok' : 'f');
+    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span><span class="rc">'+hl(d.context)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="flags.get('+ii+').note=this.value;scheduleAutoSave()"><button class="rm" onclick="flags.delete('+ii+');if(els['+ii+']){els['+ii+'].classList.remove(\'flagged\');els['+ii+'].classList.remove(\'resolved\')}renderFlags();scheduleAutoSave()">\u2715</button>';
     l.appendChild(el)})(sorted[k][0],sorted[k][1])}}
 
 function jmp(t){if(!au)return;au.currentTime=Math.max(0,t-0.5);if(au.paused)au.play()}
@@ -533,8 +622,49 @@ function copyReview(){var t='Lecon: '+(L.short_title||L.title)+'\n';
 
 function showMsg(t, cls){var m=document.getElementById('msg');m.textContent=t;m.className='msg'+(cls?' '+cls:'');if(!cls)setTimeout(function(){m.textContent=''},2500)}
 
+// Cherche le debut de la prochaine phrase regeneree (>=t). Retourne null si aucune.
+function nextRegenStart(t){
+  if (!regenIndices || !regenIndices.length) return null;
+  var best = null;
+  for (var i = 0; i < regenIndices.length; i++) {
+    var si = regenIndices[i];
+    var r = sentenceRanges[si];
+    if (!r) continue;
+    if (r.start >= t - 0.05 && (best === null || r.start < best)) best = r.start;
+  }
+  return best;
+}
+
+// Verifie si le temps t tombe dans une phrase qu'on doit skipper en mode filtre.
+// Si oui, avance currentTime a la prochaine phrase regeneree (ou pause a la fin).
+function maybeSkipUnregen(){
+  if (!filterModeActive || !regenIndices || !au) return false;
+  var t = au.currentTime;
+  // Chercher dans quelle phrase on se trouve actuellement
+  var currentSi = -1;
+  for (var i = 0; i < W.length; i++) {
+    if (W[i].start > t) break;
+    if (W[i].sentenceIndex != null) currentSi = W[i].sentenceIndex;
+  }
+  if (currentSi < 0) return false;
+  // Si la phrase courante est dans regenIndices -> on laisse jouer
+  if (regenIndices.indexOf(currentSi) !== -1) return false;
+  // Sinon : chercher la prochaine phrase a revoir et y sauter
+  var jumpTo = nextRegenStart(t);
+  if (jumpTo !== null) {
+    au.currentTime = jumpTo;
+    return true;
+  }
+  // Plus aucune phrase a revoir apres ce point -> pause
+  au.pause();
+  return true;
+}
+
 // Audio sync
-function sync(){var t=au.currentTime;var ii=-1,lo=0,hi=W.length-1;
+function sync(){var t=au.currentTime;
+  // Auto-skip en mode filtre : saute les phrases non a revoir pendant la lecture
+  if (maybeSkipUnregen()) { if(!au.paused) requestAnimationFrame(sync); return; }
+  var ii=-1,lo=0,hi=W.length-1;
   while(lo<=hi){var m=(lo+hi)>>1;if(t>=W[m].start){ii=m;lo=m+1}else{hi=m-1}}
   if(ii!==prevIdx){if(prevIdx>=0&&els[prevIdx])els[prevIdx].classList.remove('now');
     for(var i=Math.max(0,prevIdx);i<=ii&&i<els.length;i++)els[i].classList.add('spoken');
@@ -546,7 +676,22 @@ function sync(){var t=au.currentTime;var ii=-1,lo=0,hi=W.length-1;
   document.getElementById('ti').textContent=fmt(t)+' / '+fmt(d);
   if(!au.paused)requestAnimationFrame(sync)}
 
-function tg(){if(!au)return;if(au.paused)au.play();else au.pause()}
+function tg(){
+  if(!au)return;
+  if(au.paused){
+    // Si mode filtre actif et qu'on est sur une phrase non-a-revoir, sauter direct au bon endroit
+    if (filterModeActive && regenIndices) {
+      var t = au.currentTime;
+      var currentSi = -1;
+      for (var i=0;i<W.length;i++){ if(W[i].start>t)break; if(W[i].sentenceIndex!=null) currentSi = W[i].sentenceIndex; }
+      if (currentSi < 0 || regenIndices.indexOf(currentSi) === -1) {
+        var jumpTo = nextRegenStart(t);
+        if (jumpTo !== null) au.currentTime = jumpTo;
+      }
+    }
+    au.play();
+  } else au.pause();
+}
 function seek(e){if(!au)return;var b=document.getElementById('pbar');var go=function(ev){var r=b.getBoundingClientRect();au.currentTime=Math.max(0,Math.min(1,(ev.clientX-r.left)/r.width))*(au.duration||0)};
   go(e);var mv=function(ev){go(ev)};var up=function(){document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up)};
   document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up)}
