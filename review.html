@@ -196,7 +196,39 @@ var filterModeActive = false;
 // Ex: sentenceRanges[5] = {start: 12.3, end: 15.7}
 var sentenceRanges = {};
 
-function getCtx(i){var s=Math.max(0,i-4),e=Math.min(W.length-1,i+4);var r=[];for(var k=s;k<=e;k++){r.push(k===i?'**'+W[k].word+'**':W[k].word)}return r.join(' ')}
+// Extrait un contexte autour du mot a l'index i :
+// - on reste dans la meme phrase (sentenceIndex) que le mot flagge
+// - on veut au moins MIN_BEFORE/MIN_AFTER mots, et au plus MAX_BEFORE/MAX_AFTER
+// - si la phrase est plus longue, on tronque et on prefixe/suffixe par "..."
+// Objectif : toujours avoir assez de mots autour pour reconnaitre le mot a l'oreille,
+// sans jamais enjamber une phrase (ex: pas "...proximite. Declenchez les...").
+function getCtx(i){
+  var MIN_BEFORE = 6, MIN_AFTER = 6;
+  var MAX_BEFORE = 10, MAX_AFTER = 10;
+  if (!W[i]) return '';
+  var si = W[i].sentenceIndex;
+  // Trouver le debut de la phrase courante
+  var sentStart = i;
+  while (sentStart > 0 && W[sentStart-1].sentenceIndex === si) sentStart--;
+  // Trouver la fin de la phrase courante
+  var sentEnd = i;
+  while (sentEnd < W.length-1 && W[sentEnd+1].sentenceIndex === si) sentEnd++;
+  // Calculer la fenetre : au moins MIN, au plus MAX, sans sortir de la phrase
+  var s = Math.max(sentStart, i - MAX_BEFORE);
+  var e = Math.min(sentEnd, i + MAX_AFTER);
+  // Si la phrase est courte, on prend tout (pas besoin de tronquer)
+  if (sentEnd - sentStart <= MIN_BEFORE + MIN_AFTER) {
+    s = sentStart;
+    e = sentEnd;
+  }
+  var prefix = s > sentStart ? '... ' : '';
+  var suffix = e < sentEnd ? ' ...' : '';
+  var r = [];
+  for (var k = s; k <= e; k++) {
+    r.push(k === i ? '**'+W[k].word+'**' : W[k].word);
+  }
+  return prefix + r.join(' ') + suffix;
+}
 function gsi(i){return W[i] && W[i].sentenceIndex!=null ? W[i].sentenceIndex : '?'}
 function fmt(s){return Math.floor(s/60)+':'+('0'+Math.floor(s%60)).slice(-2)}
 // Un flag est "resolved" si la phrase (sentenceIndex) a ete regeneree depuis
@@ -248,9 +280,20 @@ function loadExistingReview(){
       var rev = rows[0];
       if (Array.isArray(rev.flags)) {
         rev.flags.forEach(function(f){
+          // Regenerer le contexte avec la nouvelle fonction getCtx (snippets plus
+          // longs et bornes par la phrase). Si l'index est valide, on remplace le
+          // context en DB pour que la prochaine sauvegarde ait un meilleur contexte.
+          if (typeof f.index === 'number' && W[f.index]) {
+            var newCtx = getCtx(f.index);
+            if (newCtx && newCtx !== f.context) {
+              f.context = newCtx;
+              dirty = true; // forcer la prochaine auto-save
+            }
+          }
           flags.set(f.index, f);
           if (els[f.index]) {
-            if (isResolved(f)) els[f.index].classList.add('resolved');
+            if (isApproved(f)) els[f.index].classList.add('approved');
+            else if (isResolved(f)) els[f.index].classList.add('resolved');
             else els[f.index].classList.add('flagged');
           }
         });
@@ -747,19 +790,36 @@ function maybeSkipUnregen(){
 }
 
 // Audio sync
-function sync(){var t=au.currentTime;
+// LEAD_TIME : on avance le surlignage de 80ms pour compenser la latence de perception
+// (l'oeil voit le mot avant de l'entendre, ce qui donne l'impression que c'est synchronise).
+// Si un mot a un word.end, on retire le "now" des que t > end pour eviter qu'un mot
+// termine reste allume pendant les pauses.
+var LEAD_TIME = 0.08;
+function sync(){var t=au.currentTime + LEAD_TIME;
   // Auto-skip en mode filtre : saute les phrases non a revoir pendant la lecture
   if (maybeSkipUnregen()) { if(!au.paused) requestAnimationFrame(sync); return; }
+  // Recherche binaire : dernier mot dont start <= t
   var ii=-1,lo=0,hi=W.length-1;
   while(lo<=hi){var m=(lo+hi)>>1;if(t>=W[m].start){ii=m;lo=m+1}else{hi=m-1}}
-  if(ii!==prevIdx){if(prevIdx>=0&&els[prevIdx])els[prevIdx].classList.remove('now');
-    for(var i=Math.max(0,prevIdx);i<=ii&&i<els.length;i++)els[i].classList.add('spoken');
-    if(ii>=0&&els[ii]){els[ii].classList.add('now');els[ii].classList.add('spoken');
-      var r=els[ii].getBoundingClientRect(),cr=document.getElementById('wc').getBoundingClientRect();
-      if(r.bottom>cr.bottom-20||r.top<cr.top+20)els[ii].scrollIntoView({behavior:'smooth',block:'center'})}
-    prevIdx=ii}
-  var d=au.duration||0;document.getElementById('pfill').style.width=d?(t/d*100)+'%':'0%';
-  document.getElementById('ti').textContent=fmt(t)+' / '+fmt(d);
+  // Si le mot courant a un word.end et qu'on l'a depasse, aucun mot "now" actuellement
+  // (on est dans une pause inter-mots). On garde ii pour marquer "spoken" jusqu'a la mais
+  // on ne met pas la classe .now.
+  var activeIdx = ii;
+  if (ii >= 0 && W[ii] && W[ii].end != null && t > W[ii].end) {
+    activeIdx = -1; // pause, pas de mot actif
+  }
+  if(activeIdx!==prevIdx){
+    if(prevIdx>=0&&els[prevIdx])els[prevIdx].classList.remove('now');
+    // Marquer "spoken" tous les mots jusqu'a ii (inclus) meme si on est en pause apres
+    for(var i=Math.max(0,prevIdx);i<=ii&&i<els.length;i++)if(els[i])els[i].classList.add('spoken');
+    if(activeIdx>=0&&els[activeIdx]){els[activeIdx].classList.add('now');els[activeIdx].classList.add('spoken');
+      var r=els[activeIdx].getBoundingClientRect(),cr=document.getElementById('wc').getBoundingClientRect();
+      if(r.bottom>cr.bottom-20||r.top<cr.top+20)els[activeIdx].scrollIntoView({behavior:'smooth',block:'center'})}
+    prevIdx=activeIdx
+  }
+  var d=au.duration||0;var rt=au.currentTime;
+  document.getElementById('pfill').style.width=d?(rt/d*100)+'%':'0%';
+  document.getElementById('ti').textContent=fmt(rt)+' / '+fmt(d);
   if(!au.paused)requestAnimationFrame(sync)}
 
 function tg(){
