@@ -103,3 +103,26 @@ h1{color:#E74C3C;font-size:14px}
 .modal h3{color:#2ECC71;font-size:16px;margin-bottom:10px}
 .modal p{color:#94A3B8;font-size:13px;line-height:1.5;margin-bottom:16px}
 .modal .acts{margin-top:0}
+
+/* Sentence flag modal (E6) — max-width plus grand */
+.modal.sentence-modal{max-width:560px;max-height:85vh;overflow-y:auto}
+.sentence-preview{background:rgba(255,255,255,0.04);border-left:3px solid #E67E22;padding:8px 12px;border-radius:0 4px 4px 0;font-style:italic;color:#F0F0F0;font-size:12px;line-height:1.5}
+.sentence-type-group{display:flex;flex-direction:column;gap:6px;margin:14px 0}
+.sentence-type-option{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid rgba(255,255,255,0.08);border-radius:6px;cursor:pointer;transition:background .12s,border-color .12s}
+.sentence-type-option:hover{background:rgba(255,255,255,0.04);border-color:rgba(46,204,113,0.35)}
+.sentence-type-option input[type="radio"]{margin-top:3px;flex-shrink:0;accent-color:#2ECC71;cursor:pointer}
+.sentence-type-option input[type="radio"]:checked ~ .sentence-type-label{color:#fff}
+.sentence-type-option:has(input:checked){background:rgba(46,204,113,0.08);border-color:#2ECC71}
+.sentence-type-label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:#94A3B8}
+.sentence-type-label strong{color:#F0F0F0;font-size:13px}
+.sentence-type-label em{font-style:normal;font-size:11px;color:#777;line-height:1.4}
+.sentence-form-fields{margin:12px 0}
+.sentence-field{margin-bottom:10px}
+.sentence-field label{display:block;color:#94A3B8;font-size:11px;margin-bottom:4px}
+.sentence-field input,.sentence-field textarea{width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:4px;padding:7px 10px;color:#F0F0F0;font-size:12px;font-family:inherit;resize:vertical}
+.sentence-field input:focus,.sentence-field textarea:focus{outline:none;border-color:#2ECC71}
+.sentence-field textarea{min-height:60px}
+
+/* Bouton flag phrase dans le texte */
+.sm-flag{display:inline-block;color:#666;font-size:10px;cursor:pointer;margin:0 2px;padding:1px 3px;border-radius:2px;user-select:none}
+.sm-flag:hover{background:rgba(230,126,34,0.2);color:#E67E22}
