@@ -297,8 +297,8 @@ function loadRegenIndices(){
       regenIndices = indices;
       // Afficher le bouton filtre avec le count
       var btn = document.getElementById('filterBtn');
-      btn.textContent = '\u{1F50D} ' + indices.length + ' a revoir';
       btn.style.display = 'inline-block';
+      updateFilterBtnCount();
       // Re-appliquer les classes resolved/flagged sur les mots deja affiches
       // (loadExistingReview a deja tourne mais sans connaitre regenIndices)
       refreshFlagClasses();
@@ -314,6 +314,34 @@ function loadRegenIndices(){
           }
         });
     }).catch(function(){});
+}
+
+// Met a jour le compteur du bouton filtre ("X a revoir") en temps reel.
+// Le "vrai" compte = phrases regenerees qui ont encore des flags NON-approuves
+// PLUS phrases regenerees sans aucun flag (neuves a verifier).
+// Quand tous les flags sont approuves, le compteur affiche 0.
+function updateFilterBtnCount(){
+  var btn = document.getElementById('filterBtn');
+  if (!btn || !regenIndices) return;
+  // Compter les phrases regenerees qui ont encore au moins 1 flag non-approuve
+  var phrasesWithUnresolved = new Set();
+  flags.forEach(function(f){
+    if (!isApproved(f) && regenIndices.indexOf(f.sentenceIndex) !== -1) {
+      phrasesWithUnresolved.add(f.sentenceIndex);
+    }
+  });
+  // Phrases regenerees sans flag du tout (= neuves a ecouter, pas encore verifiees)
+  var phrasesWithFlag = new Set();
+  flags.forEach(function(f){ phrasesWithFlag.add(f.sentenceIndex); });
+  var newUnchecked = regenIndices.filter(function(si){ return !phrasesWithFlag.has(si); });
+  var total = phrasesWithUnresolved.size + newUnchecked.length;
+  btn.textContent = '\u{1F50D} ' + total + ' a revoir';
+  // Visuellement on cache le bouton si tout est approuve (plus rien a revoir)
+  if (total === 0) {
+    btn.style.opacity = '0.5';
+  } else {
+    btn.style.opacity = '1';
+  }
 }
 
 // Re-applique les classes flagged/resolved sur tous les mots actuellement rendus.
@@ -457,6 +485,8 @@ function renderGlitches(){var l=document.getElementById('gl');
 
 function renderFlags(){
   var l=document.getElementById('fl');
+  // Mettre a jour le compteur "X a revoir" du bouton filtre en temps reel
+  updateFilterBtnCount();
   // Compter les categories
   var greenCount = 0, approvedCount = 0;
   flags.forEach(function(f){
@@ -498,7 +528,17 @@ function renderFlags(){
     var el=document.createElement('div');
     el.className='ri ' + (approved ? 'ok' : (resolved ? 'ok' : 'f'));
     if (approved) el.style.opacity = '0.55';
-    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span><span class="rc">'+hl(d.context)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="flags.get('+ii+').note=this.value;scheduleAutoSave()"><button class="rm" onclick="flags.delete('+ii+');if(els['+ii+']){els['+ii+'].classList.remove(\'flagged\');els['+ii+'].classList.remove(\'resolved\');els['+ii+'].classList.remove(\'approved\')}renderFlags();scheduleAutoSave()">\u2715</button>';
+    // Selecteur de categorie : permet a Nicolas de distinguer
+    // - pronunciation : ElevenLabs prononce mal un mot correctement ecrit -> enrichir le dict
+    // - typo : le scriptwriter a ecrit un mot qui n'existe pas -> corriger le .md, NE PAS enrichir dict
+    // - rewrite : la phrase entiere est mal tournee -> phrase_patterns Supabase
+    var currentCat = d.category || 'pronunciation';
+    var catSelect = '<select class="rcat" onchange="flags.get('+ii+').category=this.value;scheduleAutoSave()" title="Categorie du flag">'
+      + '<option value="pronunciation"' + (currentCat==='pronunciation'?' selected':'') + '>prononciation</option>'
+      + '<option value="typo"' + (currentCat==='typo'?' selected':'') + '>faute de frappe</option>'
+      + '<option value="rewrite"' + (currentCat==='rewrite'?' selected':'') + '>phrase a reecrire</option>'
+      + '</select>';
+    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span>'+catSelect+'<span class="rc">'+hl(d.context)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="flags.get('+ii+').note=this.value;scheduleAutoSave()"><button class="rm" onclick="flags.delete('+ii+');if(els['+ii+']){els['+ii+'].classList.remove(\'flagged\');els['+ii+'].classList.remove(\'resolved\');els['+ii+'].classList.remove(\'approved\')}renderFlags();scheduleAutoSave()">\u2715</button>';
     l.appendChild(el)})(sorted[k][0],sorted[k][1])}
 }
 
