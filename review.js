@@ -287,6 +287,11 @@ function computeSentenceRanges(){
 // contient un JSON array d'indices (ex: [0, 5, 12, 18]). On affiche le bouton
 // Filtrer et, si la lecon est en needs_recheck, on active le mode filtre
 // automatiquement pour que le reviewer ne voie que les phrases a revoir.
+//
+// IMPORTANT : le bouton "X a revoir" ne doit apparaitre QUE si la lecon a deja
+// ete reviewee au moins une fois. Pour une lecon fraichement generee (1ere
+// upload, aucune review existante), on cache le bouton — l'utilisateur ecoute
+// et flag au fil de l'eau, pas besoin de filtre "a revoir".
 function loadRegenIndices(){
   fetch(API+'/voiceover_metadata?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=regenerated_sentence_indices',{headers:H})
     .then(function(r){return r.json()})
@@ -295,8 +300,17 @@ function loadRegenIndices(){
       var indices = rows[0].regenerated_sentence_indices;
       if (!Array.isArray(indices) || indices.length === 0) return;
       regenIndices = indices;
-      // Afficher le bouton filtre avec le count
+      // Verifier si la lecon a deja ete reviewee (flags existants en DB).
+      // Si aucune review -> c'est une 1ere ecoute, on cache le bouton "a revoir".
+      // Si review existe et status needs_recheck -> on affiche le bouton + mode filtre.
+      var hasExistingReview = flags.size > 0;
       var btn = document.getElementById('filterBtn');
+      if (!hasExistingReview) {
+        // 1ere ecoute : ne pas afficher le bouton. Les phrases sont "neuves", pas "a revoir".
+        btn.style.display = 'none';
+        return;
+      }
+      // Lecon deja reviewee et regeneree : afficher le bouton filtre.
       btn.style.display = 'inline-block';
       updateFilterBtnCount();
       // Re-appliquer les classes resolved/flagged sur les mots deja affiches
@@ -317,9 +331,9 @@ function loadRegenIndices(){
 }
 
 // Met a jour le compteur du bouton filtre ("X a revoir") en temps reel.
-// Le "vrai" compte = phrases regenerees qui ont encore des flags NON-approuves
-// PLUS phrases regenerees sans aucun flag (neuves a verifier).
-// Quand tous les flags sont approuves, le compteur affiche 0.
+// Compte uniquement les phrases regenerees qui ont un flag NON-approuve.
+// Une phrase regeneree SANS flag = Nicolas a deja accepte (pas besoin de la revoir).
+// Quand tous les flags sont approuves, le compteur disparait.
 function updateFilterBtnCount(){
   var btn = document.getElementById('filterBtn');
   if (!btn || !regenIndices) return;
@@ -330,16 +344,13 @@ function updateFilterBtnCount(){
       phrasesWithUnresolved.add(f.sentenceIndex);
     }
   });
-  // Phrases regenerees sans flag du tout (= neuves a ecouter, pas encore verifiees)
-  var phrasesWithFlag = new Set();
-  flags.forEach(function(f){ phrasesWithFlag.add(f.sentenceIndex); });
-  var newUnchecked = regenIndices.filter(function(si){ return !phrasesWithFlag.has(si); });
-  var total = phrasesWithUnresolved.size + newUnchecked.length;
-  btn.textContent = '\u{1F50D} ' + total + ' a revoir';
-  // Visuellement on cache le bouton si tout est approuve (plus rien a revoir)
+  var total = phrasesWithUnresolved.size;
   if (total === 0) {
-    btn.style.opacity = '0.5';
+    // Plus rien a revoir : cacher le bouton completement.
+    btn.style.display = 'none';
   } else {
+    btn.textContent = '\u{1F50D} ' + total + ' a revoir';
+    btn.style.display = 'inline-block';
     btn.style.opacity = '1';
   }
 }
