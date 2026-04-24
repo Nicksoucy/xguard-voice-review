@@ -289,9 +289,13 @@ function computeSentenceRanges(){
 // automatiquement pour que le reviewer ne voie que les phrases a revoir.
 //
 // IMPORTANT : le bouton "X a revoir" ne doit apparaitre QUE si la lecon a deja
-// ete reviewee au moins une fois. Pour une lecon fraichement generee (1ere
-// upload, aucune review existante), on cache le bouton — l'utilisateur ecoute
+// ete reviewee au moins une fois en DB. Pour une lecon fraichement generee
+// (1ere upload, aucune review), on cache le bouton — l'utilisateur ecoute
 // et flag au fil de l'eau, pas besoin de filtre "a revoir".
+//
+// On fetch EXPLICITEMENT voice_reviews en DB (pas flags.size local) parce que
+// loadExistingReview tourne en parallele et peut ne pas avoir fini au moment
+// ou on verifie l'existence de flags.
 function loadRegenIndices(){
   fetch(API+'/voiceover_metadata?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=regenerated_sentence_indices',{headers:H})
     .then(function(r){return r.json()})
@@ -300,32 +304,42 @@ function loadRegenIndices(){
       var indices = rows[0].regenerated_sentence_indices;
       if (!Array.isArray(indices) || indices.length === 0) return;
       regenIndices = indices;
-      // Verifier si la lecon a deja ete reviewee (flags existants en DB).
-      // Si aucune review -> c'est une 1ere ecoute, on cache le bouton "a revoir".
-      // Si review existe et status needs_recheck -> on affiche le bouton + mode filtre.
-      var hasExistingReview = flags.size > 0;
-      var btn = document.getElementById('filterBtn');
-      if (!hasExistingReview) {
-        // 1ere ecoute : ne pas afficher le bouton. Les phrases sont "neuves", pas "a revoir".
-        btn.style.display = 'none';
-        return;
-      }
-      // Lecon deja reviewee et regeneree : afficher le bouton filtre.
-      btn.style.display = 'inline-block';
-      updateFilterBtnCount();
-      // Re-appliquer les classes resolved/flagged sur les mots deja affiches
-      // (loadExistingReview a deja tourne mais sans connaitre regenIndices)
-      refreshFlagClasses();
-      renderFlags();
-      // Auto-enable si la lecon est en needs_recheck (workflow principal)
-      fetch(API+'/lesson_status?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=status',{headers:H})
+      // Verifier explicitement dans la DB si une review existe pour cette lecon
+      return fetch(API+'/voice_reviews?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=flags',{headers:H})
         .then(function(r){return r.json()})
-        .then(function(rr){
-          if (rr.length && rr[0].status === 'needs_recheck') {
-            filterModeActive = true;
-            btn.classList.add('on');
-            buildWords();
+        .then(function(reviews){
+          var btn = document.getElementById('filterBtn');
+          // Verifier si au moins une review existe avec au moins un flag
+          var hasExistingFlags = false;
+          if (Array.isArray(reviews)) {
+            for (var i = 0; i < reviews.length; i++) {
+              var flagsInDb = reviews[i].flags;
+              if (Array.isArray(flagsInDb) && flagsInDb.length > 0) {
+                hasExistingFlags = true;
+                break;
+              }
+            }
           }
+          if (!hasExistingFlags) {
+            // 1ere ecoute : ne pas afficher le bouton.
+            btn.style.display = 'none';
+            return;
+          }
+          // Lecon deja reviewee et regeneree : afficher le bouton filtre.
+          btn.style.display = 'inline-block';
+          updateFilterBtnCount();
+          refreshFlagClasses();
+          renderFlags();
+          // Auto-enable si la lecon est en needs_recheck (workflow principal)
+          return fetch(API+'/lesson_status?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=status',{headers:H})
+            .then(function(r){return r.json()})
+            .then(function(rr){
+              if (rr.length && rr[0].status === 'needs_recheck') {
+                filterModeActive = true;
+                btn.classList.add('on');
+                buildWords();
+              }
+            });
         });
     }).catch(function(){});
 }
