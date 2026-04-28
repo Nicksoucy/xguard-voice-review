@@ -74,6 +74,12 @@ function isResolved(flag){
 // Un flag est "approved_after_regen" quand Nicolas a explicitement confirme
 // qu'apres regen le mot sonne bien. Il est cache de la liste par defaut.
 function isApproved(flag){ return !!flag.approved_after_regen; }
+// Un flag est "auto_resolved" quand le mot flagged n'existe plus dans le texte
+// apres reformulation (detecte automatiquement par auto-resolve-orphan-flags.mjs).
+// Cache par defaut comme isApproved.
+function isAutoResolved(flag){ return !!flag.auto_resolved; }
+// Combine : flag a cacher de la liste active
+function isHidden(flag){ return isApproved(flag) || isAutoResolved(flag); }
 // Variable de controle UI : afficher ou non les flags deja approuves
 var showApproved = false;
 function fmtDate(iso){try{return new Date(iso).toLocaleString('fr-CA',{dateStyle:'medium',timeStyle:'short'})}catch(e){return iso}}
@@ -351,10 +357,11 @@ function loadRegenIndices(){
 function updateFilterBtnCount(){
   var btn = document.getElementById('filterBtn');
   if (!btn || !regenIndices) return;
-  // Compter les phrases regenerees qui ont encore au moins 1 flag non-approuve
+  // Compter les phrases regenerees qui ont encore au moins 1 flag actif
+  // (non approved_after_regen, non auto_resolved)
   var phrasesWithUnresolved = new Set();
   flags.forEach(function(f){
-    if (!isApproved(f) && regenIndices.indexOf(f.sentenceIndex) !== -1) {
+    if (!isHidden(f) && regenIndices.indexOf(f.sentenceIndex) !== -1) {
       phrasesWithUnresolved.add(f.sentenceIndex);
     }
   });
@@ -542,17 +549,18 @@ function renderFlags(){
   }
   // Empty state
   var totalVisible = 0;
-  flags.forEach(function(f){ if (showApproved || !isApproved(f)) totalVisible++; });
+  flags.forEach(function(f){ if (showApproved || !isHidden(f)) totalVisible++; });
   if(!totalVisible){l.innerHTML='<div class="empty">'+(flags.size?'Tous les flags ont ete approuves apres regen':'Clique sur les mots qui sonnent mal')+'</div>';return}
   l.innerHTML='';var sorted=Array.from(flags.entries()).sort(function(a,b){return a[0]-b[0]});
   for(var k=0;k<sorted.length;k++){(function(ii,d){
-    // Masquer les flags approuves sauf si showApproved
-    if (isApproved(d) && !showApproved) return;
+    // Masquer les flags approuves OU auto_resolved sauf si showApproved
+    if (isHidden(d) && !showApproved) return;
     var resolved = isResolved(d);
     var approved = isApproved(d);
+    var autoResolved = isAutoResolved(d);
     var el=document.createElement('div');
-    el.className='ri ' + (approved ? 'ok' : (resolved ? 'ok' : 'f'));
-    if (approved) el.style.opacity = '0.55';
+    el.className='ri ' + (approved || autoResolved ? 'ok' : (resolved ? 'ok' : 'f'));
+    if (approved || autoResolved) el.style.opacity = '0.55';
     // Selecteur de categorie : permet a Nicolas de distinguer
     // - pronunciation : ElevenLabs prononce mal un mot correctement ecrit -> enrichir le dict
     // - typo : le scriptwriter a ecrit un mot qui n'existe pas -> corriger le .md, NE PAS enrichir dict
