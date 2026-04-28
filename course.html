@@ -142,17 +142,37 @@ resolveCourseId(function(courseId){
   Promise.all([
     fetch(API+'/courses?id=eq.'+encodeURIComponent(courseId),{headers:H}).then(function(r){return r.json()}),
     fetch(API+'/lesson_status?course_id=eq.'+encodeURIComponent(courseId)+'&order=sort_order.asc',{headers:H}).then(function(r){return r.json()}),
-    // Fetch des indices regenerees par lesson_key (pour afficher le badge "X a revoir")
-    fetch(API+'/voiceover_metadata?lesson_key=like.'+encodeURIComponent(courseId+'/%')+'&select=lesson_key,regenerated_sentence_indices',{headers:H}).then(function(r){return r.json()})
+    // Fetch des indices regenerees par lesson_key (pour calculer le badge "X a revoir")
+    fetch(API+'/voiceover_metadata?lesson_key=like.'+encodeURIComponent(courseId+'/%')+'&select=lesson_key,regenerated_sentence_indices',{headers:H}).then(function(r){return r.json()}),
+    // Fetch des flags actuels (latest review par lesson) pour calculer count REEL
+    fetch(API+'/voice_reviews?lesson_key=like.'+encodeURIComponent(courseId+'/%')+'&select=lesson_key,flags,updated_at&order=updated_at.desc',{headers:H}).then(function(r){return r.json()})
   ]).then(function(results){
     var courseRows = results[0];
     var lessonStatuses = results[1];
     var metaRows = results[2] || [];
-    // Construire une map lesson_key -> nb de phrases regenerees
+    var reviewRows = results[3] || [];
+
+    // Construire map lesson_key -> latest flags (le 1er = le plus recent grace au order desc)
+    var flagsByLesson = {};
+    reviewRows.forEach(function(r){
+      if (!flagsByLesson[r.lesson_key]) flagsByLesson[r.lesson_key] = r.flags || [];
+    });
+
+    // Construire une map lesson_key -> nb de PHRASES regenerees AVEC flag actif (non auto_resolved, non approved)
+    // Plus juste : on compte UNIQUEMENT les phrases dans regen_indices qui ont encore un flag a revoir
     var regenCounts = {};
     metaRows.forEach(function(m){
-      if (Array.isArray(m.regenerated_sentence_indices) && m.regenerated_sentence_indices.length > 0) {
-        regenCounts[m.lesson_key] = m.regenerated_sentence_indices.length;
+      if (!Array.isArray(m.regenerated_sentence_indices) || m.regenerated_sentence_indices.length === 0) return;
+      var indices = m.regenerated_sentence_indices;
+      var flags = flagsByLesson[m.lesson_key] || [];
+      // Phrases regenerees avec flag actif (non resolu)
+      var phrasesAvecFlagActif = new Set();
+      flags.forEach(function(f){
+        if (f.approved_after_regen || f.auto_resolved) return; // ignore les resolus
+        if (indices.indexOf(f.sentenceIndex) !== -1) phrasesAvecFlagActif.add(f.sentenceIndex);
+      });
+      if (phrasesAvecFlagActif.size > 0) {
+        regenCounts[m.lesson_key] = phrasesAvecFlagActif.size;
       }
     });
 
