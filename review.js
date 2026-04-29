@@ -154,7 +154,22 @@ function loadStatus(){
         parts.push('<strong>'+sentences+'</strong> phrases · <strong>'+W.length+'</strong> mots');
       }
       if (L.duration_seconds) parts.push('<strong>'+Math.round(L.duration_seconds/60)+' min</strong> de voiceover');
-      if (s.voiceover_uploaded_at) parts.push('Dernier upload : <strong>'+fmtDate(s.voiceover_uploaded_at)+'</strong>');
+      if (s.voiceover_uploaded_at) {
+        parts.push('Dernier upload : <strong>'+fmtDate(s.voiceover_uploaded_at)+'</strong>');
+        // Cache-buster stable base sur la date d'upload : meme version = cache hit,
+        // nouvelle version = re-download. Remplace le Date.now() initial.
+        if (au) {
+          var stableBust = encodeURIComponent(s.voiceover_uploaded_at);
+          var newSrc = STORAGE + '/' + L.lesson_key + '/voiceover.mp3?v=' + stableBust;
+          if (au.src.indexOf('?v=' + stableBust) === -1) {
+            var t = au.currentTime;
+            var wasPlaying = !au.paused;
+            au.src = newSrc;
+            au.currentTime = t;
+            if (wasPlaying) au.play();
+          }
+        }
+      }
       if (s.voiceover_version && s.voiceover_version > 1) parts.push('Version <strong>'+s.voiceover_version+'</strong>');
       if (s.regen_source) parts.push('Source : <strong>'+s.regen_source+'</strong>');
       if (parts.length) {
@@ -209,7 +224,10 @@ resolveLesson(function(lesson){
   nav.innerHTML = '<a href="course.html?course='+encodeURIComponent(L.course_id)+'">← Cours</a>'
     + '<a href="index.html">Index</a>';
 
-  au = new Audio(STORAGE + '/' + L.lesson_key + '/voiceover.mp3');
+  // Cache-buster initial (Date.now) pour forcer un fresh load a chaque ouverture.
+  // Sera remplace par ?v=<voiceover_uploaded_at> quand loadStatus() recoit la metadata,
+  // pour que les ouvertures suivantes profitent du cache si la version n'a pas change.
+  au = new Audio(STORAGE + '/' + L.lesson_key + '/voiceover.mp3?v=' + Date.now());
   au.onplay = function(){document.getElementById('bp').textContent='\u23f8';requestAnimationFrame(sync)};
   au.onpause = function(){document.getElementById('bp').textContent='\u25b6'};
   au.onended = function(){document.getElementById('bp').textContent='\u25b6'};
@@ -223,9 +241,11 @@ resolveLesson(function(lesson){
 });
 
 function loadTimestamps(){
+  // Cache-buster pour eviter de servir un timestamps.json desync de la nouvelle MP3
+  var bust = '?v=' + Date.now();
   var urls = [
-    STORAGE + '/' + L.lesson_key + '/voiceover-timestamps.json',
-    STORAGE + '/' + L.lesson_key + '/timestamps.json'
+    STORAGE + '/' + L.lesson_key + '/voiceover-timestamps.json' + bust,
+    STORAGE + '/' + L.lesson_key + '/timestamps.json' + bust
   ];
   var results = [];
   var done = 0;
