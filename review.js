@@ -124,6 +124,11 @@ function findLastActiveFlag() {
 
 // Construit un contexte autour d'un groupe de mots (extension de getCtx pour multi-mots).
 // Borne par la phrase du leader (1er mot du groupe).
+// Strategie : pour chaque mot, on regarde s'il est dans le groupe.
+//   - Mot dans le groupe : on ouvre/ferme un span ** autour des sous-groupes contigus.
+//   - Mot hors groupe : on l'ajoute sans **.
+// Pour les groupes non-contigus, on insere "..." entre les sous-groupes pour eviter
+// d'avoir un contexte enorme englobant tous les mots intermediaires.
 function getGroupCtx(groupIndices) {
   if (!groupIndices || groupIndices.length === 0) return '';
   var sortedIdx = groupIndices.slice().sort(function(a,b){ return a-b; });
@@ -136,43 +141,62 @@ function getGroupCtx(groupIndices) {
   while (sentStart > 0 && W[sentStart-1].sentenceIndex === si) sentStart--;
   var sentEnd = last;
   while (sentEnd < W.length-1 && W[sentEnd+1].sentenceIndex === si) sentEnd++;
-  // Bornes window : ~6 mots avant et apres le groupe, dans la phrase
-  var s = Math.max(sentStart, first - 6);
-  var e = Math.min(sentEnd, last + 6);
-  var prefix = s > sentStart ? '... ' : '';
-  var suffix = e < sentEnd ? ' ...' : '';
+
+  // Detecter les sous-groupes contigus pour eviter de marquer ** chaque mot individuellement.
+  // Ex: groupIndices=[200,201,202,250] -> sous-groupes [[200,201,202], [250]]
   var groupSet = new Set(sortedIdx);
-  var r = [];
-  for (var k = s; k <= e; k++) {
-    if (groupSet.has(k)) {
-      // Si c'est le 1er mot du groupe : ouvrir **
-      // Si c'est le dernier mot du groupe : fermer **
-      // Pour un groupe contigu, on englobe tout d'un coup. Pour non-contigu,
-      // chaque mot est entoure de **.
-      if (k === first && k === last) {
-        r.push('**' + W[k].word + '**');
-      } else if (k === first) {
-        r.push('**' + W[k].word);
-      } else if (k === last) {
-        r.push(W[k].word + '**');
-      } else if (groupSet.has(k-1) && groupSet.has(k+1)) {
-        // Au milieu d'un groupe contigu
-        r.push(W[k].word);
-      } else if (!groupSet.has(k-1) && groupSet.has(k+1)) {
-        // Debut d'un sous-groupe contigu
-        r.push('**' + W[k].word);
-      } else if (groupSet.has(k-1) && !groupSet.has(k+1)) {
-        // Fin d'un sous-groupe contigu
-        r.push(W[k].word + '**');
-      } else {
-        // Mot isole dans le groupe (non-contigu)
-        r.push('**' + W[k].word + '**');
-      }
+  var subGroups = [];
+  var cur = [sortedIdx[0]];
+  for (var i = 1; i < sortedIdx.length; i++) {
+    if (sortedIdx[i] === sortedIdx[i-1] + 1) {
+      cur.push(sortedIdx[i]);
     } else {
-      r.push(W[k].word);
+      subGroups.push(cur);
+      cur = [sortedIdx[i]];
     }
   }
-  return prefix + r.join(' ') + suffix;
+  subGroups.push(cur);
+
+  // Pour chaque sous-groupe, construire un contexte local : ~5 mots avant + sous-groupe + ~5 mots apres,
+  // borne par sentStart/sentEnd. Puis joindre avec " ... " entre sous-groupes.
+  var WINDOW = 5;
+  var parts = [];
+  var lastEnd = -1; // indice de fin du contexte precedent (pour detecter chevauchements)
+  for (var sg = 0; sg < subGroups.length; sg++) {
+    var sub = subGroups[sg];
+    var subFirst = sub[0];
+    var subLast = sub[sub.length - 1];
+    var winStart = Math.max(sentStart, subFirst - WINDOW);
+    var winEnd = Math.min(sentEnd, subLast + WINDOW);
+    // Si chevauchement avec le contexte precedent, decoller
+    var localPrefix = '';
+    if (lastEnd >= 0 && winStart <= lastEnd + 1) {
+      // Fusionne avec le precedent : on commence apres lastEnd
+      winStart = lastEnd + 1;
+    } else if (sg === 0 && winStart > sentStart) {
+      localPrefix = '... ';
+    } else if (sg > 0) {
+      localPrefix = ' ... ';
+    }
+    var r = [];
+    for (var k = winStart; k <= winEnd; k++) {
+      if (groupSet.has(k)) {
+        // Detecter ouverture/fermeture du span **
+        var openBold = !groupSet.has(k-1) || k === winStart;
+        var closeBold = !groupSet.has(k+1) || k === winEnd;
+        var token = W[k].word;
+        if (openBold) token = '**' + token;
+        if (closeBold) token = token + '**';
+        r.push(token);
+      } else {
+        r.push(W[k].word);
+      }
+    }
+    parts.push(localPrefix + r.join(' '));
+    lastEnd = winEnd;
+  }
+  var suffix = lastEnd < sentEnd ? ' ...' : '';
+  return parts.join('') + suffix;
 }
 
 function resolveLesson(cb){
