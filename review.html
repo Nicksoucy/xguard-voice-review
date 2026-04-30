@@ -3,8 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Voice Review</title>
-  <link rel="stylesheet" href="review.css">
+  <link rel="stylesheet" href="review.css?v=20260430b">
 </head>
 <body>
 
@@ -131,7 +134,8 @@
 </div>
 
 <!-- Le JS est charge en non-module : toutes les var/function top-level sont
-     automatiquement sur window, donc accessibles depuis les onclick inline. -->
-<script src="review.js"></script>
+     automatiquement sur window, donc accessibles depuis les onclick inline.
+     Cache-buster ?v=DATE bumpe a chaque deploy avec changement majeur. -->
+<script src="review.js?v=20260430b"></script>
 </body>
 </html>
