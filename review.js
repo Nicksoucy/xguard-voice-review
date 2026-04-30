@@ -84,6 +84,97 @@ function isHidden(flag){ return isApproved(flag) || isAutoResolved(flag); }
 var showApproved = false;
 function fmtDate(iso){try{return new Date(iso).toLocaleString('fr-CA',{dateStyle:'medium',timeStyle:'short'})}catch(e){return iso}}
 
+// ── HELPERS POUR FLAGS GROUPES (Ctrl+click) ──────────────────────
+// Un flag groupe a la forme : {index: 12, groupIndices: [12,13,14], word: "cent vingt metres", ...}
+// Le "leader" est le mot dont l'index est dans flags.get(). Les autres mots du groupe
+// ne sont PAS dans flags.get() mais sont visuellement marques flagged+grouped.
+
+// Trouve le leader d'un groupe contenant ii. Retourne null si ii n'est dans aucun groupe.
+// Si ii est lui-meme un leader (flag isole ou leader de groupe), retourne ii.
+function findGroupLeader(ii) {
+  if (flags.has(ii)) return ii;
+  // Chercher dans tous les flags si un a groupIndices contenant ii
+  var leaderIdx = null;
+  flags.forEach(function(f, leaderIi){
+    if (Array.isArray(f.groupIndices) && f.groupIndices.indexOf(ii) !== -1) {
+      leaderIdx = leaderIi;
+    }
+  });
+  return leaderIdx;
+}
+
+// Trouve le DERNIER flag actif (rouge, non-resolu, non-approuve) — pour ajouter au groupe via Ctrl+click.
+// "Dernier" = celui avec le plus grand index de mot. Permet de continuer un groupe en cours.
+function findLastActiveFlag() {
+  var best = null;
+  flags.forEach(function(f, ii){
+    if (isHidden(f)) return; // skip approved/auto_resolved
+    if (isResolved(f)) return; // skip resolved (vert) — on grouperait pas un mot deja resolu
+    // Determiner l'index "max" du flag (leader ou dernier mot du groupe)
+    var maxIdx = ii;
+    if (Array.isArray(f.groupIndices)) {
+      maxIdx = Math.max.apply(null, f.groupIndices);
+    }
+    if (best === null || maxIdx > best.maxIdx) {
+      best = { leaderIi: ii, maxIdx: maxIdx };
+    }
+  });
+  return best ? best.leaderIi : null;
+}
+
+// Construit un contexte autour d'un groupe de mots (extension de getCtx pour multi-mots).
+// Borne par la phrase du leader (1er mot du groupe).
+function getGroupCtx(groupIndices) {
+  if (!groupIndices || groupIndices.length === 0) return '';
+  var sortedIdx = groupIndices.slice().sort(function(a,b){ return a-b; });
+  var first = sortedIdx[0];
+  var last = sortedIdx[sortedIdx.length - 1];
+  if (!W[first]) return '';
+  var si = W[first].sentenceIndex;
+  // Trouver les bornes de la phrase
+  var sentStart = first;
+  while (sentStart > 0 && W[sentStart-1].sentenceIndex === si) sentStart--;
+  var sentEnd = last;
+  while (sentEnd < W.length-1 && W[sentEnd+1].sentenceIndex === si) sentEnd++;
+  // Bornes window : ~6 mots avant et apres le groupe, dans la phrase
+  var s = Math.max(sentStart, first - 6);
+  var e = Math.min(sentEnd, last + 6);
+  var prefix = s > sentStart ? '... ' : '';
+  var suffix = e < sentEnd ? ' ...' : '';
+  var groupSet = new Set(sortedIdx);
+  var r = [];
+  for (var k = s; k <= e; k++) {
+    if (groupSet.has(k)) {
+      // Si c'est le 1er mot du groupe : ouvrir **
+      // Si c'est le dernier mot du groupe : fermer **
+      // Pour un groupe contigu, on englobe tout d'un coup. Pour non-contigu,
+      // chaque mot est entoure de **.
+      if (k === first && k === last) {
+        r.push('**' + W[k].word + '**');
+      } else if (k === first) {
+        r.push('**' + W[k].word);
+      } else if (k === last) {
+        r.push(W[k].word + '**');
+      } else if (groupSet.has(k-1) && groupSet.has(k+1)) {
+        // Au milieu d'un groupe contigu
+        r.push(W[k].word);
+      } else if (!groupSet.has(k-1) && groupSet.has(k+1)) {
+        // Debut d'un sous-groupe contigu
+        r.push('**' + W[k].word);
+      } else if (groupSet.has(k-1) && !groupSet.has(k+1)) {
+        // Fin d'un sous-groupe contigu
+        r.push(W[k].word + '**');
+      } else {
+        // Mot isole dans le groupe (non-contigu)
+        r.push('**' + W[k].word + '**');
+      }
+    } else {
+      r.push(W[k].word);
+    }
+  }
+  return prefix + r.join(' ') + suffix;
+}
+
 function resolveLesson(cb){
   if (lessonKey) {
     fetch(API+'/lessons?lesson_key=eq.'+encodeURIComponent(lessonKey)+'&select=*',{headers:H})
@@ -115,22 +206,31 @@ function loadExistingReview(){
       var rev = rows[0];
       if (Array.isArray(rev.flags)) {
         rev.flags.forEach(function(f){
-          // Regenerer le contexte avec la nouvelle fonction getCtx (snippets plus
-          // longs et bornes par la phrase). Si l'index est valide, on remplace le
-          // context en DB pour que la prochaine sauvegarde ait un meilleur contexte.
-          if (typeof f.index === 'number' && W[f.index]) {
+          // Regenerer le contexte. Si flag groupe (groupIndices), utiliser getGroupCtx.
+          if (Array.isArray(f.groupIndices) && f.groupIndices.length > 0) {
+            var newGCtx = getGroupCtx(f.groupIndices);
+            if (newGCtx && newGCtx !== f.context) {
+              f.context = newGCtx;
+              dirty = true;
+            }
+          } else if (typeof f.index === 'number' && W[f.index]) {
             var newCtx = getCtx(f.index);
             if (newCtx && newCtx !== f.context) {
               f.context = newCtx;
-              dirty = true; // forcer la prochaine auto-save
+              dirty = true;
             }
           }
           flags.set(f.index, f);
-          if (els[f.index]) {
-            if (isApproved(f)) els[f.index].classList.add('approved');
-            else if (isResolved(f)) els[f.index].classList.add('resolved');
-            else els[f.index].classList.add('flagged');
-          }
+          // Marquer le leader + tous les membres du groupe avec flagged/grouped
+          var isGroup = Array.isArray(f.groupIndices) && f.groupIndices.length > 1;
+          var memberIndices = isGroup ? f.groupIndices : [f.index];
+          memberIndices.forEach(function(memberIdx){
+            if (!els[memberIdx]) return;
+            if (isApproved(f)) els[memberIdx].classList.add('approved');
+            else if (isResolved(f)) els[memberIdx].classList.add('resolved');
+            else els[memberIdx].classList.add('flagged');
+            if (isGroup) els[memberIdx].classList.add('grouped');
+          });
         });
       }
       if (Array.isArray(rev.glitches)) glitches = rev.glitches.slice();
@@ -399,19 +499,28 @@ function updateFilterBtnCount(){
 // Re-applique les classes flagged/resolved sur tous les mots actuellement rendus.
 // Utile quand regenIndices arrive APRES loadExistingReview (async race).
 function refreshFlagClasses(){
+  // Reset all
   for (var i = 0; i < els.length; i++) {
     var el = els[i];
     if (!el || !el.classList) continue;
     el.classList.remove('flagged');
     el.classList.remove('resolved');
     el.classList.remove('approved');
-    if (flags.has(i)) {
-      var f = flags.get(i);
-      if (isApproved(f)) el.classList.add('approved');
-      else if (isResolved(f)) el.classList.add('resolved');
-      else el.classList.add('flagged');
-    }
+    el.classList.remove('grouped');
   }
+  // Re-applique en gerant les groupes
+  flags.forEach(function(f, leaderIdx){
+    var isGroup = Array.isArray(f.groupIndices) && f.groupIndices.length > 1;
+    var memberIndices = isGroup ? f.groupIndices : [leaderIdx];
+    memberIndices.forEach(function(memberIdx){
+      var ele = els[memberIdx];
+      if (!ele || !ele.classList) return;
+      if (isApproved(f)) ele.classList.add('approved');
+      else if (isResolved(f)) ele.classList.add('resolved');
+      else ele.classList.add('flagged');
+      if (isGroup) ele.classList.add('grouped');
+    });
+  });
 }
 
 function buildWords(){
@@ -461,15 +570,92 @@ function buildWords(){
       ls=si;
     }
     var s=document.createElement('span');s.className='w';s.textContent=w.word;
-    // Re-appliquer le statut flagged/resolved/approved si cette phrase avait deja un flag
+    // Re-appliquer le statut flagged/resolved/approved si cette phrase avait deja un flag.
+    // Cherche d'abord si i est leader, sinon si i est dans le groupIndices d'un flag.
+    var fgFound = null, isGroupMember = false;
     if (flags.has(i)) {
-      var fg = flags.get(i);
-      if (isApproved(fg)) s.classList.add('approved'); // cache visuel mais flag reste en DB
-      else if (isResolved(fg)) s.classList.add('resolved');
+      fgFound = flags.get(i);
+      isGroupMember = Array.isArray(fgFound.groupIndices) && fgFound.groupIndices.length > 1;
+    } else {
+      flags.forEach(function(f){
+        if (Array.isArray(f.groupIndices) && f.groupIndices.indexOf(i) !== -1) {
+          fgFound = f;
+          isGroupMember = true;
+        }
+      });
+    }
+    if (fgFound) {
+      if (isApproved(fgFound)) s.classList.add('approved');
+      else if (isResolved(fgFound)) s.classList.add('resolved');
       else s.classList.add('flagged');
+      if (isGroupMember) s.classList.add('grouped');
     }
     (function(ii,sp){
-      sp.onclick=function(){
+      sp.onclick=function(e){
+        // ── CTRL+CLICK : grouper avec un flag existant ───────────────
+        // Ctrl+click sur un mot ajoute ce mot au DERNIER flag actif (rouge)
+        // pour creer un flag groupe (ex: "cent vingt metres" = 1 seul flag).
+        // Le mot est marque flagged + classe 'grouped' pour indication visuelle.
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          // Si le mot est deja flagged, le retirer du groupe
+          if (sp.classList.contains('flagged')) {
+            // Trouver le flag-leader (celui qui contient ii dans groupIndices)
+            var leaderIdx = findGroupLeader(ii);
+            if (leaderIdx !== null) {
+              var lf = flags.get(leaderIdx);
+              if (lf && Array.isArray(lf.groupIndices)) {
+                lf.groupIndices = lf.groupIndices.filter(function(g){ return g !== ii; });
+                // Si plus rien dans le groupe (mot etait seul), supprimer le flag
+                if (lf.groupIndices.length === 0) {
+                  flags.delete(leaderIdx);
+                } else {
+                  // Reconstruire le mot concatene
+                  lf.word = lf.groupIndices.map(function(g){ return W[g] ? W[g].word : ''; }).filter(Boolean).join(' ');
+                  flags.set(leaderIdx, lf);
+                }
+                sp.classList.remove('flagged');
+                sp.classList.remove('grouped');
+              }
+            } else {
+              // Flag isole, retire normalement
+              flags.delete(ii);
+              sp.classList.remove('flagged');
+            }
+          } else {
+            // Ajouter au dernier flag actif (rouge) ou creer un nouveau
+            var leader = findLastActiveFlag();
+            if (leader !== null) {
+              var lf2 = flags.get(leader);
+              // Promouvoir en groupe si pas deja
+              if (!Array.isArray(lf2.groupIndices)) {
+                lf2.groupIndices = [leader];
+              }
+              if (lf2.groupIndices.indexOf(ii) === -1) {
+                lf2.groupIndices.push(ii);
+                lf2.groupIndices.sort(function(a,b){ return a-b; });
+                // Reconstruire le mot concatene en ordre lexical
+                lf2.word = lf2.groupIndices.map(function(g){ return W[g] ? W[g].word : ''; }).filter(Boolean).join(' ');
+                // Mettre a jour le contexte autour du LEADER
+                lf2.context = getGroupCtx(lf2.groupIndices);
+                flags.set(leader, lf2);
+              }
+              sp.classList.add('flagged');
+              sp.classList.add('grouped');
+              // Marquer aussi le leader comme "grouped" si pas deja
+              if (els[leader]) els[leader].classList.add('grouped');
+            } else {
+              // Pas de flag actif, creer un nouveau (mode normal)
+              var nf2 = {index:ii,word:W[ii].word,context:getCtx(ii),time:fmt(W[ii].start),sentenceIndex:gsi(ii),note:''};
+              flags.set(ii, nf2);
+              sp.classList.add('flagged');
+            }
+          }
+          renderFlags();
+          scheduleAutoSave();
+          return;
+        }
+        // ── CLICK NORMAL ───────────────────────────────────────────────
         // Cas 0 : mot "approved" (vert masque). Clic = annule l'approbation, repasse en resolved (vert visible)
         if(sp.classList.contains('approved')){
           sp.classList.remove('approved');
@@ -485,10 +671,35 @@ function buildWords(){
           existing.reflagged = true; // marqueur : reste rouge meme si la phrase est dans regenIndices
           flags.set(ii, existing);
         }
-        // Cas 2 : mot "flagged" (rouge). Clic = retirer le flag
+        // Cas 2 : mot "flagged" (rouge). Clic = retirer le flag (et tout le groupe si applicable)
         else if(sp.classList.contains('flagged')){
+          var groupLeader = findGroupLeader(ii);
+          if (groupLeader !== null && groupLeader !== ii) {
+            // Le mot fait partie d'un groupe dont il n'est pas leader : retirer du groupe
+            var lf3 = flags.get(groupLeader);
+            if (lf3 && Array.isArray(lf3.groupIndices)) {
+              lf3.groupIndices = lf3.groupIndices.filter(function(g){ return g !== ii; });
+              if (lf3.groupIndices.length === 0) {
+                flags.delete(groupLeader);
+                if (els[groupLeader]) els[groupLeader].classList.remove('flagged','grouped');
+              } else {
+                lf3.word = lf3.groupIndices.map(function(g){ return W[g] ? W[g].word : ''; }).filter(Boolean).join(' ');
+                flags.set(groupLeader, lf3);
+              }
+            }
+          } else {
+            // Flag isole OU leader d'un groupe : retirer tout
+            var lf4 = flags.get(ii);
+            if (lf4 && Array.isArray(lf4.groupIndices)) {
+              // Nettoyer les classes de tous les mots du groupe
+              lf4.groupIndices.forEach(function(g){
+                if (els[g]) els[g].classList.remove('flagged','grouped');
+              });
+            }
+            flags.delete(ii);
+          }
           sp.classList.remove('flagged');
-          flags.delete(ii);
+          sp.classList.remove('grouped');
         }
         // Cas 3 : mot normal. Clic = ajoute un flag (rouge, sauf si phrase deja regeneree -> vert)
         else {
@@ -570,7 +781,7 @@ function renderFlags(){
   // Empty state
   var totalVisible = 0;
   flags.forEach(function(f){ if (showApproved || !isHidden(f)) totalVisible++; });
-  if(!totalVisible){l.innerHTML='<div class="empty">'+(flags.size?'Tous les flags ont ete approuves apres regen':'Clique sur les mots qui sonnent mal')+'</div>';return}
+  if(!totalVisible){l.innerHTML='<div class="empty">'+(flags.size?'Tous les flags ont ete approuves apres regen':'Clique sur les mots qui sonnent mal<br><span style="font-size:10px;opacity:0.7">Astuce : Ctrl+clic pour grouper plusieurs mots (ex: "cent vingt metres" en 1 flag)</span>')+'</div>';return}
   l.innerHTML='';var sorted=Array.from(flags.entries()).sort(function(a,b){return a[0]-b[0]});
   for(var k=0;k<sorted.length;k++){(function(ii,d){
     // Masquer les flags approuves OU auto_resolved sauf si showApproved
@@ -591,7 +802,12 @@ function renderFlags(){
       + '<option value="typo"' + (currentCat==='typo'?' selected':'') + '>faute de frappe</option>'
       + '<option value="rewrite"' + (currentCat==='rewrite'?' selected':'') + '>phrase a reecrire</option>'
       + '</select>';
-    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span>'+catSelect+'<span class="rc">'+hl(d.context)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="flags.get('+ii+').note=this.value;scheduleAutoSave()"><button class="rm" onclick="flags.delete('+ii+');if(els['+ii+']){els['+ii+'].classList.remove(\'flagged\');els['+ii+'].classList.remove(\'resolved\');els['+ii+'].classList.remove(\'approved\')}renderFlags();scheduleAutoSave()">\u2715</button>';
+    // Si flag groupe, marquer visuellement avec un badge "groupe (N mots)"
+    var isGroup = Array.isArray(d.groupIndices) && d.groupIndices.length > 1;
+    var groupBadge = isGroup ? '<span class="rg" title="Flag groupe de '+d.groupIndices.length+' mots">\u{1F517} '+d.groupIndices.length+'</span>' : '';
+    // Bouton X : nettoie les classes du leader ET de tous les membres du groupe
+    var groupIndicesStr = isGroup ? '['+d.groupIndices.join(',')+']' : '['+ii+']';
+    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span>'+groupBadge+catSelect+'<span class="rc">'+hl(d.context)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="flags.get('+ii+').note=this.value;scheduleAutoSave()"><button class="rm" onclick="flags.delete('+ii+');'+groupIndicesStr+'.forEach(function(g){if(els[g]){els[g].classList.remove(\'flagged\',\'resolved\',\'approved\',\'grouped\')}});renderFlags();scheduleAutoSave()">\u2715</button>';
     l.appendChild(el)})(sorted[k][0],sorted[k][1])}
 }
 

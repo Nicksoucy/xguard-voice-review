@@ -59,6 +59,11 @@ h1{color:#E74C3C;font-size:14px}
 .w.resolved.now{background:rgba(39,174,96,0.3)}
 .w.approved{color:#555;border-bottom:none;font-weight:400}
 .w.approved.now{background:rgba(255,255,255,0.08)}
+/* Mots groupes ensemble via Ctrl+click : fond rougeatre subtil pour montrer le lien */
+.w.flagged.grouped{background:rgba(231,76,60,0.15);border-radius:3px}
+.w.resolved.grouped{background:rgba(39,174,96,0.15);border-radius:3px}
+/* Badge "groupe de N mots" dans la liste Mots mal prononces */
+.rg{background:rgba(155,89,182,0.18);color:#bb8fce;font-size:10px;font-weight:600;padding:2px 6px;border-radius:10px;margin-left:4px;font-family:inherit}
 .sm{display:inline-block;color:#333;font-size:9px;font-family:monospace;vertical-align:super;margin:0 2px;user-select:none}
 
 .fp{background:rgba(231,76,60,0.06);border:1px solid rgba(231,76,60,0.15);border-radius:8px;padding:14px 18px;margin-top:12px}
