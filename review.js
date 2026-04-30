@@ -103,23 +103,47 @@ function findGroupLeader(ii) {
   return leaderIdx;
 }
 
-// Trouve le DERNIER flag actif (rouge, non-resolu, non-approuve) — pour ajouter au groupe via Ctrl+click.
-// "Dernier" = celui avec le plus grand index de mot. Permet de continuer un groupe en cours.
-function findLastActiveFlag() {
+// Trouve le flag le plus PROCHE du mot cliqué (currentIdx) — pour Ctrl+click groupage.
+// Strategie : chercher un flag dans la meme phrase, le plus proche en index.
+// Ignore approved/auto_resolved (caches), MAIS accepte les resolved (verts) — l'utilisateur
+// peut vouloir grouper plusieurs mots qui sonnent encore mal apres regen.
+// Si aucun flag dans la meme phrase, retourne null (Ctrl+click cree un nouveau flag).
+function findClosestFlag(currentIdx) {
+  if (currentIdx == null || !W[currentIdx]) return null;
+  var currentSi = W[currentIdx].sentenceIndex;
   var best = null;
-  flags.forEach(function(f, ii){
-    if (isHidden(f)) return; // skip approved/auto_resolved
-    if (isResolved(f)) return; // skip resolved (vert) — on grouperait pas un mot deja resolu
-    // Determiner l'index "max" du flag (leader ou dernier mot du groupe)
-    var maxIdx = ii;
-    if (Array.isArray(f.groupIndices)) {
-      maxIdx = Math.max.apply(null, f.groupIndices);
+  var bestDistance = Infinity;
+  flags.forEach(function(f, leaderIi){
+    if (isHidden(f)) return; // skip approved/auto_resolved (caches de toute facon)
+    // Calculer la distance min entre currentIdx et n'importe quel mot du flag
+    var memberIndices = Array.isArray(f.groupIndices) ? f.groupIndices : [leaderIi];
+    var minDist = Infinity;
+    var sameSentence = false;
+    for (var i = 0; i < memberIndices.length; i++) {
+      var mi = memberIndices[i];
+      if (W[mi] && W[mi].sentenceIndex === currentSi) sameSentence = true;
+      var d = Math.abs(mi - currentIdx);
+      if (d < minDist) minDist = d;
     }
-    if (best === null || maxIdx > best.maxIdx) {
-      best = { leaderIi: ii, maxIdx: maxIdx };
+    // Priorite stricte aux flags dans la meme phrase
+    if (sameSentence && minDist < bestDistance) {
+      bestDistance = minDist;
+      best = leaderIi;
     }
   });
-  return best ? best.leaderIi : null;
+  return best;
+}
+
+// Backwards compat : alias vers findClosestFlag(null) qui retombe sur l'ancien comportement
+function findLastActiveFlag() {
+  // Garde par compat mais ne devrait plus etre utilise
+  var best = null, bestMaxIdx = -1;
+  flags.forEach(function(f, ii){
+    if (isHidden(f)) return;
+    var maxIdx = Array.isArray(f.groupIndices) ? Math.max.apply(null, f.groupIndices) : ii;
+    if (maxIdx > bestMaxIdx) { bestMaxIdx = maxIdx; best = ii; }
+  });
+  return best;
 }
 
 // Construit un contexte autour d'un groupe de mots (extension de getCtx pour multi-mots).
@@ -454,6 +478,13 @@ function loadRegenIndices(){
       var indices = rows[0].regenerated_sentence_indices;
       if (!Array.isArray(indices) || indices.length === 0) return;
       regenIndices = indices;
+      // CRITICAL: refresh des classes des mots dans le texte des que regenIndices arrive,
+      // peu importe l'etat du bouton filtre. Sinon les mots restent marques 'flagged'
+      // alors qu'ils devraient etre 'resolved' (vert) dans la phrase regeneree.
+      // Le timing : loadExistingReview tourne en parallele et a deja marque les mots
+      // en 'flagged' avant que regenIndices arrive.
+      refreshFlagClasses();
+      renderFlags();
       // Verifier explicitement dans la DB si une review existe pour cette lecon
       return fetch(API+'/voice_reviews?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=flags',{headers:H})
         .then(function(r){return r.json()})
@@ -647,10 +678,17 @@ function buildWords(){
               sp.classList.remove('flagged');
             }
           } else {
-            // Ajouter au dernier flag actif (rouge) ou creer un nouveau
-            var leader = findLastActiveFlag();
+            // Chercher le flag le plus proche dans la MEME phrase (priorite a la proximite)
+            // Cela permet de grouper avec un flag deja resolu (vert) — utile quand on
+            // veut signaler que plusieurs mots sonnent encore mal apres regen.
+            var leader = findClosestFlag(ii);
             if (leader !== null) {
               var lf2 = flags.get(leader);
+              // Si le flag est resolu (vert), Ctrl+click signifie "ce mot ET le flag existant sont
+              // encore mal" -> promotion en reflagged pour qu'il repasse rouge.
+              if (isResolved(lf2)) {
+                lf2.reflagged = true;
+              }
               // Promouvoir en groupe si pas deja
               if (!Array.isArray(lf2.groupIndices)) {
                 lf2.groupIndices = [leader];
@@ -664,10 +702,15 @@ function buildWords(){
                 lf2.context = getGroupCtx(lf2.groupIndices);
                 flags.set(leader, lf2);
               }
-              sp.classList.add('flagged');
-              sp.classList.add('grouped');
-              // Marquer aussi le leader comme "grouped" si pas deja
-              if (els[leader]) els[leader].classList.add('grouped');
+              // Mettre a jour les classes de TOUS les membres du groupe (le leader peut etre
+              // passe de resolved a flagged via reflagged ci-dessus)
+              lf2.groupIndices.forEach(function(g){
+                if (els[g]) {
+                  els[g].classList.remove('resolved','approved');
+                  els[g].classList.add('flagged');
+                  els[g].classList.add('grouped');
+                }
+              });
             } else {
               // Pas de flag actif, creer un nouveau (mode normal)
               var nf2 = {index:ii,word:W[ii].word,context:getCtx(ii),time:fmt(W[ii].start),sentenceIndex:gsi(ii),note:''};
