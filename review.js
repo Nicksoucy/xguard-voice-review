@@ -807,11 +807,33 @@ function flagStutter(){
 
 function hl(ctx){return (ctx||'').replace(/\*\*(.+?)\*\*/g,'<b style="color:#E74C3C">$1</b>')}
 
-function renderGlitches(){var l=document.getElementById('gl');
-  if(!glitches.length){l.innerHTML='<div class="empty">Appuie \u26a1 Stutter pendant l\'ecoute (raccourci: S)</div>';return}
-  l.innerHTML='';for(var gi=0;gi<glitches.length;gi++){(function(g,ii){var d=document.createElement('div');d.className='ri g';
-    d.innerHTML='<span class="rt" onclick="jmp('+g.timeSec+')">'+g.time+'</span><span class="rs">#'+g.sentenceIndex+'</span><span class="rc">'+hl(g.context)+'</span><input placeholder="Note" value="'+(g.note||'').replace(/"/g,'&quot;')+'" oninput="glitches['+ii+'].note=this.value;scheduleAutoSave()"><button class="rm" onclick="glitches.splice('+ii+',1);renderGlitches();scheduleAutoSave()">\u2715</button>';
-    l.appendChild(d)})(glitches[gi],gi)}}
+function renderGlitches(){
+  var l=document.getElementById('gl');
+  // Cacher les glitches auto_resolved (deja regenereses et marques cote serveur)
+  // sauf si showApproved est actif (toggle "Afficher approuves")
+  var visible = glitches.filter(function(g){ return showApproved || !g.auto_resolved; });
+  var resolvedCount = glitches.filter(function(g){ return g.auto_resolved; }).length;
+  if(!visible.length){
+    if (resolvedCount > 0) {
+      l.innerHTML='<div class="empty">'+resolvedCount+' stutter'+(resolvedCount>1?'s':'')+' auto-resolu'+(resolvedCount>1?'s':'')+' (apres regen). <a href="#" onclick="toggleShowApproved();return false" style="color:#888;text-decoration:underline">Afficher</a></div>';
+    } else {
+      l.innerHTML='<div class="empty">Appuie \u26a1 Stutter pendant l\'ecoute (raccourci: S)</div>';
+    }
+    return;
+  }
+  l.innerHTML='';
+  for(var gi=0;gi<glitches.length;gi++){
+    var g = glitches[gi];
+    if (!showApproved && g.auto_resolved) continue;
+    (function(g,ii){
+      var d=document.createElement('div');
+      d.className='ri g' + (g.auto_resolved ? ' ok' : '');
+      if (g.auto_resolved) d.style.opacity = '0.55';
+      d.innerHTML='<span class="rt" onclick="jmp('+g.timeSec+')">'+g.time+'</span><span class="rs">#'+g.sentenceIndex+'</span><span class="rc">'+hl(g.context)+'</span><input placeholder="Note" value="'+(g.note||'').replace(/"/g,'&quot;')+'" oninput="glitches['+ii+'].note=this.value;scheduleAutoSave()"><button class="rm" onclick="glitches.splice('+ii+',1);renderGlitches();scheduleAutoSave()">\u2715</button>';
+      l.appendChild(d);
+    })(g,gi);
+  }
+}
 
 function renderFlags(){
   var l=document.getElementById('fl');
