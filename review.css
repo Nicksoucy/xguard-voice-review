@@ -64,6 +64,12 @@ h1{color:#E74C3C;font-size:14px}
 .w.resolved.grouped{background:rgba(39,174,96,0.15);border-radius:3px}
 /* Badge "groupe de N mots" dans la liste Mots mal prononces */
 .rg{background:rgba(155,89,182,0.18);color:#bb8fce;font-size:10px;font-weight:600;padding:2px 6px;border-radius:10px;margin-left:4px;font-family:inherit}
+/* Surlignage vert pour les phrases regenerees (regenerated_sentence_indices).
+   Permet de voir d'un coup d'oeil les corrections suite aux flags precedents. */
+.w.regenerated{background:rgba(39,174,96,0.18);color:#7AD79C;border-bottom:1px dotted rgba(39,174,96,0.5)}
+.w.regenerated.now{background:rgba(39,174,96,0.4);color:#fff}
+/* Si une phrase est ET regeneree ET re-flaggee, le rouge prevaut visuellement */
+.w.regenerated.flagged{color:#E74C3C;border-bottom:2px solid #E74C3C;background:rgba(231,76,60,0.06)}
 .sm{display:inline-block;color:#333;font-size:9px;font-family:monospace;vertical-align:super;margin:0 2px;user-select:none}
 
 .fp{background:rgba(231,76,60,0.06);border:1px solid rgba(231,76,60,0.15);border-radius:8px;padding:14px 18px;margin-top:12px}

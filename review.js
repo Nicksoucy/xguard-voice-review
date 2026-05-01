@@ -485,6 +485,9 @@ function loadRegenIndices(){
       // en 'flagged' avant que regenIndices arrive.
       refreshFlagClasses();
       renderFlags();
+      // Re-render des mots pour appliquer le surlignage vert .regenerated
+      // (independant du mode filtre — visible des qu'il y a des indices regen).
+      buildWords();
       // Verifier explicitement dans la DB si une review existe pour cette lecon
       return fetch(API+'/voice_reviews?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=flags',{headers:H})
         .then(function(r){return r.json()})
@@ -582,6 +585,9 @@ function buildWords(){
   var c=document.getElementById('wc');c.innerHTML='';els=[];
   var ls=-1;
   var regenSet = (filterModeActive && regenIndices) ? new Set(regenIndices) : null;
+  // Set des phrases regenerees pour le SURLIGNAGE VERT (independant du mode filtre).
+  // Permet de voir d'un coup d'oeil quelles phrases ont ete corrigees suite aux flags.
+  var regenHighlightSet = (regenIndices && regenIndices.length) ? new Set(regenIndices) : null;
   var lastSiWasHidden = false;
   var hiddenCount = 0;
 
@@ -625,6 +631,10 @@ function buildWords(){
       ls=si;
     }
     var s=document.createElement('span');s.className='w';s.textContent=w.word;
+    // Surlignage vert si la phrase a ete regeneree (visible meme hors mode filtre).
+    if (regenHighlightSet && si >= 0 && regenHighlightSet.has(si)) {
+      s.classList.add('regenerated');
+    }
     // Re-appliquer le statut flagged/resolved/approved si cette phrase avait deja un flag.
     // Cherche d'abord si i est leader, sinon si i est dans le groupIndices d'un flag.
     var fgFound = null, isGroupMember = false;
