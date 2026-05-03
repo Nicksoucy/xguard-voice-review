@@ -587,7 +587,31 @@ function buildWords(){
   var regenSet = (filterModeActive && regenIndices) ? new Set(regenIndices) : null;
   // Set des phrases regenerees pour le SURLIGNAGE VERT (independant du mode filtre).
   // Permet de voir d'un coup d'oeil quelles phrases ont ete corrigees suite aux flags.
-  var regenHighlightSet = (regenIndices && regenIndices.length) ? new Set(regenIndices) : null;
+  // EXCLUE les phrases dont TOUS les flags ont ete approuves (deja confirmees OK).
+  // Strategie : pour chaque phrase regen, si au moins UN flag actif (non approuve) existe
+  // OU si aucun flag n'existe (flag genere automatiquement par dict mais jamais re-flagge),
+  // on garde le vert. Sinon (tous flags approuves), on cache.
+  var regenHighlightSet = null;
+  if (regenIndices && regenIndices.length) {
+    regenHighlightSet = new Set(regenIndices);
+    // Compter les phrases avec au moins 1 flag non approuve
+    var sentencesWithUnapprovedFlag = new Set();
+    var sentencesWithAnyFlag = new Set();
+    flags.forEach(function(f){
+      if (f.sentenceIndex != null && f.sentenceIndex !== '?') {
+        sentencesWithAnyFlag.add(f.sentenceIndex);
+        if (!isApproved(f)) {
+          sentencesWithUnapprovedFlag.add(f.sentenceIndex);
+        }
+      }
+    });
+    // Pour chaque phrase regen : retirer du highlight si elle a des flags ET tous approuves
+    regenIndices.forEach(function(si){
+      if (sentencesWithAnyFlag.has(si) && !sentencesWithUnapprovedFlag.has(si)) {
+        regenHighlightSet.delete(si);
+      }
+    });
+  }
   var lastSiWasHidden = false;
   var hiddenCount = 0;
 
@@ -926,6 +950,8 @@ function approveAllGreens(){
     }
   });
   if (changed > 0) {
+    // Re-render des mots pour cacher le surlignage vert des phrases approuvees
+    buildWords();
     renderFlags();
     scheduleAutoSave();
   }
