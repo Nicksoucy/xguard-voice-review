@@ -418,12 +418,15 @@ resolveLesson(function(lesson){
 function loadTimestamps(){
   // Cache-buster pour eviter de servir un timestamps.json desync de la nouvelle MP3
   var bust = '?v=' + Date.now();
-  // On essaie 4 paths : final puis preview (Edge TTS uploaded sous /preview/)
+  // On essaie 4 paths. ORDRE DE PRIORITE:
+  // 1-2. /preview/ (Edge TTS recent) — prioritaire car les vieux uploads ElevenLabs
+  //      peuvent encore exister sur path final.
+  // 3-4. path final (ElevenLabs production / fallback)
   var urls = [
-    STORAGE + '/' + L.lesson_key + '/voiceover-timestamps.json' + bust,
-    STORAGE + '/' + L.lesson_key + '/timestamps.json' + bust,
     STORAGE + '/preview/' + L.lesson_key + '/voiceover-timestamps.json' + bust,
-    STORAGE + '/preview/' + L.lesson_key + '/timestamps.json' + bust
+    STORAGE + '/preview/' + L.lesson_key + '/timestamps.json' + bust,
+    STORAGE + '/' + L.lesson_key + '/voiceover-timestamps.json' + bust,
+    STORAGE + '/' + L.lesson_key + '/timestamps.json' + bust
   ];
   var results = [];
   var done = 0;
@@ -440,14 +443,18 @@ function loadTimestamps(){
 }
 
 function pickBestTimestamps(candidates){
-  // Trouver le meilleur : celui qui a sentenceIndex 0 ET le plus de mots
+  // Strategie : prendre le PREMIER candidat valide (ordre = priorite).
+  // /preview/ vient d'abord — si il existe, on l'utilise (Edge TTS recent).
+  // Les anciens timestamps ElevenLabs sur path final sont ignores.
   var best = null;
-  candidates.forEach(function(c){
-    if (!Array.isArray(c) || !c.length) return;
+  for (var i = 0; i < candidates.length; i++) {
+    var c = candidates[i];
+    if (!Array.isArray(c) || !c.length) continue;
     var hasStart = c.some(function(w){return w.sentenceIndex === 0});
-    if (!hasStart) return;  // fichier corrompu, ignore
-    if (!best || c.length > best.length) best = c;
-  });
+    if (!hasStart) continue;  // fichier corrompu, ignore
+    best = c;
+    break;  // premier valide gagne (ordre de priorite)
+  }
   // Si aucun fichier n'a sentenceIndex 0, on fallback sur celui qui a le plus de mots
   if (!best) {
     candidates.forEach(function(c){
