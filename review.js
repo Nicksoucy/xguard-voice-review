@@ -369,7 +369,24 @@ resolveLesson(function(lesson){
   }
   L = lesson;
 
-  document.getElementById('title').textContent = L.short_title || L.title;
+  // Ajouter le numero de sous-lecon (ex: "M3 / 1.2 - Introduction") quand c'est une sous-lecon
+  var baseTitle = L.short_title || L.title;
+  var lessonIdx = parseFloat(L.lesson_index);
+  if (lessonIdx && lessonIdx !== Math.floor(lessonIdx)) {
+    // Sous-lecon (ex 1.2, 3.3) — inserer le numero apres "MX / "
+    var subNum = lessonIdx.toFixed(1);  // "1.2"
+    if (baseTitle.match(/^M\d+\s*\/\s*/)) {
+      baseTitle = baseTitle.replace(/^(M\d+\s*\/)\s*/, '$1 ' + subNum + ' — ');
+    } else {
+      baseTitle = subNum + ' — ' + baseTitle;
+    }
+  } else if (lessonIdx) {
+    // Lecon entiere (ex 1, 2, 3) — ajouter le numero apres "MX / "
+    if (baseTitle.match(/^M\d+\s*\/\s*/)) {
+      baseTitle = baseTitle.replace(/^(M\d+\s*\/)\s*/, '$1 ' + lessonIdx + ' — ');
+    }
+  }
+  document.getElementById('title').textContent = baseTitle;
 
   var nav = document.getElementById('nav');
   nav.innerHTML = '<a href="course.html?course='+encodeURIComponent(L.course_id)+'">← Cours</a>'
