@@ -308,7 +308,10 @@ function loadStatus(){
         // nouvelle version = re-download. Remplace le Date.now() initial.
         if (au) {
           var stableBust = encodeURIComponent(s.voiceover_uploaded_at);
-          var newSrc = STORAGE + '/' + L.lesson_key + '/voiceover.mp3?v=' + stableBust;
+          // Detecter si on est sur preview/ (Edge TTS) ou path final (ElevenLabs)
+          var isPreviewSrc = au.src && au.src.indexOf('/preview/') !== -1;
+          var basePath = isPreviewSrc ? '/preview/' : '/';
+          var newSrc = STORAGE + basePath + L.lesson_key + '/voiceover.mp3?v=' + stableBust;
           if (au.src.indexOf('?v=' + stableBust) === -1) {
             var t = au.currentTime;
             var wasPlaying = !au.paused;
@@ -373,9 +376,16 @@ resolveLesson(function(lesson){
     + '<a href="index.html">Index</a>';
 
   // Cache-buster initial (Date.now) pour forcer un fresh load a chaque ouverture.
-  // Sera remplace par ?v=<voiceover_uploaded_at> quand loadStatus() recoit la metadata,
-  // pour que les ouvertures suivantes profitent du cache si la version n'a pas change.
-  au = new Audio(STORAGE + '/' + L.lesson_key + '/voiceover.mp3?v=' + Date.now());
+  // Sera remplace par ?v=<voiceover_uploaded_at> quand loadStatus() recoit la metadata.
+  // Test si le voiceover existe au path final, sinon fallback sur preview/ (Edge TTS).
+  var initialBust = Date.now();
+  var primaryUrl = STORAGE + '/' + L.lesson_key + '/voiceover.mp3?v=' + initialBust;
+  var previewUrl = STORAGE + '/preview/' + L.lesson_key + '/voiceover.mp3?v=' + initialBust;
+  au = new Audio(primaryUrl);
+  // HEAD check non bloquant — si primary 4xx, swap vers preview
+  fetch(primaryUrl, {method:'HEAD'}).then(function(r){
+    if (!r.ok) au.src = previewUrl;
+  }).catch(function(){ au.src = previewUrl; });
   au.onplay = function(){document.getElementById('bp').textContent='\u23f8';requestAnimationFrame(sync)};
   au.onpause = function(){document.getElementById('bp').textContent='\u25b6'};
   au.onended = function(){document.getElementById('bp').textContent='\u25b6'};
@@ -391,9 +401,12 @@ resolveLesson(function(lesson){
 function loadTimestamps(){
   // Cache-buster pour eviter de servir un timestamps.json desync de la nouvelle MP3
   var bust = '?v=' + Date.now();
+  // On essaie 4 paths : final puis preview (Edge TTS uploaded sous /preview/)
   var urls = [
     STORAGE + '/' + L.lesson_key + '/voiceover-timestamps.json' + bust,
-    STORAGE + '/' + L.lesson_key + '/timestamps.json' + bust
+    STORAGE + '/' + L.lesson_key + '/timestamps.json' + bust,
+    STORAGE + '/preview/' + L.lesson_key + '/voiceover-timestamps.json' + bust,
+    STORAGE + '/preview/' + L.lesson_key + '/timestamps.json' + bust
   ];
   var results = [];
   var done = 0;
