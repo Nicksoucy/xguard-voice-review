@@ -1,0 +1,304 @@
+/* review-video.css — styles specifiques a la page video review.
+   Reutilise les variables/colors de review.css (theme dark XGuard). */
+
+/* Video player */
+.video-wrapper {
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 12px;
+  position: relative;
+  aspect-ratio: 16 / 9;
+}
+.video-wrapper video {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Custom controls */
+.video-controls {
+  background: rgba(255,255,255,0.04);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+.timeline-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.time-display {
+  color: #94A3B8;
+  font-size: 11px;
+  font-family: monospace;
+  min-width: 90px;
+}
+.timeline {
+  flex: 1;
+  height: 10px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 5px;
+  cursor: pointer;
+  position: relative;
+}
+.timeline-progress {
+  height: 100%;
+  background: #C0392B;
+  border-radius: 5px;
+  width: 0%;
+  pointer-events: none;
+}
+.timeline-markers {
+  position: absolute;
+  top: -3px;
+  left: 0;
+  right: 0;
+  height: 16px;
+  pointer-events: none;
+}
+.timeline-marker {
+  position: absolute;
+  top: 0;
+  width: 4px;
+  height: 16px;
+  background: #E74C3C;
+  border-radius: 2px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform .15s;
+}
+.timeline-marker:hover {
+  transform: scaleY(1.4);
+  width: 6px;
+}
+.timeline-marker.minor {
+  background: #F39C12;
+}
+
+/* Actions row */
+.actions-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.add-flag-btn {
+  background: #E67E22;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .15s;
+}
+.add-flag-btn:hover { background: #F39C12; }
+.add-flag-btn:active { transform: translateY(1px); }
+.seek-btn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: #aaa;
+  border-radius: 4px;
+  padding: 5px 12px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.seek-btn:hover {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+}
+.shortcuts-hint {
+  color: #555;
+  font-size: 10px;
+  font-family: monospace;
+  margin-left: auto;
+}
+.shortcuts-hint span {
+  color: #94A3B8;
+  background: rgba(255,255,255,0.06);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* Flags list rows */
+.flag-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 5px;
+  margin-bottom: 5px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background .15s;
+}
+.flag-row:hover {
+  background: rgba(231,76,60,0.08);
+  border-color: rgba(231,76,60,0.25);
+}
+.flag-row.minor {
+  background: rgba(243,156,18,0.06);
+  border-color: rgba(243,156,18,0.2);
+}
+.flag-time {
+  font-family: monospace;
+  color: #E74C3C;
+  font-weight: 600;
+  min-width: 50px;
+}
+.flag-row.minor .flag-time { color: #F39C12; }
+.flag-cat-pill {
+  background: rgba(231,76,60,0.15);
+  color: #E74C3C;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.flag-row.minor .flag-cat-pill {
+  background: rgba(243,156,18,0.15);
+  color: #F39C12;
+}
+.flag-note {
+  flex: 1;
+  color: #aaa;
+  font-style: italic;
+}
+.flag-delete {
+  background: transparent;
+  border: none;
+  color: #555;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 6px;
+  font-family: inherit;
+}
+.flag-delete:hover {
+  color: #E74C3C;
+}
+
+/* Modal Add Flag */
+.addflag-modal {
+  max-width: 560px;
+}
+.addflag-categories {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin: 14px 0;
+}
+.cat-option {
+  display: block;
+  cursor: pointer;
+  padding: 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+  transition: all .15s;
+}
+.cat-option:hover {
+  background: rgba(231,76,60,0.08);
+  border-color: rgba(231,76,60,0.3);
+}
+.cat-option input[type="radio"] {
+  margin-right: 8px;
+}
+.cat-option input[type="radio"]:checked + span strong {
+  color: #E74C3C;
+}
+.cat-option:has(input:checked) {
+  background: rgba(231,76,60,0.12);
+  border-color: #E74C3C;
+}
+.cat-option strong {
+  display: block;
+  font-size: 13px;
+  color: #F0F0F0;
+  margin-bottom: 2px;
+}
+.cat-option em {
+  display: block;
+  font-style: normal;
+  font-size: 10px;
+  color: #94A3B8;
+}
+.addflag-fields label {
+  display: block;
+  font-size: 11px;
+  color: #94A3B8;
+  margin: 8px 0 4px;
+}
+.addflag-fields textarea {
+  width: 100%;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: #F0F0F0;
+  padding: 8px;
+  border-radius: 5px;
+  font-family: inherit;
+  font-size: 12px;
+  resize: vertical;
+}
+.addflag-severity {
+  margin-top: 10px;
+  display: flex;
+  gap: 16px;
+}
+.addflag-severity label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  color: #F0F0F0;
+  cursor: pointer;
+}
+
+.reject-modal label {
+  display: block;
+  font-size: 11px;
+  color: #94A3B8;
+  margin: 12px 0 6px;
+}
+.reject-modal textarea {
+  width: 100%;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(231,76,60,0.3);
+  color: #F0F0F0;
+  padding: 10px;
+  border-radius: 5px;
+  font-family: inherit;
+  font-size: 12px;
+  resize: vertical;
+}
+
+/* Empty state */
+.empty {
+  color: #555;
+  font-size: 11px;
+  font-style: italic;
+  padding: 12px;
+  text-align: center;
+}
+
+/* Hide controls until video loaded */
+#flags-panel.ready, #video-controls.ready {
+  display: block !important;
+}
+
+/* Keyframe pulse pour add-flag-btn quand on est en pause */
+@keyframes pulse-flag {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(230,126,34,0.5); }
+  50% { box-shadow: 0 0 0 8px rgba(230,126,34,0); }
+}
+.add-flag-btn.armed {
+  animation: pulse-flag 1.5s infinite;
+}

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Video Review</title>
+  <link rel="stylesheet" href="review.css?v=20260508a">
+  <link rel="stylesheet" href="review-video.css?v=20260508a">
+</head>
+<body>
+
+<div class="top">
+  <h1 id="title">Chargement...</h1>
+  <div class="nav" id="nav"></div>
+</div>
+
+<div class="info-bar" id="info-bar" style="display:none"></div>
+
+<div id="voice-not-approved-banner" class="recheck-banner hidden">
+  <strong>&#9888; Voiceover pas encore approuve</strong><br>
+  Le voiceover de cette lecon doit etre approuve avant de pouvoir reviewer la video.
+  <a id="back-to-voice-link" href="#" style="color:#F8CACE;text-decoration:underline">Aller au voice review &rarr;</a>
+</div>
+
+<div id="no-video-banner" class="recheck-banner hidden">
+  <strong>&#9888; Video pas encore produite</strong><br>
+  Cette lecon n'a pas encore de video assemblee. Reviens plus tard.
+</div>
+
+<div id="recheck-banner" class="recheck-banner hidden"></div>
+<div id="approved-banner" class="approved-banner hidden"></div>
+
+<div class="history-panel hidden" id="history-panel">
+  <div class="history-header" onclick="document.getElementById('history-panel').classList.toggle('open')">
+    <span id="history-title">Historique</span>
+    <span class="history-arrow">&#9660;</span>
+  </div>
+  <div class="history-list" id="history-list"></div>
+</div>
+
+<!-- Video player -->
+<div class="video-wrapper" id="video-wrapper">
+  <video id="vid" controls preload="metadata"></video>
+</div>
+
+<!-- Custom controls bar (timeline avec markers + actions) -->
+<div class="video-controls" id="video-controls" style="display:none">
+  <div class="timeline-row">
+    <span class="time-display" id="time-display">0:00 / 0:00</span>
+    <div class="timeline" id="timeline" onclick="seekTimeline(event)">
+      <div class="timeline-progress" id="timeline-progress"></div>
+      <div class="timeline-markers" id="timeline-markers"></div>
+    </div>
+  </div>
+  <div class="actions-row">
+    <button class="add-flag-btn" onclick="openAddFlagModal()" title="Ajouter un flag a la position courante (raccourci: F)">
+      &#128205; ADD FLAG ICI
+    </button>
+    <button class="seek-btn" onclick="seekRel(-10)" title="Reculer de 10s (J)">&#9194; -10s</button>
+    <button class="seek-btn" onclick="seekRel(10)" title="Avancer de 10s (K)">+10s &#9193;</button>
+    <span class="shortcuts-hint">
+      <span>Espace</span> play &middot;
+      <span>F</span> flag &middot;
+      <span>J/K</span> -10/+10s &middot;
+      <span>Ctrl+S</span> save
+    </span>
+  </div>
+</div>
+
+<!-- Flags panel -->
+<div class="fp" id="flags-panel" style="display:none">
+  <div class="sec r" id="flags-section-title">&#128681; Issues flaggees (0)</div>
+  <div id="flags-list">
+    <div class="empty">Clique sur "ADD FLAG ICI" pendant la lecture pour signaler un probleme.</div>
+  </div>
+  <div class="acts">
+    <button class="btn br" onclick="saveReview(false, false)">Sauvegarder</button>
+    <button class="btn bg" onclick="askApprove()">&#10003; Approuver</button>
+    <button class="btn by" onclick="askReject()">&#10007; Rejeter (refaire)</button>
+    <button class="btn by" onclick="copyReview()">Copier liste</button>
+    <span class="msg" id="msg"></span>
+  </div>
+</div>
+
+<!-- Modal: Add Flag -->
+<div class="modal-bg" id="addflag-modal-bg">
+  <div class="modal addflag-modal">
+    <h3>&#128205; Flag a <span id="addflag-time">0:00</span></h3>
+
+    <div class="addflag-categories">
+      <label class="cat-option"><input type="radio" name="flagCat" value="visual">
+        <span><strong>&#128064; Visuel</strong><em>Image floue, bug graphique</em></span></label>
+      <label class="cat-option"><input type="radio" name="flagCat" value="audio_sync">
+        <span><strong>&#128266; Audio sync</strong><em>Voix decalee de l'image</em></span></label>
+      <label class="cat-option"><input type="radio" name="flagCat" value="transition">
+        <span><strong>&#9889; Transition</strong><em>Cut sec, fondu rate</em></span></label>
+      <label class="cat-option"><input type="radio" name="flagCat" value="text_cut">
+        <span><strong>&#9986; Texte coupe</strong><em>Sous-titre tronque</em></span></label>
+      <label class="cat-option"><input type="radio" name="flagCat" value="animation_jitter">
+        <span><strong>&#128250; Animation</strong><em>Mouvement saccade</em></span></label>
+      <label class="cat-option"><input type="radio" name="flagCat" value="typo">
+        <span><strong>&#9999; Typo</strong><em>Faute dans le texte affiche</em></span></label>
+      <label class="cat-option"><input type="radio" name="flagCat" value="other">
+        <span><strong>&#10067; Autre</strong><em>Autre probleme</em></span></label>
+    </div>
+
+    <div class="addflag-fields">
+      <label>Note (optionnel) :</label>
+      <textarea id="addflag-note" rows="2" placeholder="Decris le probleme..."></textarea>
+      <div class="addflag-severity">
+        <label><input type="radio" name="flagSev" value="blocker" checked> &#128308; Bloquant</label>
+        <label><input type="radio" name="flagSev" value="minor"> &#128993; Mineur</label>
+      </div>
+    </div>
+
+    <div class="acts">
+      <button class="btn bg" onclick="submitFlag()">Ajouter</button>
+      <button class="btn by" onclick="closeAddFlagModal()">Annuler</button>
+      <span class="msg" id="addflag-msg"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Approve -->
+<div class="modal-bg" id="approve-modal-bg">
+  <div class="modal">
+    <h3>&#10003; Approuver cette video ?</h3>
+    <p>Cette video sera marquee comme <strong>approuvee</strong>. La lecon est prete pour le deploiement LMS.</p>
+    <div class="acts">
+      <button class="btn bg" onclick="confirmApprove()">Oui, approuver</button>
+      <button class="btn by" onclick="closeApproveModal()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Reject -->
+<div class="modal-bg" id="reject-modal-bg">
+  <div class="modal reject-modal">
+    <h3>&#10007; Rejeter cette version</h3>
+    <p>Cette video sera marquee <strong>a refaire</strong>. Le monteur recoit la liste des issues + ta raison.</p>
+    <label>Pourquoi (raison globale) :</label>
+    <textarea id="reject-reason" rows="3" placeholder="Ex: Trop d'issues, refaire le montage..."></textarea>
+    <div class="acts">
+      <button class="btn br" onclick="confirmReject()">Confirmer le rejet</button>
+      <button class="btn by" onclick="closeRejectModal()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<script src="review-video.js?v=20260508a"></script>
+</body>
+</html>

@@ -51,6 +51,22 @@ a{text-decoration:none}
 .b-todo{background:rgba(100,116,139,0.15);color:#94A3B8}
 .item .arrow{color:#555;font-size:14px}
 
+/* Action buttons (Voice / Video) */
+.item-actions{display:flex;gap:6px;align-items:center}
+.action-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:5px;font-size:11px;font-weight:600;text-decoration:none;border:1px solid;transition:all .15s;font-family:inherit;cursor:pointer}
+.action-btn.voice{background:rgba(192,57,43,0.15);color:#E74C3C;border-color:rgba(231,76,60,0.4)}
+.action-btn.voice:hover{background:#C0392B;color:#fff;border-color:#C0392B}
+.action-btn.voice.done{background:rgba(39,174,96,0.12);color:#2ECC71;border-color:rgba(39,174,96,0.35)}
+.action-btn.video{background:rgba(155,89,182,0.12);color:#bb8fce;border-color:rgba(155,89,182,0.35)}
+.action-btn.video:hover{background:#8E44AD;color:#fff;border-color:#8E44AD}
+.action-btn.video.done{background:rgba(39,174,96,0.12);color:#2ECC71;border-color:rgba(39,174,96,0.35)}
+.action-btn.video.todo{animation:pulse-video 1.5s infinite}
+.action-btn.disabled{background:rgba(100,116,139,0.08);color:#555;border-color:rgba(100,116,139,0.15);cursor:not-allowed;pointer-events:none}
+@keyframes pulse-video{0%,100%{box-shadow:0 0 0 0 rgba(155,89,182,0.5)}50%{box-shadow:0 0 0 6px rgba(155,89,182,0)}}
+
+/* Plus de cursor:pointer sur l'item entier — les actions sont sur les boutons */
+.item{cursor:default}
+
 .item.hidden{display:none}
 .mod-header.hidden{display:none}
 .skeleton{background:rgba(255,255,255,0.04);height:42px;border-radius:6px;margin-bottom:5px;animation:pulse 1.5s infinite}
@@ -141,10 +157,9 @@ resolveCourseId(function(courseId){
 
   Promise.all([
     fetch(API+'/courses?id=eq.'+encodeURIComponent(courseId),{headers:H}).then(function(r){return r.json()}),
-    fetch(API+'/lesson_status?course_id=eq.'+encodeURIComponent(courseId)+'&order=sort_order.asc',{headers:H}).then(function(r){return r.json()}),
-    // Fetch des indices regenerees par lesson_key (pour calculer le badge "X a revoir")
+    // Switch vers lesson_status_full : ajoute colonnes video (has_video, video_status, etc.)
+    fetch(API+'/lesson_status_full?course_id=eq.'+encodeURIComponent(courseId)+'&order=sort_order.asc',{headers:H}).then(function(r){return r.json()}),
     fetch(API+'/voiceover_metadata?lesson_key=like.'+encodeURIComponent(courseId+'/%')+'&select=lesson_key,regenerated_sentence_indices',{headers:H}).then(function(r){return r.json()}),
-    // Fetch des flags actuels (latest review par lesson) pour calculer count REEL
     fetch(API+'/voice_reviews?lesson_key=like.'+encodeURIComponent(courseId+'/%')+'&select=lesson_key,flags,updated_at&order=updated_at.desc',{headers:H}).then(function(r){return r.json()})
   ]).then(function(results){
     var courseRows = results[0];
@@ -224,25 +239,58 @@ resolveCourseId(function(courseId){
       list.appendChild(header);
 
       mod.lessons.forEach(function(l){
-        var a = document.createElement('a');
-        a.href = 'review.html?key=' + encodeURIComponent(l.lesson_key);
+        var item = document.createElement('div');
+        item.className = 'item';
+        item.setAttribute('data-status', l.status);
+        item.setAttribute('data-module-id', modId);
+
         var metaR = '';
         if (l.duration_seconds) metaR += '<span class="tag-duration">'+fmtDuration(l.duration_seconds)+'</span>';
-        // Badge "X a revoir" si la lecon a des phrases regenerees ET elle est en needs_recheck
         if (regenCounts[l.lesson_key] && l.status === 'needs_recheck') {
           metaR += '<span class="tag-regen" title="Phrases regenerees depuis ta derniere review">🔄 '+regenCounts[l.lesson_key]+' a revoir</span>';
         }
         if (l.flags_count > 0) metaR += '<span class="tag-flags">'+l.flags_count+' flags</span>';
         if (l.latest_reviewer) metaR += '<span class="tag-reviewer">'+l.latest_reviewer+'</span>';
-        metaR += '<span class="badge '+badgeClass(l.status)+'">'+badgeText(l.status)+'</span>';
 
-        a.innerHTML = '<div class="item" data-status="'+l.status+'" data-module-id="'+modId+'">'
-          + '<span class="n">'+l.lesson_index+'</span>'
+        // Voice button : toujours actif, vert si approved
+        var voiceCls = 'action-btn voice' + (l.status === 'approved' ? ' done' : '');
+        var voiceLabel = l.status === 'approved' ? '🎙 ✓' : '🎙 ' + (badgeText(l.status));
+        var voiceBtn = '<a href="review.html?key='+encodeURIComponent(l.lesson_key)+'" class="'+voiceCls+'" title="Voiceover review">'+voiceLabel+'</a>';
+
+        // Video button : disabled si voice ≠ approved OU pas de video
+        var videoCls = 'action-btn video';
+        var videoTitle = '';
+        var videoLabel = '🎬';
+        var videoHref = 'review-video.html?key='+encodeURIComponent(l.lesson_key);
+        if (l.status !== 'approved') {
+          videoCls += ' disabled';
+          videoTitle = 'Le voiceover doit etre approuve d\'abord';
+          videoLabel = '🎬 🔒';
+        } else if (!l.has_video) {
+          videoCls += ' disabled';
+          videoTitle = 'Video pas encore produite';
+          videoLabel = '🎬 ⏳';
+        } else if (l.video_status === 'approved') {
+          videoCls += ' done';
+          videoLabel = '🎬 ✓';
+        } else if (l.video_status === 'rejected') {
+          videoLabel = '🎬 ✗';
+          videoCls += ' done'; // gris
+        } else if (l.video_status === 'in_review') {
+          videoLabel = '🎬 ' + (l.video_flags_count || 0);
+        } else {
+          // not_reviewed mais video prete
+          videoCls += ' todo';
+          videoLabel = '🎬 NEW';
+        }
+        var videoBtn = '<a href="'+videoHref+'" class="'+videoCls+'" title="'+videoTitle+'">'+videoLabel+'</a>';
+
+        item.innerHTML =
+          '<span class="n">'+l.lesson_index+'</span>'
           + '<span class="t">'+(l.short_title || l.title)+'</span>'
           + '<span class="meta-r">'+metaR+'</span>'
-          + '<span class="arrow">→</span>'
-        + '</div>';
-        list.appendChild(a);
+          + '<span class="item-actions">'+voiceBtn+videoBtn+'</span>';
+        list.appendChild(item);
       });
     });
 
