@@ -1,0 +1,49 @@
+# Deploy staging : tout push sur les branches feature/* ou staging
+# va vers la branche `gh-pages-staging` qui est servie a une URL distincte.
+#
+# Workflow :
+# 1. Dev cree branche feature/xyz, push commits
+# 2. Action push vers gh-pages-staging
+# 3. Test sur l'URL staging avec sa propre Supabase (config detection auto via sentry-init.js)
+# 4. Merge dans main+gh-pages quand validation OK
+
+name: Deploy Staging
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+      - 'staging'
+  workflow_dispatch:
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout source branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history pour pouvoir push sur autre branche
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Push to gh-pages-staging
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Cree la branche gh-pages-staging si elle n'existe pas
+          if ! git ls-remote --heads origin gh-pages-staging | grep -q gh-pages-staging; then
+            echo "Creating gh-pages-staging branch from current branch..."
+            git checkout -b gh-pages-staging
+            git push origin gh-pages-staging
+          else
+            # Force push de la branche source vers gh-pages-staging
+            git push origin "HEAD:gh-pages-staging" --force
+          fi
+          echo "✓ Staging deployed to: https://nicksoucy.github.io/xguard-voice-review-staging/"
