@@ -1,0 +1,20 @@
+# Backups locaux (generes par scripts/backup-rest.mjs)
+# En CI, GitHub Actions les genere et upload vers Releases — pas besoin de les committer
+backups/
+
+# Node
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+~$*
+**/~$*
+
+# Claude
+.claude/

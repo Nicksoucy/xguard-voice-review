@@ -1,84 +1,69 @@
-# Backup quotidien de la DB Supabase prod vers GitHub Releases (private)
+# Backup quotidien des tables critiques via Supabase REST API
 #
 # Trigger : 04:00 UTC (00:00 EST) chaque jour, ou manuel via UI
-# Necessite secret repo : SUPABASE_DB_URL (Connection string Supabase Postgres)
-#   format: postgresql://postgres:PASSWORD@db.PROJECT_REF.supabase.co:5432/postgres
+# Pas besoin de secret — utilise la SUPA_ANON key (deja publique dans review.js)
 #
-# Output : 1 release par jour, tag `backup-YYYY-MM-DD`, asset .sql.gz compresse
-# Retention : releases auto-deleted apres 30 jours (job cleanup)
+# Output : 1 release par jour, tag `backup-YYYY-MM-DD`, asset .json.gz par table
+# Retention : releases auto-deleted apres 30 jours
 #
-# Restoration : voir RUNBOOK.md section "Restore from backup"
+# Limite Option B : exports les DONNEES uniquement (pas le schema, pas les RLS,
+# pas les triggers). Pour un dump complet avec schema, utiliser Option A
+# (pg_dump avec SUPABASE_DB_URL secret) — voir RUNBOOK.md.
+#
+# Restoration : voir RUNBOOK.md section "Restore from Option B backup"
 
-name: Backup Supabase
+name: Backup Supabase (REST API)
 
 on:
   schedule:
-    - cron: '0 4 * * *'  # 04:00 UTC tous les jours (= 00:00 EST hiver, 01:00 EDT ete)
-  workflow_dispatch:  # permet trigger manuel via GitHub UI
+    - cron: '0 4 * * *'  # 04:00 UTC tous les jours
+  workflow_dispatch:
 
 jobs:
   backup:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # pour creer des releases
+      contents: write
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install PostgreSQL 15 client
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run backup script
         run: |
-          # Supabase utilise Postgres 15+, ubuntu par defaut a une version trop vieille
-          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-          wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client-15
+          node scripts/backup-rest.mjs
+          echo "BACKUP_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
 
-      - name: Run pg_dump
-        env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      - name: Verify backup files
         run: |
-          DATE=$(date +%Y-%m-%d)
-          FILE="backup-${DATE}.sql.gz"
-          echo "Dumping Supabase to ${FILE}..."
-
-          # --no-owner et --no-acl : evitent les errors d'ownership a la restauration
-          # Compression gzip pour reduire la taille (~10x sur dumps texte)
-          pg_dump "${SUPABASE_DB_URL}" \
-            --no-owner \
-            --no-acl \
-            --format=plain \
-            --schema=public \
-            --schema=storage \
-            | gzip > "${FILE}"
-
-          # Verification : le fichier doit faire au moins 1KB (sinon pg_dump a fail)
-          SIZE=$(stat --printf="%s" "${FILE}")
-          if [ "$SIZE" -lt 1024 ]; then
-            echo "ERROR: Backup file too small (${SIZE} bytes), pg_dump may have failed"
-            cat "${FILE}" | gunzip | head -50
+          ls -lh backups/
+          # Le repertoire backups/ doit contenir au moins 5 fichiers
+          COUNT=$(ls backups/ | wc -l)
+          if [ "$COUNT" -lt 5 ]; then
+            echo "ERROR: Only $COUNT backup files, expected 5+"
             exit 1
           fi
+          echo "✓ $COUNT backup files generated"
 
-          echo "BACKUP_FILE=${FILE}" >> $GITHUB_ENV
-          echo "BACKUP_DATE=${DATE}" >> $GITHUB_ENV
-          echo "BACKUP_SIZE=$(du -h ${FILE} | cut -f1)" >> $GITHUB_ENV
-          echo "✓ Backup ${FILE} created ($(du -h ${FILE} | cut -f1))"
-
-      - name: Create GitHub Release with backup
+      - name: Create GitHub Release with backups
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "backup-${BACKUP_DATE}" "${BACKUP_FILE}" \
+          gh release create "backup-${BACKUP_DATE}" backups/*.json.gz \
             --prerelease \
-            --notes "Auto backup ${BACKUP_DATE}. Size: ${BACKUP_SIZE}. Restore: see RUNBOOK.md" \
+            --notes "Auto backup ${BACKUP_DATE} (REST API export). Restore: see RUNBOOK.md" \
             --title "Backup ${BACKUP_DATE}"
+          echo "✓ Release backup-${BACKUP_DATE} created"
 
       - name: Cleanup old backups (>30 days)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Liste les releases tagged backup-YYYY-MM-DD plus anciennes que 30 jours
           CUTOFF=$(date -d '30 days ago' +%Y-%m-%d)
           gh release list --limit 100 --json tagName,createdAt | \
             jq -r '.[] | select(.tagName | startswith("backup-")) | .tagName' | \
@@ -90,8 +75,7 @@ jobs:
               fi
             done
 
-      - name: Notify on failure (Sentry breadcrumb via webhook would go here)
+      - name: Notify on failure
         if: failure()
         run: |
           echo "::error::Backup failed for ${BACKUP_DATE:-unknown}. Check logs above."
-          # TODO: envoyer notification Sentry/email si besoin

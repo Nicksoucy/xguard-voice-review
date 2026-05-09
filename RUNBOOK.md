@@ -65,29 +65,59 @@ Si l'event apparait dans Sentry, le SDK marche. Sinon, regarder console pour err
 
 **Rerun** : bouton "Re-run all jobs" sur la page du run echoue.
 
-### 5. Restore from backup
+### 5. Restore from Option B backup (REST API JSON)
 
 **Use case** : table corrompue, suppression accidentelle
 
-**Procedure** :
+**Note importante** : les backups Option B contiennent uniquement les **DONNEES**
+(pas le schema, RLS policies, triggers). Pour restorer un schema complet,
+utiliser Option A (pg_dump) — voir section "Setup Option A" plus bas.
+
+**Procedure restore selectif d'une table** :
+
 ```bash
 # 1. Telecharger le backup voulu
-gh release download backup-2026-05-09 --repo Nicksoucy/xguard-voice-review
+gh release download backup-2026-05-09 --repo Nicksoucy/xguard-voice-review --dir /tmp/backup
 
-# 2. Decompresser
-gunzip backup-2026-05-09.sql.gz
+# 2. Decompresser le fichier de la table cible
+cd /tmp/backup
+gunzip voice_reviews-2026-05-09.json.gz
 
-# 3. RESTORE TARGET = STAGING D'ABORD (jamais directement prod)
-# Recuperer connection string staging dans Supabase Studio
-psql "postgresql://postgres:STAGING_PASS@db.STAGING_REF.supabase.co:5432/postgres" \
-  < backup-2026-05-09.sql
+# 3. Inspecter le contenu (verifier la structure)
+cat voice_reviews-2026-05-09.json | jq '.row_count, .data[0]'
 
-# 4. Verifier que le restore fonctionne (compter rows, verifier data)
-# 5. Si OK, restore selectif sur prod (ex: restaurer seule table voice_reviews)
-pg_restore --table=voice_reviews ...
-
-# Pour restore complet prod : require confirmation Nicolas explicite
+# 4. Restorer via SQL Editor Supabase OU via script Node:
+node -e "
+const data = require('/tmp/backup/voice_reviews-2026-05-09.json');
+const SUPA = 'https://ctjsdpfegpsfpwjgusyi.supabase.co';
+const KEY = 'eyJ...'; // service_role pour bypass RLS
+// Pour chaque row, INSERT ON CONFLICT
+for (const row of data.data) {
+  await fetch(SUPA+'/rest/v1/voice_reviews?on_conflict=lesson_key,reviewer_name', {
+    method: 'POST',
+    headers: { apikey: KEY, Authorization: 'Bearer '+KEY,
+               'Content-Type': 'application/json',
+               'Prefer': 'resolution=merge-duplicates' },
+    body: JSON.stringify(row)
+  });
+}
+"
 ```
+
+**ATTENTION** : utiliser une cle **service_role** (pas anon) pour pouvoir
+INSERT avec n'importe quelle valeur (RLS bypass).
+
+### 5b. Setup Option A (pg_dump avec password DB) — backup complet
+
+Si on veut un backup avec schema + RLS + triggers (plus complet que Option B) :
+
+1. Supabase Studio → Settings → Database → "Reset database password"
+2. Copier la connection string Session Pooler :
+   `postgresql://postgres.ctjsdpfegpsfpwjgusyi:PASSWORD@aws-0-us-west-2.pooler.supabase.com:5432/postgres`
+3. GitHub repo Settings → Secrets → New : `SUPABASE_DB_URL` = la string complete
+4. Remplacer `backup-supabase.yml` par la version pg_dump (cf historique git)
+
+Sans ca, on reste sur Option B (JSON REST API) qui couvre 95% des cas reels.
 
 ### 6. Rotate Sentry DSN
 
@@ -119,13 +149,21 @@ Si le DSN est compromis (rare car public par design, mais bon) :
 3. DSN integre dans loader : `js.sentry-cdn.com/ab9916085bc6c9e93779c21fad74456f.min.js`
 4. Free tier : 5000 erreurs/mois, 30 jours retention
 
-### Backups GitHub Action
-**Secret a configurer** : `SUPABASE_DB_URL`
-1. Supabase Studio → Project Settings → Database → Connection String → URI
-2. Format : `postgresql://postgres:PASSWORD@db.PROJECT_REF.supabase.co:5432/postgres`
-3. GitHub repo Settings → Secrets and variables → Actions → New repository secret
-4. Name: `SUPABASE_DB_URL`, Value: la connection string complete
-5. Verifier en lancant manuellement le workflow `Backup Supabase` (onglet Actions)
+### Backups GitHub Action (Option B — REST API)
+
+**Aucun secret requis** — utilise la SUPA_ANON key publique.
+
+Le workflow `.github/workflows/backup-supabase.yml` execute `scripts/backup-rest.mjs`
+qui dump toutes les tables critiques en JSON gzip via Supabase REST API.
+
+**Tester** : Actions → Backup Supabase (REST API) → Run workflow
+
+Tables dumpees : lessons, voiceover_metadata, voice_reviews, voice_review_history,
+sentence_flags, video_metadata, video_reviews, video_review_history, courses.
+
+Output : 1 release par jour avec 7-9 fichiers .json.gz (~500 KB total).
+
+**Si on veut Option A (pg_dump complet avec schema)** : voir section 5b.
 
 ### Staging (Phase 1.3 - a venir)
 Voir section Phase 1.3 du plan dans `~/.claude/plans/`.
