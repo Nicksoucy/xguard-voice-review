@@ -25,6 +25,17 @@
   var env = detectEnvironment();
   window.SENTRY_ENV = env;
 
+  // Override credentials Supabase pour staging
+  // - Staging utilise un projet Supabase distinct (pekkskvpttzgqxjaqvzf)
+  // - Les variables SUPA_URL_OVERRIDE et SUPA_KEY_OVERRIDE sont lues par
+  //   review.js, review-video.js, course.html, index.html dans cet ordre :
+  //     var SUPA_URL = window.SUPA_URL_OVERRIDE || 'https://ctjsdpfegpsfpwjgusyi...';
+  if (env === 'staging') {
+    window.SUPA_URL_OVERRIDE = 'https://pekkskvpttzgqxjaqvzf.supabase.co';
+    window.SUPA_KEY_OVERRIDE = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBla2tza3ZwdHR6Z3F4amFxdnpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMjgxOTMsImV4cCI6MjA5MzkwNDE5M30.QIUJRKleQkA0d82XM1ApevBsWd3981_mEComPcMvsUc';
+    console.log('[Staging] Using Supabase staging project:', window.SUPA_URL_OVERRIDE);
+  }
+
   // Si Sentry n'est pas charge (script CDN bloque par adblocker, offline, etc),
   // on cree un stub silencieux pour eviter les erreurs "Sentry is not defined".
   if (typeof Sentry === 'undefined') {
