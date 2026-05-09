@@ -52,29 +52,52 @@
     return;
   }
 
-  // Le loader CDN deja init Sentry. On utilise onLoad pour configurer apres init.
-  // Si Sentry.onLoad n'existe pas (Sentry charge differemment), on configure direct.
+  // Le loader CDN charge le SDK mais NE l'init PAS automatiquement (le DSN
+  // est dans le hash mais pas auto-applique). On doit appeler Sentry.init()
+  // explicitement avec notre config.
   function configure() {
-    // Override config par defaut du loader pour ajuster sample rates et filtres
-    if (Sentry.getCurrentHub && Sentry.getCurrentHub().getClient) {
-      var client = Sentry.getCurrentHub().getClient();
-      if (client) {
-        var opts = client.getOptions();
-        opts.environment = env;
-        opts.release = 'xguard-voice-review@2026.05';
-        opts.tracesSampleRate = env === 'production' ? 0.1 : 1.0;
-        opts.ignoreErrors = (opts.ignoreErrors || []).concat([
+    // Init explicite si pas deja fait (le loader peut avoir auto-init dans certains cas)
+    var client = Sentry.getCurrentHub && Sentry.getCurrentHub().getClient
+                 ? Sentry.getCurrentHub().getClient()
+                 : null;
+
+    if (!client) {
+      // Pas init — on init nous-meme avec le bon DSN + config
+      Sentry.init({
+        dsn: 'https://ab9916085bc6c9e93779c21fad74456f@o4511359889178624.ingest.us.sentry.io/4511359898877952',
+        environment: env,
+        release: 'xguard-voice-review@2026.05',
+        tracesSampleRate: env === 'production' ? 0.1 : 1.0,
+        sendDefaultPii: true,
+        ignoreErrors: [
           'ResizeObserver loop limit exceeded',
           'Non-Error promise rejection captured',
           /^Script error\.?$/
-        ]);
-        // En local, on n'envoie rien
-        if (env === 'local') {
-          opts.beforeSend = function(event) {
+        ],
+        beforeSend: function(event) {
+          if (env === 'local') {
             console.log('[Sentry local] Skipped:', event.message || event.exception);
             return null;
-          };
+          }
+          return event;
         }
+      });
+    } else {
+      // Deja init par le loader — on ajuste juste les options
+      var opts = client.getOptions();
+      opts.environment = env;
+      opts.release = 'xguard-voice-review@2026.05';
+      opts.tracesSampleRate = env === 'production' ? 0.1 : 1.0;
+      opts.ignoreErrors = (opts.ignoreErrors || []).concat([
+        'ResizeObserver loop limit exceeded',
+        'Non-Error promise rejection captured',
+        /^Script error\.?$/
+      ]);
+      if (env === 'local') {
+        opts.beforeSend = function(event) {
+          console.log('[Sentry local] Skipped:', event.message || event.exception);
+          return null;
+        };
       }
     }
 
