@@ -59,7 +59,10 @@ function resolveLesson(cb) {
   fetch(API+'/lessons?lesson_key=eq.'+encodeURIComponent(lessonKey)+'&select=*', {headers:H})
     .then(function(r){return r.json()})
     .then(function(rows){ cb(rows[0] || null) })
-    .catch(function(){ cb(null) });
+    .catch(function(err){
+      if (window.captureWithContext) captureWithContext(err, {action:'resolve_lesson', lesson_key:lessonKey});
+      cb(null);
+    });
 }
 
 // === Resolve voice status (gating) ===
@@ -69,7 +72,10 @@ function resolveVoiceStatus(cb) {
     .then(function(rows){
       cb(rows[0] ? rows[0].status : null);
     })
-    .catch(function(){ cb(null) });
+    .catch(function(err){
+      if (window.captureWithContext) captureWithContext(err, {action:'resolve_voice_status', lesson_key:lessonKey});
+      cb(null);
+    });
 }
 
 // === Resolve video metadata ===
@@ -77,7 +83,10 @@ function resolveVideoMetadata(cb) {
   fetch(API+'/video_metadata?lesson_key=eq.'+encodeURIComponent(lessonKey)+'&select=*', {headers:H})
     .then(function(r){return r.json()})
     .then(function(rows){ cb(rows[0] || null) })
-    .catch(function(){ cb(null) });
+    .catch(function(err){
+      if (window.captureWithContext) captureWithContext(err, {action:'resolve_video_metadata', lesson_key:lessonKey});
+      cb(null);
+    });
 }
 
 // === Init ===
@@ -303,7 +312,8 @@ function loadExistingReview() {
       renderFlagsList();
       renderMarkers();
     })
-    .catch(function(){
+    .catch(function(err){
+      if (window.captureWithContext) captureWithContext(err, {action:'load_video_review', lesson_key:L.lesson_key});
       renderFlagsList();
     });
 }
@@ -356,15 +366,37 @@ function saveReview(approved, rejected, isAuto, rejectReason) {
       }
     } else {
       console.error('Save failed:', r.status);
+      if (window.captureWithContext) {
+        captureWithContext(new Error('Video review save HTTP ' + r.status), {
+          action: 'save_video_review',
+          lesson_key: L.lesson_key,
+          status: String(r.status),
+          flag_count: String(flags.length),
+          approved: String(!!approved),
+          rejected: String(!!rejected)
+        });
+      }
       var msg2 = document.getElementById('msg');
       if (msg2) {
-        msg2.textContent = '✗ Erreur sauvegarde';
+        msg2.textContent = '✗ Erreur sauvegarde — Nicolas a ete notifie';
         msg2.style.color = '#E74C3C';
       }
     }
   })
   .catch(function(e){
     console.error('Save error:', e);
+    if (window.captureWithContext) {
+      captureWithContext(e, {
+        action: 'save_video_review_network',
+        lesson_key: L.lesson_key,
+        flag_count: String(flags.length)
+      });
+    }
+    var msg3 = document.getElementById('msg');
+    if (msg3) {
+      msg3.textContent = '✗ Erreur reseau — verifie ta connexion';
+      msg3.style.color = '#E74C3C';
+    }
   });
 }
 
@@ -438,7 +470,9 @@ function loadHistory() {
       }).join('');
       panel.classList.remove('hidden');
     })
-    .catch(function(){});
+    .catch(function(err){
+      if (window.captureWithContext) captureWithContext(err, {action:'load_video_history', lesson_key:L.lesson_key});
+    });
 }
 
 // === Keyboard shortcuts ===

@@ -1036,10 +1036,30 @@ function saveReview(approved, isAuto){
       dirty = false;
       showMsg(approved ? '\u2713 Approuve!' : (isAuto ? '\u2713 Auto-sauvegarde' : '\u2713 Sauvegarde!'));
     } else {
-      showMsg('Erreur '+r.status);
+      showMsg('Erreur '+r.status+' \u2014 Nicolas a ete notifie');
+      if (window.captureWithContext) {
+        captureWithContext(new Error('Voice review save HTTP ' + r.status), {
+          action: 'save_voice_review',
+          lesson_key: L.lesson_key,
+          reviewer: rn,
+          status: String(r.status),
+          flag_count: String(flags.size),
+          glitch_count: String(glitches.length),
+          approved: String(!!approved),
+          is_auto: String(!!isAuto)
+        });
+      }
     }
   }).catch(function(e){
-    showMsg('Erreur: '+e.message);
+    showMsg('Erreur reseau: '+e.message);
+    if (window.captureWithContext) {
+      captureWithContext(e, {
+        action: 'save_voice_review_network',
+        lesson_key: L.lesson_key,
+        reviewer: rn,
+        flag_count: String(flags.size)
+      });
+    }
   });
 }
 
@@ -1298,9 +1318,25 @@ function submitSentenceFlag(){
       r.text().then(function(t){
         document.getElementById('sentence-modal-msg').textContent = 'Erreur ' + r.status + ' : ' + t.slice(0,100);
       });
+      if (window.captureWithContext) {
+        captureWithContext(new Error('Sentence flag save HTTP ' + r.status), {
+          action: 'save_sentence_flag',
+          lesson_key: L.lesson_key,
+          sentence_index: String(payload.sentence_index || ''),
+          flag_type: String(payload.flag_type || ''),
+          status: String(r.status)
+        });
+      }
     }
   }).catch(function(e){
     document.getElementById('sentence-modal-msg').textContent = 'Erreur : ' + e.message;
+    if (window.captureWithContext) {
+      captureWithContext(e, {
+        action: 'save_sentence_flag_network',
+        lesson_key: L.lesson_key,
+        sentence_index: String(payload.sentence_index || '')
+      });
+    }
   });
 }
 
