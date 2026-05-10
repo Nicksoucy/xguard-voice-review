@@ -12,6 +12,8 @@
   <script src="sentry-init.js?v=20260509a"></script>
   <link rel="stylesheet" href="review.css?v=20260508a">
   <link rel="stylesheet" href="review-video.css?v=20260508a">
+  <!-- LMS GHL payload generator (Phase 3) -->
+  <script src="lms/ghl-payload.js?v=20260510a"></script>
 </head>
 <body>
 
@@ -84,6 +86,7 @@
     <button class="btn bg" onclick="askApprove()">&#10003; Approuver</button>
     <button class="btn by" onclick="askReject()">&#10007; Rejeter (refaire)</button>
     <button class="btn by" onclick="copyReview()">Copier liste</button>
+    <button class="btn" id="lms-lesson-push-btn" onclick="pushLessonToGhl()" style="background:rgba(155,89,182,0.15);color:#bb8fce;border:1px solid rgba(155,89,182,0.4);display:none">🚀 Push to GHL</button>
     <span class="msg" id="msg"></span>
   </div>
 </div>

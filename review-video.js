@@ -411,8 +411,61 @@ function closeApproveModal() {
 function confirmApprove() {
   saveReview(true, false, false);
   closeApproveModal();
-  setTimeout(function(){ location.reload(); }, 800);
+  setTimeout(function(){
+    // Apres approval, montrer le bouton Push to GHL
+    var btn = document.getElementById('lms-lesson-push-btn');
+    if (btn) btn.style.display = 'inline-block';
+    location.reload();
+  }, 800);
 }
+
+// Phase 3 : Push de cette lecon individuelle vers GHL
+async function pushLessonToGhl() {
+  if (!L) return;
+  var msg = document.getElementById('msg');
+  msg.textContent = 'Generation payload...';
+  msg.style.color = '#bb8fce';
+
+  try {
+    var payload = await GhlPayload.buildForLesson(L.lesson_key);
+    var slug = L.lesson_key.split('/').pop();
+    var filename = slug + '-ghl-import-' + new Date().toISOString().split('T')[0] + '.json';
+    GhlPayload.downloadAsFile(payload, filename);
+    msg.innerHTML = '✓ <strong>' + filename + '</strong> telecharge. Upload dans GHL puis confirme.';
+    msg.style.color = '#27AE60';
+
+    // Ask if user wants to mark as pushed
+    setTimeout(function() {
+      if (confirm('As-tu uploade le fichier dans GHL ?\n\nClique OK pour marquer cette lecon comme "pushed" dans le tracker.')) {
+        GhlPayload.markPushed(L.lesson_key, 'ghl').then(function() {
+          msg.textContent = '✓ Lecon marquee comme pushed';
+          msg.style.color = '#27AE60';
+          setTimeout(function(){ location.reload(); }, 1500);
+        }).catch(function(e) {
+          msg.textContent = 'Erreur mark pushed : ' + e.message;
+          msg.style.color = '#E74C3C';
+          if (window.captureWithContext) captureWithContext(e, {action:'mark_lesson_pushed', lesson_key:L.lesson_key});
+        });
+      }
+    }, 500);
+  } catch (e) {
+    msg.textContent = 'Erreur : ' + e.message;
+    msg.style.color = '#E74C3C';
+    if (window.captureWithContext) captureWithContext(e, {action:'push_lesson_to_ghl', lesson_key:L.lesson_key});
+  }
+}
+
+// Show "Push to GHL" button if video is approved (or already approved on load)
+function checkPushToGhlVisibility() {
+  // Show only if approved banner is visible (means video.approved=true)
+  var approvedBanner = document.getElementById('approved-banner');
+  if (approvedBanner && !approvedBanner.classList.contains('hidden')) {
+    var btn = document.getElementById('lms-lesson-push-btn');
+    if (btn) btn.style.display = 'inline-block';
+  }
+}
+// Run after load
+window.addEventListener('load', function(){ setTimeout(checkPushToGhlVisibility, 1000); });
 function askReject() {
   document.getElementById('reject-reason').value = '';
   document.getElementById('reject-modal-bg').classList.add('open');

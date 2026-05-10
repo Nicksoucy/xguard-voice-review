@@ -4,6 +4,8 @@
 <!-- Sentry error tracking -->
 <script src="https://js.sentry-cdn.com/ab9916085bc6c9e93779c21fad74456f.min.js" crossorigin="anonymous"></script>
 <script src="sentry-init.js?v=20260509a"></script>
+<!-- LMS GHL payload generator (Phase 3) -->
+<script src="lms/ghl-payload.js?v=20260510a"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#0A0E1A;color:#F0F0F0;padding:20px 24px;min-height:100vh;max-width:860px;margin:0 auto}
@@ -95,6 +97,28 @@ a{text-decoration:none}
   <button class="f-btn" data-filter="flagged">⚠ Flaggees</button>
   <button class="f-btn" data-filter="approved">✓ Approuvees</button>
   <button class="f-btn" data-filter="needs_recheck">↻ A revoir</button>
+  <span style="flex:1"></span>
+  <button class="f-btn" id="lms-export-btn" onclick="exportToGhl()" title="Exporter le cours pour GHL Memberships" style="background:rgba(155,89,182,0.15);color:#bb8fce;border-color:rgba(155,89,182,0.4);display:none">🚀 Exporter pour GHL</button>
+</div>
+
+<!-- LMS export modal -->
+<div id="lms-modal-bg" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:100;align-items:center;justify-content:center">
+  <div style="background:#0A0E1A;border:1px solid rgba(155,89,182,0.4);border-radius:10px;padding:24px;max-width:540px;width:90%">
+    <h3 style="color:#bb8fce;font-size:16px;margin-bottom:12px">🚀 Export GHL — <span id="lms-modal-course"></span></h3>
+    <p style="color:#94A3B8;font-size:13px;line-height:1.6;margin-bottom:16px" id="lms-modal-stats">Chargement...</p>
+    <div style="background:rgba(255,255,255,0.04);border-radius:6px;padding:12px;font-size:11px;color:#94A3B8;line-height:1.6;margin-bottom:16px">
+      <strong style="color:#F0F0F0">Apres telechargement :</strong><br>
+      1. Ouvre GHL Memberships → Import Courses<br>
+      2. Upload le fichier .json telecharge<br>
+      3. Reviens ici et clique <strong>"Marquer comme pushed"</strong> pour mettre a jour le tracker
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+      <button onclick="closeLmsModal()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#94A3B8;padding:8px 16px;border-radius:5px;cursor:pointer;font-family:inherit">Annuler</button>
+      <button onclick="downloadGhlPayload()" style="background:#8E44AD;border:1px solid #8E44AD;color:#fff;padding:8px 16px;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:600">⬇ Telecharger JSON</button>
+      <button id="lms-mark-pushed-btn" onclick="markCoursePushed()" style="background:#27AE60;border:1px solid #27AE60;color:#fff;padding:8px 16px;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:600;display:none">✓ Marquer comme pushed</button>
+    </div>
+    <p id="lms-modal-msg" style="margin-top:10px;font-size:11px;color:#94A3B8"></p>
+  </div>
 </div>
 
 <div class="list" id="list">
@@ -214,6 +238,9 @@ resolveCourseId(function(courseId){
     document.getElementById('course-progress-header').style.display = 'block';
     document.getElementById('filters').style.display = 'flex';
 
+    // Phase 3 : show LMS export button if at least 1 lesson approved
+    checkAndShowLmsButton(globalStats.approved || 0);
+
     // Grouper par module
     var byModule = {};
     lessonStatuses.forEach(function(l){
@@ -325,6 +352,76 @@ resolveCourseId(function(courseId){
     document.getElementById('list').innerHTML = '<div class="err">Erreur: '+err.message+'</div>';
     console.error(err);
   });
+});
+
+// ===== LMS GHL Export (Phase 3) =====
+var lmsCurrentPayload = null;
+var lmsCurrentCourseId = null;
+
+// Affiche le bouton "Exporter pour GHL" si au moins 1 lecon est approved
+function checkAndShowLmsButton(approved_count) {
+  if (approved_count > 0) {
+    var btn = document.getElementById('lms-export-btn');
+    if (btn) btn.style.display = 'inline-block';
+  }
+}
+
+async function exportToGhl() {
+  resolveCourseId(async function(courseId) {
+    if (!courseId) return;
+    lmsCurrentCourseId = courseId;
+    document.getElementById('lms-modal-course').textContent = courseId;
+    document.getElementById('lms-modal-stats').innerHTML = 'Generation du payload GHL...';
+    document.getElementById('lms-modal-msg').textContent = '';
+    document.getElementById('lms-mark-pushed-btn').style.display = 'none';
+    document.getElementById('lms-modal-bg').style.display = 'flex';
+
+    try {
+      lmsCurrentPayload = await GhlPayload.buildForCourse(courseId);
+      var meta = lmsCurrentPayload._xguard_metadata;
+      document.getElementById('lms-modal-stats').innerHTML =
+        '<strong style="color:#F0F0F0">' + meta.total_lessons + ' lecons</strong> reparties sur ' +
+        '<strong style="color:#F0F0F0">' + meta.total_modules + ' modules</strong> seront exportees.<br>' +
+        '<span style="color:#94A3B8">Avec video : ' + meta.lessons_with_video + ' / ' + meta.total_lessons + '</span>';
+    } catch (e) {
+      document.getElementById('lms-modal-stats').innerHTML =
+        '<span style="color:#E74C3C">Erreur : ' + e.message + '</span>';
+      if (window.captureWithContext) captureWithContext(e, {action:'build_ghl_payload', course_id:courseId});
+    }
+  });
+}
+
+function closeLmsModal() {
+  document.getElementById('lms-modal-bg').style.display = 'none';
+  lmsCurrentPayload = null;
+  lmsCurrentCourseId = null;
+}
+
+function downloadGhlPayload() {
+  if (!lmsCurrentPayload) return;
+  var filename = lmsCurrentCourseId + '-ghl-import-' + new Date().toISOString().split('T')[0] + '.json';
+  GhlPayload.downloadAsFile(lmsCurrentPayload, filename);
+  document.getElementById('lms-modal-msg').innerHTML = '✓ <strong>' + filename + '</strong> telecharge. Va sur GHL Memberships → Import Courses → upload ce fichier.';
+  document.getElementById('lms-mark-pushed-btn').style.display = 'inline-block';
+}
+
+async function markCoursePushed() {
+  if (!lmsCurrentCourseId) return;
+  var msg = document.getElementById('lms-modal-msg');
+  msg.innerHTML = 'Marquage en cours...';
+  try {
+    var result = await GhlPayload.markCoursePushed(lmsCurrentCourseId, 'ghl');
+    msg.innerHTML = '✓ ' + result.count + ' lecons marquees comme pushed (par ' + result.pushed_by + ').';
+    setTimeout(function(){ closeLmsModal(); location.reload(); }, 1500);
+  } catch (e) {
+    msg.innerHTML = '<span style="color:#E74C3C">Erreur : ' + e.message + '</span>';
+    if (window.captureWithContext) captureWithContext(e, {action:'mark_course_pushed', course_id:lmsCurrentCourseId});
+  }
+}
+
+// Close modal on backdrop click
+document.getElementById('lms-modal-bg').addEventListener('click', function(e){
+  if (e.target === this) closeLmsModal();
 });
 </script>
 </body></html>
