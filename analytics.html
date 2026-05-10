@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache">
+  <title>Analytics — XGuard Voice Review</title>
+  <!-- Sentry error tracking -->
+  <script src="https://js.sentry-cdn.com/ab9916085bc6c9e93779c21fad74456f.min.js" crossorigin="anonymous"></script>
+  <script src="sentry-init.js?v=20260510a"></script>
+  <link rel="stylesheet" href="analytics.css?v=20260510a">
+  <!-- Chart.js v4 — CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<div class="top">
+  <h1>📊 Analytics — XGuard Voice Review</h1>
+  <div class="nav">
+    <a href="index.html">← Index</a>
+    <span class="last-updated" id="last-updated">Chargement...</span>
+  </div>
+</div>
+
+<!-- KPI Cards (top row) -->
+<section class="kpi-grid" id="kpi-grid">
+  <div class="kpi-card skeleton"></div>
+  <div class="kpi-card skeleton"></div>
+  <div class="kpi-card skeleton"></div>
+  <div class="kpi-card skeleton"></div>
+</section>
+
+<!-- Throughput chart -->
+<section class="chart-section">
+  <h2>📈 Reviews completed par jour <small>(30 derniers jours)</small></h2>
+  <div class="chart-wrapper">
+    <canvas id="chart-throughput" height="80"></canvas>
+  </div>
+</section>
+
+<!-- 2 columns : reviewers + categories -->
+<div class="grid-2">
+  <section class="chart-section">
+    <h2>👥 Performance par reviewer <small>(30 derniers jours)</small></h2>
+    <div class="chart-wrapper">
+      <canvas id="chart-reviewers" height="120"></canvas>
+    </div>
+    <table class="data-table" id="table-reviewers">
+      <thead>
+        <tr>
+          <th>Reviewer</th>
+          <th class="num">Reviews</th>
+          <th class="num">Approved</th>
+          <th class="num">Avg minutes</th>
+          <th class="num">Total flags</th>
+        </tr>
+      </thead>
+      <tbody><tr><td colspan="5" class="empty">Chargement...</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="chart-section">
+    <h2>🏷️ Categories de flags</h2>
+    <div class="chart-wrapper">
+      <canvas id="chart-categories" height="160"></canvas>
+    </div>
+  </section>
+</div>
+
+<!-- Top flag patterns -->
+<section class="chart-section">
+  <h2>🔥 Top mots flagges <small>(non resolus, min 2 occurrences)</small></h2>
+  <table class="data-table" id="table-top-flags">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Mot</th>
+        <th class="num">Occurrences</th>
+        <th class="num">Lecons affectees</th>
+        <th class="num">Reviewers</th>
+        <th>Echantillon lecons</th>
+      </tr>
+    </thead>
+    <tbody><tr><td colspan="6" class="empty">Chargement...</td></tr></tbody>
+  </table>
+</section>
+
+<script src="analytics.js?v=20260510a"></script>
+</body>
+</html>

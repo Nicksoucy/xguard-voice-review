@@ -1,0 +1,28 @@
+{
+  "env": {
+    "browser": true,
+    "es2021": true,
+    "node": true
+  },
+  "extends": "eslint:recommended",
+  "parserOptions": {
+    "ecmaVersion": 2021,
+    "sourceType": "script"
+  },
+  "rules": {
+    "no-unused-vars": "warn",
+    "no-undef": "warn",
+    "no-redeclare": "warn",
+    "no-var": "off",
+    "prefer-const": "off",
+    "no-console": "off",
+    "no-empty": "warn",
+    "no-prototype-builtins": "off"
+  },
+  "globals": {
+    "Sentry": "readonly",
+    "Chart": "readonly",
+    "fetchWithSentry": "readonly",
+    "captureWithContext": "readonly"
+  }
+}

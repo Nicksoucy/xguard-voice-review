@@ -1,0 +1,218 @@
+/* Analytics dashboard styles — reutilise variables review.css */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #0A0E1A;
+  color: #F0F0F0;
+  padding: 20px 24px;
+  min-height: 100vh;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+/* Header */
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+h1 {
+  color: #E74C3C;
+  font-size: 20px;
+  font-weight: 700;
+}
+.nav {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.nav a {
+  color: #94A3B8;
+  font-size: 12px;
+  text-decoration: none;
+  padding: 6px 14px;
+  border-radius: 5px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.nav a:hover {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+}
+.last-updated {
+  color: #555;
+  font-size: 11px;
+  font-family: monospace;
+}
+
+/* KPI cards */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.kpi-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 18px;
+  position: relative;
+  overflow: hidden;
+}
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #E74C3C, #C0392B);
+}
+.kpi-card.green::before { background: linear-gradient(90deg, #27AE60, #2ECC71); }
+.kpi-card.orange::before { background: linear-gradient(90deg, #F39C12, #E67E22); }
+.kpi-card.blue::before { background: linear-gradient(90deg, #3B82F6, #2563EB); }
+
+.kpi-label {
+  color: #94A3B8;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+.kpi-value {
+  color: #F0F0F0;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+}
+.kpi-sub {
+  color: #94A3B8;
+  font-size: 11px;
+  margin-top: 6px;
+}
+.kpi-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  margin-left: 4px;
+}
+.kpi-trend.up { background: rgba(39,174,96,0.15); color: #2ECC71; }
+.kpi-trend.down { background: rgba(231,76,60,0.15); color: #E74C3C; }
+.kpi-trend.flat { background: rgba(148,163,184,0.15); color: #94A3B8; }
+
+.skeleton {
+  animation: pulse 1.5s infinite;
+  min-height: 100px;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* Chart sections */
+.chart-section {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.chart-section h2 {
+  color: #F0F0F0;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chart-section h2 small {
+  color: #94A3B8;
+  font-size: 11px;
+  font-weight: 400;
+}
+.chart-wrapper {
+  position: relative;
+  margin: 0 -8px;
+}
+
+/* 2-col grid */
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+/* Data tables */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 12px;
+}
+.data-table th {
+  text-align: left;
+  color: #94A3B8;
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.data-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  color: #F0F0F0;
+}
+.data-table tr:hover td {
+  background: rgba(255,255,255,0.03);
+}
+.data-table .num {
+  text-align: right;
+  font-family: monospace;
+}
+.data-table .empty {
+  text-align: center;
+  color: #555;
+  font-style: italic;
+  padding: 20px;
+}
+.data-table .word {
+  font-family: 'SF Mono', 'Consolas', monospace;
+  background: rgba(231,76,60,0.1);
+  color: #E74C3C;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+.data-table .lessons-list {
+  font-size: 10px;
+  color: #94A3B8;
+  font-family: monospace;
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Errors */
+.err {
+  background: rgba(231,76,60,0.08);
+  border-left: 3px solid #E74C3C;
+  padding: 16px 20px;
+  border-radius: 0 8px 8px 0;
+  font-size: 13px;
+  color: #F8CACE;
+  margin: 20px 0;
+}

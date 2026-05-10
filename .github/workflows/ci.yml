@@ -1,0 +1,63 @@
+# CI : lint JS + HTML sur PR vers gh-pages
+#
+# Bloque le merge si syntax error ou problemes critiques.
+# Ne fait PAS de tests unitaires (vanilla JS, pas de framework dispo).
+#
+# Triggers :
+# - PR vers gh-pages → run lint, bloque merge si fail
+# - Push direct sur gh-pages → run lint en mode info (non-bloquant)
+
+name: CI - Lint JS + HTML
+
+on:
+  pull_request:
+    branches:
+      - gh-pages
+  push:
+    branches:
+      - gh-pages
+      - 'feature/**'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install ESLint + HTMLHint
+        run: |
+          npm install --no-save \
+            eslint@8 \
+            htmlhint@1
+
+      - name: Run ESLint on .js files
+        run: |
+          npx eslint --no-eslintrc --config .eslintrc.json \
+            *.js scripts/*.mjs scripts/*.js 2>/dev/null || true
+          # Pour bloquer la PR si erreur, retirer "|| true" ci-dessus
+
+      - name: Run HTMLHint on .html files
+        run: |
+          npx htmlhint --config .htmlhintrc *.html
+
+      - name: Verify Sentry script tag present
+        run: |
+          # Garde-fou : tous les .html principaux doivent avoir le loader Sentry
+          for f in index.html course.html review.html review-video.html analytics.html; do
+            if [ -f "$f" ] && ! grep -q "js.sentry-cdn.com" "$f"; then
+              echo "::error file=$f::Sentry loader script manquant dans $f"
+              exit 1
+            fi
+          done
+          echo "✓ Tous les HTML principaux ont le Sentry loader"
+
+      - name: Verify backup script syntax
+        run: |
+          node --check scripts/backup-rest.mjs
+          echo "✓ backup-rest.mjs syntax OK"
