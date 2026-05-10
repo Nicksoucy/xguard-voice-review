@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache">
+  <title>Exports — XGuard Voice Review</title>
+  <!-- Sentry -->
+  <script src="https://js.sentry-cdn.com/ab9916085bc6c9e93779c21fad74456f.min.js" crossorigin="anonymous"></script>
+  <script src="sentry-init.js?v=20260510a"></script>
+  <link rel="stylesheet" href="analytics.css?v=20260510a">
+  <style>
+    .export-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .export-card .info {
+      flex: 1;
+      min-width: 280px;
+    }
+    .export-card h3 {
+      font-size: 14px;
+      color: #F0F0F0;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+    .export-card p {
+      color: #94A3B8;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .export-card .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .btn-export {
+      background: rgba(59,130,246,0.15);
+      color: #3B82F6;
+      border: 1px solid rgba(59,130,246,0.4);
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all .15s;
+    }
+    .btn-export:hover {
+      background: #3B82F6;
+      color: #fff;
+    }
+    .btn-export.green {
+      background: rgba(39,174,96,0.15);
+      color: #2ECC71;
+      border-color: rgba(39,174,96,0.4);
+    }
+    .btn-export.green:hover {
+      background: #27AE60;
+      color: #fff;
+    }
+    .btn-export:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .filters-bar {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 16px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .filters-bar label {
+      color: #94A3B8;
+      font-size: 12px;
+    }
+    .filters-bar select, .filters-bar input {
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #F0F0F0;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: inherit;
+    }
+    #export-msg {
+      margin-top: 12px;
+      padding: 10px 14px;
+      border-radius: 5px;
+      font-size: 12px;
+      display: none;
+    }
+    #export-msg.success { background: rgba(39,174,96,0.15); color: #2ECC71; display: block; }
+    #export-msg.error { background: rgba(231,76,60,0.15); color: #E74C3C; display: block; }
+  </style>
+</head>
+<body>
+
+<div class="top">
+  <h1>📥 Exports — XGuard Voice Review</h1>
+  <div class="nav">
+    <a href="index.html">← Index</a>
+    <a href="analytics.html">📊 Analytics</a>
+  </div>
+</div>
+
+<div class="filters-bar">
+  <label for="course-filter">Cours :</label>
+  <select id="course-filter" onchange="updateCounts()">
+    <option value="">Tous les cours</option>
+  </select>
+
+  <label for="status-filter">Status :</label>
+  <select id="status-filter" onchange="updateCounts()">
+    <option value="">Tous</option>
+    <option value="approved">✓ Approuvees uniquement</option>
+    <option value="flagged">⚠ Flaggees</option>
+    <option value="needs_recheck">↻ A revoir</option>
+    <option value="not_reviewed">A faire</option>
+  </select>
+
+  <span style="margin-left:auto;color:#94A3B8;font-size:12px" id="counts">Chargement...</span>
+</div>
+
+<div id="export-msg"></div>
+
+<!-- Export Reviews -->
+<div class="export-card">
+  <div class="info">
+    <h3>📋 Reviews completes</h3>
+    <p>Toutes les reviews avec flags, glitches, reviewers, status. Format pour analyse Excel/Sheets ou backup hors-Supabase.</p>
+  </div>
+  <div class="actions">
+    <button class="btn-export" onclick="exportReviewsCSV()">⬇ CSV</button>
+    <button class="btn-export" onclick="exportReviewsJSON()">⬇ JSON</button>
+  </div>
+</div>
+
+<!-- Export Lessons Status -->
+<div class="export-card">
+  <div class="info">
+    <h3>📚 Status des lecons</h3>
+    <p>Liste complete avec status voice/video, dernier reviewer, time-to-approve, push LMS status.</p>
+  </div>
+  <div class="actions">
+    <button class="btn-export" onclick="exportLessonsCSV()">⬇ CSV</button>
+    <button class="btn-export" onclick="exportLessonsJSON()">⬇ JSON</button>
+  </div>
+</div>
+
+<!-- Export Top Flag Patterns -->
+<div class="export-card">
+  <div class="info">
+    <h3>🔥 Top mots flagges</h3>
+    <p>Mots les plus problematiques (TTS rate la prononciation). Utile pour enrichir le dictionnaire de prononciation.</p>
+  </div>
+  <div class="actions">
+    <button class="btn-export green" onclick="exportTopFlagsCSV()">⬇ CSV</button>
+    <button class="btn-export green" onclick="exportTopFlagsJSON()">⬇ JSON</button>
+  </div>
+</div>
+
+<!-- Export Throughput -->
+<div class="export-card">
+  <div class="info">
+    <h3>👥 Performance reviewers (90 derniers jours)</h3>
+    <p>Stats par reviewer/jour : reviews completees, approved, flags, temps moyen.</p>
+  </div>
+  <div class="actions">
+    <button class="btn-export" onclick="exportThroughputCSV()">⬇ CSV</button>
+    <button class="btn-export" onclick="exportThroughputJSON()">⬇ JSON</button>
+  </div>
+</div>
+
+<!-- Export Sentence Flags -->
+<div class="export-card">
+  <div class="info">
+    <h3>✏ Sentence flags (corrections)</h3>
+    <p>Flags niveau phrase avec texte original + correction. Pour appliquer les corrections au pipeline voiceover.</p>
+  </div>
+  <div class="actions">
+    <button class="btn-export" onclick="exportSentenceFlagsCSV()">⬇ CSV</button>
+    <button class="btn-export" onclick="exportSentenceFlagsJSON()">⬇ JSON</button>
+  </div>
+</div>
+
+<script src="exports.js?v=20260510a"></script>
+</body>
+</html>

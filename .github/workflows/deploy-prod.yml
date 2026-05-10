@@ -1,0 +1,59 @@
+# Gating production : merge sur gh-pages necessite label `staging-validated`
+#
+# Workflow :
+# 1. Dev cree branche `feature/xyz`, push commits
+# 2. `deploy-staging.yml` deploie auto sur gh-pages-staging
+# 3. Dev teste sur staging URL
+# 4. Dev ouvre PR vers gh-pages
+# 5. CI lint passe
+# 6. Dev ajoute label `staging-validated` sur la PR
+# 7. Ce workflow verifie le label avant de permettre le merge
+#
+# Note : ce workflow est INFORMATIF. Pour vraiment bloquer le merge sans label,
+# configurer Branch Protection Rules dans Settings > Branches sur gh-pages :
+#   - Require status checks to pass : check "validate-staging-label"
+#   - Require pull request reviews : 1 approval
+#
+# (Branch protection necessite plan paid GitHub, gratuit en repo public)
+
+name: Validate Production Deploy
+
+on:
+  pull_request:
+    branches:
+      - gh-pages
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+jobs:
+  validate-staging-label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check staging-validated label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Verifier que le label "staging-validated" est present sur la PR
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          LABELS=$(gh pr view $PR_NUMBER --json labels --jq '.labels[].name' --repo ${{ github.repository }})
+
+          if echo "$LABELS" | grep -q "staging-validated"; then
+            echo "✓ Label staging-validated present — PR peut etre mergee"
+            exit 0
+          else
+            echo "::error::Label 'staging-validated' manquant sur PR #${PR_NUMBER}"
+            echo "::error::Avant de merger, teste sur https://nicksoucy.github.io/xguard-voice-review-staging/ puis ajoute le label."
+            exit 1
+          fi
+
+      - name: Comment on PR si manque
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --body "⚠️ **Label \`staging-validated\` manquant**. Avant de merger sur gh-pages :
+1. Teste tes changements sur https://nicksoucy.github.io/xguard-voice-review-staging/
+2. Verifie que voice review + video review + course.html marchent
+3. Verifie aucune erreur Sentry nouvelle
+4. Ajoute le label \`staging-validated\` sur cette PR" \
+            --repo ${{ github.repository }}

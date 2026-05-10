@@ -6,11 +6,28 @@ Documentation operationnelle. A consulter quand quelque chose casse.
 
 ## Architecture
 
-- **Frontend** : HTML/CSS/JS vanille servi par GitHub Pages (`gh-pages` branch)
-- **DB + Storage** : Supabase free tier (project `ctjsdpfegpsfpwjgusyi`)
-- **Error tracking** : Sentry free tier (project `xguard-voice-review`)
-- **Backups** : GitHub Releases prive, retention 30 jours
-- **Staging** (a partir de Phase 1.3) : nouveau projet Supabase + branche `gh-pages-staging`
+| Composant | Description | Provider | URL/ID |
+|---|---|---|---|
+| Frontend prod | Site statique HTML/JS vanille | GitHub Pages | `gh-pages` branch → https://nicksoucy.github.io/xguard-voice-review/ |
+| Frontend staging | Meme code, env=staging | GitHub Pages | `gh-pages-staging` branch (a activer) |
+| DB prod | Tables, vues, RLS, policies | Supabase free | `ctjsdpfegpsfpwjgusyi` (us-west-2) |
+| DB staging | Schema clone | Supabase free | `pekkskvpttzgqxjaqvzf` (us-west-1) |
+| Storage prod | Voiceovers MP3 + videos MP4 | Supabase Storage | buckets `voiceovers` + `videos` (100MB max) |
+| Error tracking | Erreurs frontend en temps reel | Sentry free | https://darkhorse-ads.sentry.io/projects/xguard-voice-review/ |
+| Backups | Dump quotidien tables critiques | GitHub Releases | https://github.com/Nicksoucy/xguard-voice-review/releases (prerelease) |
+| CI/CD | Lint sur PR | GitHub Actions | `.github/workflows/ci.yml` |
+| LMS push | Export GHL JSON manuel | client-side | `lms/ghl-payload.js` |
+
+## Pages disponibles
+
+| URL | Role | Acces |
+|---|---|---|
+| `/` (index.html) | Liste cours + progression globale | Public |
+| `/course.html?course=XXX` | Detail cours, liste lecons, export GHL | Public |
+| `/review.html?key=XXX` | Voice review (voiceover + flags) | Public |
+| `/review-video.html?key=XXX` | Video review (player + flags categorises) | Public |
+| `/analytics.html` | Dashboard KPIs + charts | Public (a gater Phase 5+ ?) |
+| `/exports.html` | Exports CSV/JSON tables critiques | Public |
 
 ---
 
@@ -181,9 +198,15 @@ Voir section Phase 1.3 du plan dans `~/.claude/plans/`.
 
 ## Changelog production grade
 
-- 2026-05-09 : Phase 1.1 deployed — Sentry error tracking
-- (a venir) Phase 1.2 — Backups quotidiens
-- (a venir) Phase 1.3 — Staging environment
-- (a venir) Phase 2 — Analytics + CI/CD
-- (a venir) Phase 3 — LMS GHL semi-auto
-- (a venir) Phase 4 — Polish + securite
+- 2026-05-09 : Phase 1.1 deployed — Sentry error tracking (loader CDN + sentry-init.js)
+- 2026-05-09 : Phase 1.2 deployed — Backups Option B (REST API JSON, pas de password DB requis)
+- 2026-05-09 : Phase 1.3 deployed — Staging Supabase (`pekkskvpttzgqxjaqvzf`) + frontend bascule auto
+- 2026-05-09 : Phase 1.4 deployed — RUNBOOK initial
+- 2026-05-10 : Phase 2.1 deployed — 5 vues SQL analytics (review_analytics, throughput, top_flags, global_kpis, category_breakdown)
+- 2026-05-10 : Phase 2.2 deployed — Dashboard analytics.html (Chart.js, 5 KPIs, 4 charts, table top flags)
+- 2026-05-10 : Phase 2.3 deployed — CI/CD ESLint + HTMLHint sur PR
+- 2026-05-10 : Phase 3.1 deployed — Schema LMS columns + lms_push_queue view
+- 2026-05-10 : Phase 3.3 deployed — lms/ghl-payload.js generateur client-side
+- 2026-05-10 : Phase 3.4 deployed — UI Push to GHL (course.html bulk + review-video.html lesson)
+- 2026-05-10 : Phase 4.1 deployed — Exports CSV/JSON (5 sections : reviews, lessons, top flags, throughput, sentence flags)
+- 2026-05-10 : Phase 4.2 deployed — RLS hardening sur tables video_* (advisory critical Supabase resolu)
