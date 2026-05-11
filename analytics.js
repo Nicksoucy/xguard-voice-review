@@ -126,7 +126,11 @@ function card(color, label, value, sub) {
 // ============= Charts =============
 function renderThroughputChart(throughput) {
   var ctx = document.getElementById('chart-throughput');
-  if (!ctx || !throughput.length) return;
+  if (!ctx) return;
+  if (!throughput.length) {
+    showEmptyState(ctx, 'Aucune review derniers 90 jours');
+    return;
+  }
 
   // Group by day, aggregate all reviewers
   var byDay = {};
@@ -174,7 +178,11 @@ function renderThroughputChart(throughput) {
 
 function renderReviewersChart(throughput) {
   var ctx = document.getElementById('chart-reviewers');
-  if (!ctx || !throughput.length) return;
+  if (!ctx) return;
+  if (!throughput.length) {
+    showEmptyState(ctx, 'Aucun reviewer actif');
+    return;
+  }
 
   // Aggregate by reviewer (last 30 days)
   var byReviewer = {};
@@ -256,7 +264,11 @@ function renderReviewersTable(throughput) {
 
 function renderCategoriesChart(categories) {
   var ctx = document.getElementById('chart-categories');
-  if (!ctx || !categories.length) return;
+  if (!ctx) return;
+  if (!categories.length) {
+    showEmptyState(ctx, 'Aucun flag categorise');
+    return;
+  }
 
   new Chart(ctx, {
     type: 'doughnut',
@@ -310,6 +322,15 @@ function renderTopFlags(topFlags) {
 }
 
 // ============= Utils =============
+function showEmptyState(canvas, msg) {
+  // Remplace le canvas par un div empty state
+  var parent = canvas.parentNode;
+  var div = document.createElement('div');
+  div.style.cssText = 'padding:40px;text-align:center;color:#555;font-style:italic;font-size:12px';
+  div.textContent = msg || 'Aucune donnee a afficher';
+  parent.replaceChild(div, canvas);
+}
+
 function shortDate(iso) {
   if (!iso) return '';
   var d = new Date(iso);

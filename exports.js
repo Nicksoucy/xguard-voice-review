@@ -274,3 +274,23 @@ async function exportSentenceFlags(format) {
 }
 function exportSentenceFlagsCSV() { exportSentenceFlags('csv'); }
 function exportSentenceFlagsJSON() { exportSentenceFlags('json'); }
+
+// ============= Tout exporter =============
+async function exportAll() {
+  showMsg('Snapshot complet en cours... (5 fichiers)', 'success');
+  // Sequence : 1s delay entre chaque pour eviter rate-limit + browser block on multiple downloads
+  await exportReviews('json');
+  await sleep(800);
+  await exportLessons('json');
+  await sleep(800);
+  await exportTopFlags('json');
+  await sleep(800);
+  await exportThroughput('json');
+  await sleep(800);
+  await exportSentenceFlags('json');
+  showMsg('✓ Snapshot complet telecharge (5 fichiers JSON)', 'success');
+}
+
+function sleep(ms) {
+  return new Promise(function(resolve) { setTimeout(resolve, ms); });
+}

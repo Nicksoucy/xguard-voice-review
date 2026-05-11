@@ -72,11 +72,21 @@
         ignoreErrors: [
           'ResizeObserver loop limit exceeded',
           'Non-Error promise rejection captured',
-          /^Script error\.?$/
+          /^Script error\.?$/,
+          // Path discovery 400s — loadTimestamps essaie 4 URLs incluant /preview/,
+          // les 400 sur preview/ pour les vieilles lecons ElevenLabs sont attendus
+          /storage\/v1\/object\/public\/voiceovers\/preview\//,
+          /storage\/v1\/object\/public\/videos\/preview\//,
+          /HTTP 400 on .+\/preview\//
         ],
         beforeSend: function(event) {
           if (env === 'local') {
             console.log('[Sentry local] Skipped:', event.message || event.exception);
+            return null;
+          }
+          // Filter HTTP 400/404 sur les fetches de discovery path (preview/ fallback)
+          var msg = event.message || (event.exception && event.exception.values && event.exception.values[0] && event.exception.values[0].value) || '';
+          if (msg.indexOf('/preview/') !== -1 && (msg.indexOf('HTTP 400') !== -1 || msg.indexOf('HTTP 404') !== -1)) {
             return null;
           }
           return event;
