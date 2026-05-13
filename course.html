@@ -196,13 +196,21 @@ resolveCourseId(function(courseId){
     var metaRows = results[2] || [];
     var reviewRows = results[3] || [];
 
-    // Construire map lesson_key -> latest flags (le 1er = le plus recent grace au order desc)
+    // Construire map lesson_key -> {flags, reviewAt, approved, activeFlags}
+    // Un flag "actif" = ni auto_resolved ni approved_after_regen (= encore a traiter)
     var flagsByLesson = {};
     var reviewAtByLesson = {};
+    var approvedByLesson = {};
+    var activeFlagsByLesson = {};
     reviewRows.forEach(function(r){
       if (!flagsByLesson[r.lesson_key]) {
         flagsByLesson[r.lesson_key] = r.flags || [];
         reviewAtByLesson[r.lesson_key] = r.updated_at;
+        approvedByLesson[r.lesson_key] = !!r.approved;
+        // Compter seulement les flags pas encore resolus
+        activeFlagsByLesson[r.lesson_key] = (r.flags || []).filter(function(f){
+          return !f.auto_resolved && !f.approved_after_regen;
+        }).length;
       }
     });
 
@@ -212,15 +220,22 @@ resolveCourseId(function(courseId){
       if (m.voiceover_uploaded_at) regenAtByLesson[m.lesson_key] = m.voiceover_uploaded_at;
     });
 
-    // Compteur global "leçons avec flags NEW post-regen a traiter"
+    // Helper : une lecon a-t-elle des flags NEW a traiter ?
+    // NEW = a des flags ACTIFS + n'est PAS approved + review faite apres derniere regen (ou pas de regen)
+    function hasNewFlags(lessonKey) {
+      if (approvedByLesson[lessonKey]) return false;      // approved = fini, peu importe les flags
+      var active = activeFlagsByLesson[lessonKey] || 0;
+      if (active === 0) return false;                      // tous flags resolus = pas NEW
+      var reviewAt = reviewAtByLesson[lessonKey];
+      var regenAt = regenAtByLesson[lessonKey];
+      if (!regenAt) return true;                           // jamais regen = a traiter
+      return reviewAt && reviewAt > regenAt;               // review post-regen = NEW
+    }
+
+    // Compteur global "leçons avec flags NEW a traiter"
     var newFlagsCount = 0;
     Object.keys(flagsByLesson).forEach(function(k){
-      var nbFlags = (flagsByLesson[k] || []).length;
-      if (nbFlags === 0) return;
-      var reviewAt = reviewAtByLesson[k];
-      var regenAt = regenAtByLesson[k];
-      // NEW = pas de regen OU regen avant la review
-      if (!regenAt || (reviewAt && reviewAt > regenAt)) newFlagsCount++;
+      if (hasNewFlags(k)) newFlagsCount++;
     });
 
     // Construire une map lesson_key -> nb de PHRASES regenerees AVEC flag actif (non auto_resolved, non approved)
@@ -284,11 +299,7 @@ resolveCourseId(function(courseId){
       var modNewCount = 0;
       mod.lessons.forEach(function(l){
         if(modStats[l.status]!==undefined) modStats[l.status]++;
-        if (l.flags_count > 0) {
-          var rAt = reviewAtByLesson[l.lesson_key];
-          var gAt = regenAtByLesson[l.lesson_key];
-          if (!gAt || (rAt && rAt > gAt)) modNewCount++;
-        }
+        if (hasNewFlags(l.lesson_key)) modNewCount++;
       });
       var modPct = mod.lessons.length > 0 ? Math.round(modStats.approved / mod.lessons.length * 100) : 0;
 
@@ -313,15 +324,14 @@ resolveCourseId(function(courseId){
         if (regenCounts[l.lesson_key] && l.status === 'needs_recheck') {
           metaR += '<span class="tag-regen" title="Phrases regenerees depuis ta derniere review">🔄 '+regenCounts[l.lesson_key]+' a revoir</span>';
         }
-        if (l.flags_count > 0) {
-          var reviewAt = reviewAtByLesson[l.lesson_key];
-          var regenAt = regenAtByLesson[l.lesson_key];
-          // NEW = pas de regen OU review apres la derniere regen
-          var isNew = !regenAt || (reviewAt && reviewAt > regenAt);
-          if (isNew) {
-            metaR += '<span class="tag-flags-new" title="Review faite APRES la derniere regen — flags actifs a traiter">🔴 '+l.flags_count+' NEW</span>';
+        // Affichage flags : utilise nb de flags ACTIFS (non auto_resolved, non approved_after_regen)
+        // et tient compte du statut approved de la lecon.
+        var activeCount = activeFlagsByLesson[l.lesson_key] || 0;
+        if (activeCount > 0 && !approvedByLesson[l.lesson_key]) {
+          if (hasNewFlags(l.lesson_key)) {
+            metaR += '<span class="tag-flags-new" title="Review faite APRES la derniere regen — flags actifs a traiter">🔴 '+activeCount+' NEW</span>';
           } else {
-            metaR += '<span class="tag-flags-old" title="Review faite AVANT la derniere regen — flags deja traites par regen">'+l.flags_count+' (deja regen)</span>';
+            metaR += '<span class="tag-flags-old" title="Review faite AVANT la derniere regen — flags deja traites par regen">'+activeCount+' (deja regen)</span>';
           }
         }
         if (l.latest_reviewer) metaR += '<span class="tag-reviewer">'+l.latest_reviewer+'</span>';
