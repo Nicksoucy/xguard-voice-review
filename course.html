@@ -45,6 +45,8 @@ a{text-decoration:none}
 .item .t{color:#F0F0F0;flex:1}
 .item .meta-r{display:flex;gap:5px;align-items:center}
 .tag-flags{background:rgba(243,156,18,0.15);color:#F39C12;font-size:10px;padding:2px 7px;border-radius:3px;font-weight:600}
+.tag-flags-new{background:rgba(231,76,60,0.25);color:#FF6B5B;font-size:10px;padding:2px 7px;border-radius:3px;font-weight:700;border:1px solid rgba(231,76,60,0.5)}
+.tag-flags-old{background:rgba(120,120,120,0.12);color:#777;font-size:10px;padding:2px 7px;border-radius:3px;font-weight:500;text-decoration:line-through}
 .tag-reviewer{background:rgba(255,255,255,0.06);color:#94A3B8;font-size:10px;padding:2px 7px;border-radius:3px}
 .tag-duration{background:rgba(59,130,246,0.1);color:#3B82F6;font-size:10px;padding:2px 7px;border-radius:3px}
 .tag-regen{background:rgba(39,174,96,0.15);color:#2ECC71;font-size:10px;padding:2px 7px;border-radius:3px;font-weight:600}
@@ -186,7 +188,7 @@ resolveCourseId(function(courseId){
     fetch(API+'/courses?id=eq.'+encodeURIComponent(courseId),{headers:H}).then(function(r){return r.json()}),
     // Switch vers lesson_status_full : ajoute colonnes video (has_video, video_status, etc.)
     fetch(API+'/lesson_status_full?course_id=eq.'+encodeURIComponent(courseId)+'&order=sort_order.asc',{headers:H}).then(function(r){return r.json()}),
-    fetch(API+'/voiceover_metadata?lesson_key=like.'+encodeURIComponent(courseId+'/%')+'&select=lesson_key,regenerated_sentence_indices',{headers:H}).then(function(r){return r.json()}),
+    fetch(API+'/voiceover_metadata?lesson_key=like.'+encodeURIComponent(courseId+'/%')+'&select=lesson_key,regenerated_sentence_indices,voiceover_uploaded_at',{headers:H}).then(function(r){return r.json()}),
     fetch(API+'/voice_reviews?lesson_key=like.'+encodeURIComponent(courseId+'/%')+'&select=lesson_key,flags,updated_at&order=updated_at.desc',{headers:H}).then(function(r){return r.json()})
   ]).then(function(results){
     var courseRows = results[0];
@@ -196,8 +198,29 @@ resolveCourseId(function(courseId){
 
     // Construire map lesson_key -> latest flags (le 1er = le plus recent grace au order desc)
     var flagsByLesson = {};
+    var reviewAtByLesson = {};
     reviewRows.forEach(function(r){
-      if (!flagsByLesson[r.lesson_key]) flagsByLesson[r.lesson_key] = r.flags || [];
+      if (!flagsByLesson[r.lesson_key]) {
+        flagsByLesson[r.lesson_key] = r.flags || [];
+        reviewAtByLesson[r.lesson_key] = r.updated_at;
+      }
+    });
+
+    // Map lesson_key -> derniere regen voiceover (pour comparer si review POST-regen ou PRE-regen)
+    var regenAtByLesson = {};
+    metaRows.forEach(function(m){
+      if (m.voiceover_uploaded_at) regenAtByLesson[m.lesson_key] = m.voiceover_uploaded_at;
+    });
+
+    // Compteur global "leçons avec flags NEW post-regen a traiter"
+    var newFlagsCount = 0;
+    Object.keys(flagsByLesson).forEach(function(k){
+      var nbFlags = (flagsByLesson[k] || []).length;
+      if (nbFlags === 0) return;
+      var reviewAt = reviewAtByLesson[k];
+      var regenAt = regenAtByLesson[k];
+      // NEW = pas de regen OU regen avant la review
+      if (!regenAt || (reviewAt && reviewAt > regenAt)) newFlagsCount++;
     });
 
     // Construire une map lesson_key -> nb de PHRASES regenerees AVEC flag actif (non auto_resolved, non approved)
@@ -233,6 +256,7 @@ resolveCourseId(function(courseId){
       '<strong style="color:#F0F0F0">'+globalStats.approved+' / '+total+' approuvees</strong>'
       + (globalStats.needs_recheck ? ' · <span style="color:#E74C3C">'+globalStats.needs_recheck+' a revoir</span>' : '')
       + (globalStats.flagged ? ' · <span style="color:#F39C12">'+globalStats.flagged+' flaggees</span>' : '')
+      + (newFlagsCount ? ' · <span style="color:#FF6B5B;font-weight:700">🔴 '+newFlagsCount+' NEW (post-regen)</span>' : '')
       + (globalStats.not_reviewed ? ' · <span style="color:#94A3B8">'+globalStats.not_reviewed+' a faire</span>' : '');
     document.getElementById('cph-bar').innerHTML = buildBar(globalStats, total);
     document.getElementById('course-progress-header').style.display = 'block';
@@ -257,7 +281,15 @@ resolveCourseId(function(courseId){
 
       // Stats du module
       var modStats = {approved:0,needs_recheck:0,flagged:0,in_review:0,not_reviewed:0};
-      mod.lessons.forEach(function(l){ if(modStats[l.status]!==undefined) modStats[l.status]++; });
+      var modNewCount = 0;
+      mod.lessons.forEach(function(l){
+        if(modStats[l.status]!==undefined) modStats[l.status]++;
+        if (l.flags_count > 0) {
+          var rAt = reviewAtByLesson[l.lesson_key];
+          var gAt = regenAtByLesson[l.lesson_key];
+          if (!gAt || (rAt && rAt > gAt)) modNewCount++;
+        }
+      });
       var modPct = mod.lessons.length > 0 ? Math.round(modStats.approved / mod.lessons.length * 100) : 0;
 
       var header = document.createElement('div');
@@ -265,7 +297,9 @@ resolveCourseId(function(courseId){
       header.setAttribute('data-module-id', modId);
       header.innerHTML =
         'Module ' + mod.index
-        + '<span class="mod-pct"><strong>'+modPct+'%</strong> · '+modStats.approved+'/'+mod.lessons.length+' approuvees</span>';
+        + '<span class="mod-pct"><strong>'+modPct+'%</strong> · '+modStats.approved+'/'+mod.lessons.length+' approuvees'
+        + (modNewCount ? ' · <span style="color:#FF6B5B">🔴 '+modNewCount+' NEW</span>' : '')
+        + '</span>';
       list.appendChild(header);
 
       mod.lessons.forEach(function(l){
@@ -279,7 +313,17 @@ resolveCourseId(function(courseId){
         if (regenCounts[l.lesson_key] && l.status === 'needs_recheck') {
           metaR += '<span class="tag-regen" title="Phrases regenerees depuis ta derniere review">🔄 '+regenCounts[l.lesson_key]+' a revoir</span>';
         }
-        if (l.flags_count > 0) metaR += '<span class="tag-flags">'+l.flags_count+' flags</span>';
+        if (l.flags_count > 0) {
+          var reviewAt = reviewAtByLesson[l.lesson_key];
+          var regenAt = regenAtByLesson[l.lesson_key];
+          // NEW = pas de regen OU review apres la derniere regen
+          var isNew = !regenAt || (reviewAt && reviewAt > regenAt);
+          if (isNew) {
+            metaR += '<span class="tag-flags-new" title="Review faite APRES la derniere regen — flags actifs a traiter">🔴 '+l.flags_count+' NEW</span>';
+          } else {
+            metaR += '<span class="tag-flags-old" title="Review faite AVANT la derniere regen — flags deja traites par regen">'+l.flags_count+' (deja regen)</span>';
+          }
+        }
         if (l.latest_reviewer) metaR += '<span class="tag-reviewer">'+l.latest_reviewer+'</span>';
 
         // Voice button : toujours actif, vert si approved
