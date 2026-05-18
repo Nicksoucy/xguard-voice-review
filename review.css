@@ -70,6 +70,11 @@ h1{color:#E74C3C;font-size:14px}
 .w.regenerated.now{background:rgba(39,174,96,0.4);color:#fff}
 /* Si une phrase est ET regeneree ET re-flaggee, le rouge prevaut visuellement */
 .w.regenerated.flagged{color:#E74C3C;border-bottom:2px solid #E74C3C;background:rgba(231,76,60,0.06)}
+/* Reflag (violet) : correction appliquee mais l'employeur dit que c'est encore pas bon */
+.w.reflagged{color:#A855F7;border-bottom:2px solid #A855F7;font-weight:600}
+.w.reflagged.now{background:rgba(168,85,247,0.3);color:#fff}
+.w.reflagged.grouped{background:rgba(168,85,247,0.15);border-radius:3px}
+.w.regenerated.reflagged{color:#A855F7;border-bottom:2px solid #A855F7;background:rgba(168,85,247,0.08)}
 .sm{display:inline-block;color:#333;font-size:9px;font-family:monospace;vertical-align:super;margin:0 2px;user-select:none}
 
 .fp{background:rgba(231,76,60,0.06);border:1px solid rgba(231,76,60,0.15);border-radius:8px;padding:14px 18px;margin-top:12px}
@@ -82,6 +87,16 @@ h1{color:#E74C3C;font-size:14px}
 .ri.ok .rw{color:#27AE60;text-decoration:line-through}
 .ri.ok .rc{color:#5a8a6e}
 .ri.ok::before{content:"\2713";color:#27AE60;font-weight:700;margin-right:4px}
+/* Flag reflagge (violet) : l'employeur a clique "Mal corrige" */
+.ri.reflag{background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.4)}
+.ri.reflag .rw{color:#A855F7;font-weight:600}
+.ri.reflag .rc{color:#9a7bb5}
+.ri.reflag::before{content:"\26A0";color:#A855F7;font-weight:700;margin-right:4px}
+/* Bouton "Mal corrige" / reflag dans la liste des flags */
+.ri .rreflag{background:rgba(168,85,247,0.14);border:1px solid rgba(168,85,247,0.4);color:#C58BF7;border-radius:4px;padding:3px 8px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
+.ri .rreflag:hover{background:rgba(168,85,247,0.3);color:#fff}
+.ri .rreflag.on{background:#A855F7;border-color:#A855F7;color:#fff}
+.ri .rreflag.on:hover{background:#B975F9}
 .ri .rt{color:#666;min-width:32px;cursor:pointer}
 .ri .rs{color:#E67E22;font-family:monospace;min-width:24px;font-size:11px}
 .ri .rw{color:#E74C3C;font-weight:600;min-width:80px}
@@ -137,6 +152,11 @@ h1{color:#E74C3C;font-size:14px}
 .sentence-field input,.sentence-field textarea{width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:4px;padding:7px 10px;color:#F0F0F0;font-size:12px;font-family:inherit;resize:vertical}
 .sentence-field input:focus,.sentence-field textarea:focus{outline:none;border-color:#2ECC71}
 .sentence-field textarea{min-height:60px}
+
+/* Legende des couleurs de flags */
+.flag-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:#94A3B8;margin:4px 0 8px}
+.flag-legend span{display:flex;align-items:center;gap:4px}
+.flag-legend i{display:inline-block;width:10px;height:10px;border-radius:2px}
 
 /* Bouton flag phrase dans le texte */
 .sm-flag{display:inline-block;color:#666;font-size:10px;cursor:pointer;margin:0 2px;padding:1px 3px;border-radius:2px;user-select:none}

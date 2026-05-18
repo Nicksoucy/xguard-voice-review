@@ -713,6 +713,7 @@ function buildWords(){
     }
     if (fgFound) {
       if (isApproved(fgFound)) s.classList.add('approved');
+      else if (fgFound.reflagged) s.classList.add('flagged','reflagged');
       else if (isResolved(fgFound)) s.classList.add('resolved');
       else s.classList.add('flagged');
       if (isGroupMember) s.classList.add('grouped');
@@ -781,6 +782,7 @@ function buildWords(){
                   els[g].classList.remove('resolved','approved');
                   els[g].classList.add('flagged');
                   els[g].classList.add('grouped');
+                  if (lf2.reflagged) els[g].classList.add('reflagged');
                 }
               });
             } else {
@@ -802,12 +804,13 @@ function buildWords(){
           var ex0 = flags.get(ii);
           if (ex0) { delete ex0.approved_after_regen; flags.set(ii, ex0); }
         }
-        // Cas 1 : mot "resolved" (vert). Clic = "ce mot est encore pas bon" -> repasse rouge (reflagged)
+        // Cas 1 : mot "resolved" (vert). Clic = "ce mot est encore pas bon" -> repasse violet (reflagged)
         else if(sp.classList.contains('resolved')){
           sp.classList.remove('resolved');
-          sp.classList.add('flagged');
+          sp.classList.add('flagged','reflagged');
           var existing = flags.get(ii) || {index:ii,word:W[ii].word,context:getCtx(ii),time:fmt(W[ii].start),sentenceIndex:gsi(ii),note:''};
-          existing.reflagged = true; // marqueur : reste rouge meme si la phrase est dans regenIndices
+          existing.reflagged = true; // marqueur : reste violet meme si la phrase est dans regenIndices
+          delete existing.approved_after_regen; delete existing.approved_at; delete existing.auto_resolved;
           flags.set(ii, existing);
         }
         // Cas 2 : mot "flagged" (rouge). Clic = retirer le flag (et tout le groupe si applicable)
@@ -950,9 +953,10 @@ function renderFlags(){
     var resolved = isResolved(d);
     var approved = isApproved(d);
     var autoResolved = isAutoResolved(d);
+    var reflagged = !!d.reflagged;
     var el=document.createElement('div');
-    el.className='ri ' + (approved || autoResolved ? 'ok' : (resolved ? 'ok' : 'f'));
-    if (approved || autoResolved) el.style.opacity = '0.55';
+    el.className='ri ' + (reflagged ? 'reflag' : (approved || autoResolved ? 'ok' : (resolved ? 'ok' : 'f')));
+    if ((approved || autoResolved) && !reflagged) el.style.opacity = '0.55';
     // Selecteur de categorie : permet a Nicolas de distinguer
     // - pronunciation : ElevenLabs prononce mal un mot correctement ecrit -> enrichir le dict
     // - typo : le scriptwriter a ecrit un mot qui n'existe pas -> corriger le .md, NE PAS enrichir dict
@@ -968,8 +972,60 @@ function renderFlags(){
     var groupBadge = isGroup ? '<span class="rg" title="Flag groupe de '+d.groupIndices.length+' mots">\u{1F517} '+d.groupIndices.length+'</span>' : '';
     // Bouton X : nettoie les classes du leader ET de tous les membres du groupe
     var groupIndicesStr = isGroup ? '['+d.groupIndices.join(',')+']' : '['+ii+']';
-    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span>'+groupBadge+catSelect+'<span class="rc">'+hl(d.context)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="flags.get('+ii+').note=this.value;scheduleAutoSave()"><button class="rm" onclick="flags.delete('+ii+');'+groupIndicesStr+'.forEach(function(g){if(els[g]){els[g].classList.remove(\'flagged\',\'resolved\',\'approved\',\'grouped\')}});renderFlags();scheduleAutoSave()">\u2715</button>';
+    // Bouton reflag : visible sur les flags corriges (vert/approuve). Permet a l'employeur
+    // de dire "cette correction n'est toujours pas bonne" -> le flag repasse en violet.
+    var reflagBtn = '';
+    if (reflagged) {
+      reflagBtn = '<button class="rreflag on" title="Annuler le reflag (revenir a corrige)" onclick="undoReflag('+ii+')">\u21a9 reflag actif</button>';
+    } else if (resolved || approved || autoResolved) {
+      reflagBtn = '<button class="rreflag" title="Cette correction n\'est toujours pas bonne" onclick="markReflag('+ii+')">\u26a0 Mal corrige</button>';
+    }
+    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span>'+groupBadge+catSelect+'<span class="rc">'+hl(d.context)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="flags.get('+ii+').note=this.value;scheduleAutoSave()">'+reflagBtn+'<button class="rm" onclick="flags.delete('+ii+');'+groupIndicesStr+'.forEach(function(g){if(els[g]){els[g].classList.remove(\'flagged\',\'resolved\',\'approved\',\'grouped\',\'reflagged\')}});renderFlags();scheduleAutoSave()">\u2715</button>';
     l.appendChild(el)})(sorted[k][0],sorted[k][1])}
+}
+
+// L'employeur signale qu'une correction n'est toujours pas bonne -> reflag (violet).
+// Le flag repasse en etat actif pour etre retraite a la prochaine regen.
+function markReflag(ii){
+  var f = flags.get(ii);
+  if (!f) return;
+  f.reflagged = true;
+  f.reflagged_at = new Date().toISOString();
+  delete f.approved_after_regen;
+  delete f.approved_at;
+  delete f.auto_resolved;
+  flags.set(ii, f);
+  var idxs = (Array.isArray(f.groupIndices) && f.groupIndices.length > 1) ? f.groupIndices : [ii];
+  idxs.forEach(function(g){
+    if (els[g]) {
+      els[g].classList.remove('resolved','approved');
+      els[g].classList.add('flagged','reflagged');
+    }
+  });
+  renderFlags();
+  scheduleAutoSave();
+}
+
+// Annule un reflag -> le flag revient a son etat corrige (vert).
+function undoReflag(ii){
+  var f = flags.get(ii);
+  if (!f) return;
+  delete f.reflagged;
+  delete f.reflagged_at;
+  flags.set(ii, f);
+  var idxs = (Array.isArray(f.groupIndices) && f.groupIndices.length > 1) ? f.groupIndices : [ii];
+  var nowResolved = isResolved(f);
+  idxs.forEach(function(g){
+    if (els[g]) {
+      els[g].classList.remove('reflagged');
+      if (nowResolved) {
+        els[g].classList.remove('flagged');
+        els[g].classList.add('resolved');
+      }
+    }
+  });
+  renderFlags();
+  scheduleAutoSave();
 }
 
 // Approuve tous les flags verts (resolved) d'un coup
