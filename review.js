@@ -977,8 +977,14 @@ function renderFlags(){
     var reflagBtn = '';
     if (reflagged) {
       reflagBtn = '<button class="rreflag on" title="Annuler le reflag (revenir a corrige)" onclick="undoReflag('+ii+')">\u21a9 reflag actif</button>';
-    } else if (resolved || approved || autoResolved) {
-      reflagBtn = '<button class="rreflag" title="Cette correction n\'est toujours pas bonne" onclick="markReflag('+ii+')">\u26a0 Mal corrige</button>';
+    } else {
+      // Bouton toujours disponible : sur un flag corrige/approuve = "cette correction
+      // n'est toujours pas bonne"; sur un flag encore actif = "marquer prioritaire pour
+      // la prochaine regen". Demande Nicolas 2026-05-21 (bouton invisible sur flags actifs).
+      var reflagTitle = (resolved || approved || autoResolved)
+        ? "Cette correction n'est toujours pas bonne"
+        : "Marquer ce flag comme toujours mal prononce (priorite regen)";
+      reflagBtn = '<button class="rreflag" title="'+reflagTitle+'" onclick="markReflag('+ii+')">\u26a0 Mal corrige</button>';
     }
     el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span>'+groupBadge+catSelect+'<span class="rc">'+hl(d.context)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="flags.get('+ii+').note=this.value;scheduleAutoSave()">'+reflagBtn+'<button class="rm" onclick="flags.delete('+ii+');'+groupIndicesStr+'.forEach(function(g){if(els[g]){els[g].classList.remove(\'flagged\',\'resolved\',\'approved\',\'grouped\',\'reflagged\')}});renderFlags();scheduleAutoSave()">\u2715</button>';
     l.appendChild(el)})(sorted[k][0],sorted[k][1])}
