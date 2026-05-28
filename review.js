@@ -22,6 +22,9 @@ var dirty = false;
 // Mode filtre : quand actif, n'affiche que les phrases regenerees (regenIndices)
 var regenIndices = null; // null = pas de filtre disponible pour cette lecon
 var filterModeActive = false;
+// Source des timestamps charges : 'preview' ou 'final'
+// Utilise par loadStatus() pour detecter un mismatch avec le chemin audio.
+var W_source = 'final'; // par defaut "final" avant que pickBestTimestamps confirme
 // Ranges temporels par sentenceIndex, calcules depuis W (timestamps mot-a-mot).
 // Ex: sentenceRanges[5] = {start: 12.3, end: 15.7}
 var sentenceRanges = {};
@@ -320,6 +323,34 @@ function loadStatus(){
             au.currentTime = t;
             if (wasPlaying) au.play();
           }
+          // Mismatch timestamps/audio : les timestamps viennent d'un autre chemin
+          // que l'audio (ex : timestamps preview mais audio ElevenLabs final).
+          // On recharge les timestamps depuis le bon chemin pour corriger le desync.
+          var expectedTsSource = isPreviewSrc ? 'preview' : 'final';
+          if (W_source !== expectedTsSource) {
+            var bust2 = '?v=' + Date.now();
+            var tsBase = isPreviewSrc ? (STORAGE + '/preview/') : (STORAGE + '/');
+            var tsUrl1 = tsBase + L.lesson_key + '/voiceover-timestamps.json' + bust2;
+            var tsUrl2 = tsBase + L.lesson_key + '/timestamps.json' + bust2;
+            // Recharger depuis le bon chemin, garder le meilleur des 2
+            Promise.all([tsUrl1, tsUrl2].map(function(u){
+              return fetch(u).then(function(r){return r.ok ? r.json() : null}).catch(function(){return null});
+            })).then(function(res){
+              // Prendre le premier valide avec sentenceIndex 0
+              var fixed = null;
+              for (var k = 0; k < res.length; k++) {
+                var c = res[k];
+                if (!Array.isArray(c) || !c.length) continue;
+                if (c.some(function(w){return w.sentenceIndex === 0})) { fixed = c; break; }
+              }
+              if (fixed) {
+                W = fixed;
+                W_source = expectedTsSource;
+                computeSentenceRanges();
+                buildWords();
+              }
+            });
+          }
         }
       }
       if (s.voiceover_version && s.voiceover_version > 1) parts.push('Version <strong>'+s.voiceover_version+'</strong>');
@@ -447,15 +478,21 @@ function pickBestTimestamps(candidates){
   // Strategie : prendre le PREMIER candidat valide (ordre = priorite).
   // /preview/ vient d'abord — si il existe, on l'utilise (Edge TTS recent).
   // Les anciens timestamps ElevenLabs sur path final sont ignores.
+  // Note : si l'audio est au chemin final (ElevenLabs), loadStatus() corrigera
+  // un eventuel mismatch en rechargeant les timestamps depuis le bon chemin.
   var best = null;
+  var bestIdx = -1;
   for (var i = 0; i < candidates.length; i++) {
     var c = candidates[i];
     if (!Array.isArray(c) || !c.length) continue;
     var hasStart = c.some(function(w){return w.sentenceIndex === 0});
     if (!hasStart) continue;  // fichier corrompu, ignore
     best = c;
+    bestIdx = i;
     break;  // premier valide gagne (ordre de priorite)
   }
+  // Indices 0-1 = preview/, 2-3 = chemin final
+  W_source = (bestIdx >= 0 && bestIdx <= 1) ? 'preview' : 'final';
   // Si aucun fichier n'a sentenceIndex 0, on fallback sur celui qui a le plus de mots
   if (!best) {
     candidates.forEach(function(c){
