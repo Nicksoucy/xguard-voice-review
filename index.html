@@ -38,6 +38,7 @@ a{text-decoration:none;color:inherit}
 .qarrow{color:#E74C3C;font-size:16px}
 .empty{color:#5b6577;font-style:italic;font-size:13px;padding:8px 2px}
 .allgood{background:rgba(39,174,96,0.08);border:1px solid rgba(39,174,96,0.25);border-radius:10px;padding:22px;text-align:center;color:#B9E8CB;font-size:15px}
+.health-down{background:rgba(231,76,60,0.16);border:1px solid #E74C3C;border-left:4px solid #E74C3C;color:#F8CACE;padding:11px 15px;border-radius:8px;margin-bottom:14px;font-size:13px;font-weight:600;line-height:1.5}
 
 /* Course rollup card (manager) */
 .course{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:15px 18px;margin-bottom:10px;display:block}
@@ -71,6 +72,8 @@ a{text-decoration:none;color:inherit}
 </div>
 
 <div class="info"><label>Ton nom :</label><input type="text" id="name" placeholder="Ex: Héla" oninput="localStorage.setItem('rn',this.value)"></div>
+
+<div id="health"></div>
 
 <div id="view">
   <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
@@ -106,9 +109,10 @@ Promise.all([
   fetch(API+'/courses?visible=eq.true&order=sort_order.asc',{headers:H}).then(function(r){return r.json()}),
   fetch(API+'/lesson_status_full?select=lesson_key,course_id,module_id,module_index,lesson_index,sort_order,title,short_title,status,pipeline_stage,video_stale,video_status,video_reject_reason,video_flags_count,voiceover_version,video_version',{headers:H}).then(function(r){return r.json()}),
   fetch(API+'/correction_requests?status=eq.needs_review&select=lesson_key,correction_note,reason,requested_by,created_at&order=created_at.desc',{headers:H}).then(function(r){return r.json()}),
-  fetch(API+'/correction_requests?md_sync_failed=eq.true&select=lesson_key,correction_note,reason,requested_by,completed_at&order=completed_at.desc',{headers:H}).then(function(r){return r.json()})
+  fetch(API+'/correction_requests?md_sync_failed=eq.true&select=lesson_key,correction_note,reason,requested_by,completed_at&order=completed_at.desc',{headers:H}).then(function(r){return r.json()}),
+  fetch(API+'/watchdog_heartbeat?id=eq.xguard-correction&select=status,last_heartbeat,next_jobs',{headers:H}).then(function(r){return r.json()}).catch(function(){return []})
 ]).then(function(res){
-  DATA = { courses:res[0], lessons:res[1]||[], needsReview:res[2]||[], syncFailed:res[3]||[] };
+  DATA = { courses:res[0], lessons:res[1]||[], needsReview:res[2]||[], syncFailed:res[3]||[], health:(res[4]&&res[4][0])||null };
   render();
 }).catch(function(err){
   document.getElementById('view').innerHTML = '<div class="err">Erreur de chargement: '+esc(err.message)+'</div>';
@@ -167,7 +171,24 @@ function render(){
     : '<a class="navlink" href="guide.html">📖 Guide</a>';
   document.getElementById('subtitle').textContent = r==='manager'
     ? 'Pipeline de production — vue gestion' : 'Tes tâches de review';
+  document.getElementById('health').innerHTML = healthBannerHtml();
   if (r==='manager') renderManager(); else renderReviewer();
+}
+
+// Bandeau "Nitro est-il vivant ?" : rouge si la boucle de correction n'a pas battu
+// depuis >15 min (elle tourne aux 5 min) ou a signale une erreur. Sinon rien.
+function healthBannerHtml(){
+  var h = DATA && DATA.health;
+  if (!h || !h.last_heartbeat) return ''; // pas de heartbeat connu -> pas d'alarme
+  var ageMin = (Date.now() - new Date(h.last_heartbeat).getTime())/60000;
+  var err = h.status === 'error';
+  if (ageMin <= 15 && !err) return '';
+  var pending = (h.next_jobs && h.next_jobs.pending) || 0;
+  var msg = err
+    ? '⚠ La boucle de correction a signalé une erreur à son dernier passage.'
+    : '⚠ La boucle de correction n\'a pas tourné depuis '+Math.round(ageMin)+' min — Nitro est peut-être éteint.';
+  var sub = pending ? ' '+pending+' correction(s) en attente.' : '';
+  return '<div class="health-down">'+msg+sub+'</div>';
 }
 
 function renderReviewer(){
