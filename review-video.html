@@ -84,7 +84,7 @@
   <div class="acts">
     <button class="btn br" onclick="saveReview(false, false)">Sauvegarder</button>
     <button class="btn bg" onclick="askApprove()">&#10003; Approuver</button>
-    <button class="btn by" onclick="askReject()">&#10007; Rejeter (refaire)</button>
+    <button class="btn by" onclick="askReject()">&#8635; Renvoyer pour correction</button>
     <button class="btn by" onclick="copyReview()">Copier liste</button>
     <button class="btn" id="lms-lesson-push-btn" onclick="pushLessonToGhl()" style="background:rgba(155,89,182,0.15);color:#bb8fce;border:1px solid rgba(155,89,182,0.4);display:none">🚀 Push to GHL</button>
     <span class="msg" id="msg"></span>
@@ -145,12 +145,12 @@
 <!-- Modal: Reject -->
 <div class="modal-bg" id="reject-modal-bg">
   <div class="modal reject-modal">
-    <h3>&#10007; Rejeter cette version</h3>
-    <p>Cette video sera marquee <strong>a refaire</strong>. Le monteur recoit la liste des issues + ta raison.</p>
-    <label>Pourquoi (raison globale) :</label>
-    <textarea id="reject-reason" rows="3" placeholder="Ex: Trop d'issues, refaire le montage..."></textarea>
+    <h3>&#8635; Renvoyer pour correction</h3>
+    <p>La vidéo repart <strong>à refaire</strong>. Nicolas reçoit ta liste de moments flaggés + ta raison.</p>
+    <label>Résumé du problème (raison globale) :</label>
+    <textarea id="reject-reason" rows="3" placeholder="Ex: sous-titres décalés à partir de 2:10, refaire le montage..."></textarea>
     <div class="acts">
-      <button class="btn br" onclick="confirmReject()">Confirmer le rejet</button>
+      <button class="btn br" onclick="confirmReject()">Renvoyer</button>
       <button class="btn by" onclick="closeRejectModal()">Annuler</button>
     </div>
   </div>

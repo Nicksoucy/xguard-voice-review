@@ -476,7 +476,10 @@ function closeRejectModal() {
 function confirmReject() {
   var reason = document.getElementById('reject-reason').value.trim();
   if (!reason) {
-    alert('Donne une raison globale.');
+    alert('Donne une raison globale (le problème principal).');
+    return;
+  }
+  if (flags.length === 0 && !confirm('Tu renvoies sans avoir marqué de moment précis (aucun flag).\n\nIdéalement, marque les moments qui clochent avec « ADD FLAG ICI » — ça donne la liste exacte à corriger à Nicolas.\n\nRenvoyer quand même ?')) {
     return;
   }
   saveReview(false, true, false, reason);

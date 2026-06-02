@@ -104,7 +104,7 @@ var DATA = null;
 
 Promise.all([
   fetch(API+'/courses?visible=eq.true&order=sort_order.asc',{headers:H}).then(function(r){return r.json()}),
-  fetch(API+'/lesson_status_full?select=lesson_key,course_id,module_id,module_index,lesson_index,sort_order,title,short_title,status,pipeline_stage,video_stale,video_status,video_reject_reason,voiceover_version,video_version',{headers:H}).then(function(r){return r.json()}),
+  fetch(API+'/lesson_status_full?select=lesson_key,course_id,module_id,module_index,lesson_index,sort_order,title,short_title,status,pipeline_stage,video_stale,video_status,video_reject_reason,video_flags_count,voiceover_version,video_version',{headers:H}).then(function(r){return r.json()}),
   fetch(API+'/correction_requests?status=eq.needs_review&select=lesson_key,correction_note,reason,requested_by,created_at&order=created_at.desc',{headers:H}).then(function(r){return r.json()})
 ]).then(function(res){
   DATA = { courses:res[0], lessons:res[1]||[], needsReview:res[2]||[] };
@@ -139,8 +139,13 @@ function sectionList(stageKey, lessons){
   var rows = lessons.map(function(l){
     var why = '';
     if (stageKey === 'video_redo') {
-      why = l.video_status === 'rejected' && l.video_reject_reason ? ('rejet: '+l.video_reject_reason)
-          : ('voix v'+(l.voiceover_version||'?')+' › vidéo v'+(l.video_version||'?'));
+      if (l.video_status === 'rejected') {
+        why = 'rejetée'
+            + (l.video_flags_count ? ' — '+l.video_flags_count+' issue'+(l.video_flags_count>1?'s':'') : '')
+            + (l.video_reject_reason ? ' · '+l.video_reject_reason : '');
+      } else {
+        why = 'voix v'+(l.voiceover_version||'?')+' › vidéo v'+(l.video_version||'?');
+      }
     }
     return lessonRow(l, st.link, why);
   }).join('');
