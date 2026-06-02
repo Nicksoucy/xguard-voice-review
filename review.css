@@ -109,6 +109,20 @@ h1{color:#E74C3C;font-size:14px}
 .ri .rcat{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:4px;padding:2px 6px;color:#94A3B8;font-size:11px;font-family:inherit;cursor:pointer;max-width:140px}
 .ri .rcat:focus{outline:1px solid rgba(231,76,60,0.5);color:#F0F0F0}
 .ri .rcat option{background:#1a1a1a;color:#F0F0F0}
+/* Demande de correction automatique (boucle Hela -> Nitro -> statut in-app) */
+.ri .rfixwrap{display:flex;align-items:center;gap:6px;flex-wrap:wrap;width:100%;margin-top:4px;padding-left:36px}
+.ri .rfix{flex:1;min-width:170px;max-width:280px;background:rgba(52,152,219,0.06);border:1px solid rgba(52,152,219,0.25);border-radius:4px;padding:3px 8px;color:#F0F0F0;font-size:11px;font-family:inherit}
+.ri .rfix:focus{outline:none;border-color:#3498DB}
+.ri .rfix::placeholder{color:#557}
+.ri .rfixbtn{background:rgba(52,152,219,0.16);border:1px solid rgba(52,152,219,0.4);color:#5DADE2;border-radius:4px;padding:3px 11px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
+.ri .rfixbtn:hover{background:rgba(52,152,219,0.32);color:#fff}
+.rfixstatus{font-size:10px;font-weight:600;font-family:inherit;white-space:nowrap}
+.rfixstatus.pending{color:#E67E22}
+.rfixstatus.processing{color:#3498DB}
+.rfixstatus.done{color:#2ECC71}
+.rfixstatus.review{color:#A855F7}
+.rfixstatus.error{color:#E74C3C}
+.rfixstatus.local{color:#94A3B8}
 .acts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center}
 .btn{border:none;border-radius:5px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
 .br{background:#C0392B;color:#fff}.br:hover{background:#E74C3C}

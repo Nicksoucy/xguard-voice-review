@@ -1023,8 +1023,120 @@ function renderFlags(){
         : "Marquer ce flag comme toujours mal prononce (priorite regen)";
       reflagBtn = '<button class="rreflag" title="'+reflagTitle+'" onclick="markReflag('+ii+')">\u26a0 Mal corrige</button>';
     }
-    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span>'+groupBadge+catSelect+'<span class="rc">'+hl(d.context)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="flags.get('+ii+').note=this.value;scheduleAutoSave()">'+reflagBtn+'<button class="rm" onclick="flags.delete('+ii+');'+groupIndicesStr+'.forEach(function(g){if(els[g]){els[g].classList.remove(\'flagged\',\'resolved\',\'approved\',\'grouped\',\'reflagged\')}});renderFlags();scheduleAutoSave()">\u2715</button>';
+    // Champ "Demander une correction automatique" (boucle Hela -> Nitro -> statut in-app).
+    // Hela tape la correction voulue ; si pas de fleche, on prefixe avec le mot flagge.
+    var rfixBlock = '<span class="rfixwrap"><input class="rfix" id="rfix'+ii+'" placeholder="Correction voulue (ex: change \u2192 changeons)"><button class="rfixbtn" title="Demander une correction automatique" onclick="submitCorrectionRequest('+ii+')">Corriger</button><span class="rfixstatus" id="rfixstatus'+ii+'"></span></span>';
+    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span>'+groupBadge+catSelect+'<span class="rc">'+hl(d.context)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="flags.get('+ii+').note=this.value;scheduleAutoSave()">'+reflagBtn+rfixBlock+'<button class="rm" onclick="flags.delete('+ii+');'+groupIndicesStr+'.forEach(function(g){if(els[g]){els[g].classList.remove(\'flagged\',\'resolved\',\'approved\',\'grouped\',\'reflagged\')}});renderFlags();scheduleAutoSave()">\u2715</button>';
     l.appendChild(el)})(sorted[k][0],sorted[k][1])}
+  // Re-applique les statuts de correction connus (renderFlags efface le DOM a chaque appel).
+  applyCorrectionStatuses();
+  if (!window._corrInit) { window._corrInit = true; pollCorrectionStatus(); }
+}
+
+// ============================================================
+// DEMANDE DE CORRECTION AUTOMATIQUE (boucle Hela -> Nitro -> statut in-app)
+// ============================================================
+// Hela tape la correction voulue dans le champ d'un flag et clique "Corriger".
+// -> INSERT dans correction_requests (status=pending). Le processor sur Nitro
+//    (Task Scheduler /5min) trie, regenere si sur, et passe le statut a done /
+//    needs_review. Le poller ci-dessous rafraichit le badge dans l'app.
+var correctionStatuses = {}; // phrase_index -> {status, completed_at, reason}
+var correctionPollTimer = null;
+
+function submitCorrectionRequest(ii){
+  if (!L) return;
+  var d = flags.get(ii);
+  if (!d) return;
+  var input = document.getElementById('rfix'+ii);
+  var val = (input && input.value || '').trim();
+  if (!val) { setCorrectionStatusEl(ii, 'local', 'Tape la correction voulue d\'abord'); return; }
+  var rn = (localStorage.getItem('rn') || 'Anonyme').trim();
+  // Si Hela n'a pas mis de fleche, on prefixe avec le mot flagge -> "mot → correction".
+  var note = /(?:->|=>|→|➜)/.test(val) ? val : ((d.word||'') + ' → ' + val);
+  var payload = {
+    lesson_key: L.lesson_key,
+    phrase_index: ii,
+    sentence_index: (d.sentenceIndex != null ? d.sentenceIndex : null),
+    phrase_text: d.context || null,
+    correction_note: note,
+    requested_by: rn
+  };
+  setCorrectionStatusEl(ii, 'pending', '⏳ envoi...');
+  fetch(API+'/correction_requests', {
+    method: 'POST',
+    headers: Object.assign({}, H, {'Content-Type':'application/json','Prefer':'return=minimal'}),
+    body: JSON.stringify(payload)
+  }).then(function(r){
+    if (r.ok) {
+      correctionStatuses[ii] = {status:'pending'};
+      applyCorrectionStatuses();
+      if (input) input.value = '';
+      startCorrectionPolling();
+    } else {
+      r.text().then(function(t){ setCorrectionStatusEl(ii, 'error', '⚠ ' + r.status + ' : ' + t.slice(0,80)); });
+    }
+  }).catch(function(e){ setCorrectionStatusEl(ii, 'error', '⚠ ' + e.message); });
+}
+
+// Libelle + classe CSS selon le statut Supabase.
+function correctionStatusLabel(s){
+  if (s.status === 'pending')      return {t:'⏳ En attente', c:'pending'};
+  if (s.status === 'processing')   return {t:'⚙️ En cours…', c:'processing'};
+  if (s.status === 'needs_review') return {t:'\u{1f441}️ À réviser (Nicolas)', c:'review'};
+  if (s.status === 'error')        return {t:'⚠ Erreur', c:'error'};
+  if (s.status === 'done') {
+    var wt = '';
+    if (s.completed_at) {
+      var w = new Date(s.completed_at);
+      function p(n){ return String(n).padStart(2,'0'); }
+      wt = ' le ' + p(w.getDate()) + '/' + p(w.getMonth()+1) + ' à ' + p(w.getHours()) + 'h' + p(w.getMinutes());
+    }
+    return {t:'✅ Corrigé' + wt, c:'done'};
+  }
+  return {t:'', c:''};
+}
+
+function setCorrectionStatusEl(ii, cls, text){
+  var el = document.getElementById('rfixstatus'+ii);
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'rfixstatus ' + cls;
+}
+
+// Re-applique tous les statuts connus sur le DOM (apres un renderFlags).
+function applyCorrectionStatuses(){
+  Object.keys(correctionStatuses).forEach(function(idx){
+    var el = document.getElementById('rfixstatus'+idx);
+    if (!el) return;
+    var lab = correctionStatusLabel(correctionStatuses[idx]);
+    el.textContent = lab.t;
+    el.className = 'rfixstatus ' + lab.c;
+  });
+}
+
+// Lit les correction_requests de la lecon et met a jour les badges.
+function pollCorrectionStatus(){
+  if (!L) return;
+  fetch(API+'/correction_requests?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=phrase_index,status,completed_at,reason&order=created_at.desc', {headers:H})
+    .then(function(r){ return r.json(); })
+    .then(function(rows){
+      if (!Array.isArray(rows)) return;
+      var seen = {}, anyActive = false;
+      rows.forEach(function(row){
+        if (row.phrase_index == null || seen[row.phrase_index]) return;
+        seen[row.phrase_index] = 1; // rows triees desc -> on garde la plus recente
+        correctionStatuses[row.phrase_index] = {status:row.status, completed_at:row.completed_at, reason:row.reason};
+        if (row.status === 'pending' || row.status === 'processing') anyActive = true;
+      });
+      applyCorrectionStatuses();
+      if (anyActive) startCorrectionPolling();
+      else if (correctionPollTimer) { clearInterval(correctionPollTimer); correctionPollTimer = null; }
+    }).catch(function(){});
+}
+
+function startCorrectionPolling(){
+  if (correctionPollTimer) return;
+  correctionPollTimer = setInterval(pollCorrectionStatus, 20000);
 }
 
 // L'employeur signale qu'une correction n'est toujours pas bonne -> reflag (violet).
