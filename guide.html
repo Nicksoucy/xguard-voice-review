@@ -2,71 +2,72 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>Guide Hela — Demander une correction</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Guide Hela — Réviser les voix et les vidéos</title>
 <style>
-  @page { size: A4; margin: 14mm 15mm; }
+  @page { size: A4; margin: 13mm 14mm; }
   * { box-sizing: border-box; }
   body {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     color: #1d2330; line-height: 1.55; font-size: 13px; margin: 0;
+    background: #fff;
   }
-  h1 { font-size: 23px; margin: 0 0 2px; color: #0A0E1A; }
-  h2 { font-size: 16px; margin: 22px 0 8px; color: #C0392B; border-bottom: 2px solid #f0d9d6; padding-bottom: 4px; }
-  h3 { font-size: 13.5px; margin: 14px 0 5px; color: #0A0E1A; }
+  h1 { font-size: 24px; margin: 0 0 2px; color: #0A0E1A; }
+  h2 { font-size: 17px; margin: 26px 0 9px; color: #C0392B; border-bottom: 2px solid #f0d9d6; padding-bottom: 5px; break-after: avoid; }
+  h3 { font-size: 14px; margin: 16px 0 5px; color: #0A0E1A; break-after: avoid; }
   p { margin: 6px 0; }
   .lead { color: #475066; font-size: 13.5px; }
   .muted { color: #6b7280; }
   ol, ul { margin: 6px 0 6px 4px; padding-left: 20px; }
   li { margin: 5px 0; }
   code { background: #eef1f6; padding: 1px 6px; border-radius: 4px; font-family: 'Consolas', monospace; font-size: 12px; color: #0A0E1A; }
-  .header { display:flex; align-items:center; gap:12px; border-bottom: 3px solid #C0392B; padding-bottom: 10px; }
-  .badge-x { background:#C0392B; color:#fff; font-weight:700; padding:6px 11px; border-radius:6px; font-size:15px; letter-spacing:.5px; }
+  strong { color: #0A0E1A; }
+
+  .header { display:flex; align-items:center; gap:13px; border-bottom: 3px solid #C0392B; padding-bottom: 11px; }
+  .badge-x { background:#C0392B; color:#fff; font-weight:700; padding:7px 12px; border-radius:6px; font-size:16px; letter-spacing:.5px; }
+
+  /* Mini table des matieres */
+  .toc { background:#f6f7f9; border:1px solid #e5e7eb; border-radius:8px; padding:11px 16px; margin:14px 0; columns:2; column-gap:24px; font-size:12.5px; }
+  .toc a { color:#C0392B; text-decoration:none; display:block; padding:2px 0; break-inside:avoid; }
+  .toc a b { color:#0A0E1A; }
+
   .step { display:flex; gap:12px; margin:10px 0; }
   .step .n { flex:0 0 26px; height:26px; background:#C0392B; color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; }
   .step .t { flex:1; }
-  table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 12.5px; }
+
+  table { border-collapse: collapse; width: 100%; margin: 9px 0; font-size: 12.5px; break-inside: avoid; }
   th, td { border: 1px solid #dfe3ea; padding: 7px 9px; text-align: left; vertical-align: top; }
   th { background: #f6f7f9; color:#0A0E1A; }
-  .ok-ex { color:#1a8a4f; font-weight:600; }
-  .no-ex { color:#b3261e; font-weight:600; }
-  .callout { background:#f6f7f9; border-left:4px solid #C0392B; padding:9px 13px; border-radius:0 6px 6px 0; margin:10px 0; }
-  .callout.green { border-left-color:#1a8a4f; background:#eefaf2; }
-  .footer { margin-top: 22px; padding-top:10px; border-top:1px solid #e5e7eb; color:#6b7280; font-size:11px; }
+  .ok-ex { color:#1a8a4f; font-weight:700; white-space:nowrap; }
 
-  /* ====== Apercu fidele de l'app (theme sombre, comme ce que Hela voit) ====== */
-  .app { background:#0A0E1A; border:1px solid #1d2942; border-radius:9px; padding:11px 12px; margin:9px 0; }
-  .app .cap { color:#94A3B8; font-size:10.5px; margin:0 0 7px; font-family:'Segoe UI',sans-serif; }
-  .ri { display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:12px;
-        background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
-        border-radius:5px; padding:6px 9px; color:#F0F0F0; }
-  .ri.ok { background:rgba(39,174,96,0.07); border:1px solid rgba(39,174,96,0.2); }
-  .ri.ok .rw { color:#27AE60; text-decoration:line-through; }
-  .ri.ok .rc { color:#5a8a6e; }
-  .ri.ok::before { content:"\2713"; color:#27AE60; font-weight:700; margin-right:4px; }
-  .rt { color:#666; min-width:30px; }
-  .rs { color:#E67E22; font-family:monospace; min-width:22px; font-size:11px; }
-  .rw { color:#E74C3C; font-weight:600; }
-  .rcat { background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.14); border-radius:4px;
-          color:#aab4c4; font-size:11px; padding:2px 6px; }
-  .rc { color:#8a93a3; flex:1; min-width:130px; }
-  .rc b { color:#F0F0F0; }
-  .note { max-width:90px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12);
-          border-radius:4px; padding:3px 7px; color:#8893a5; font-size:11px; }
-  .rreflag { background:rgba(168,85,247,0.14); border:1px solid rgba(168,85,247,0.4); color:#C58BF7;
-             border-radius:4px; padding:3px 8px; font-size:10px; font-weight:600; white-space:nowrap; }
-  .rfixwrap { display:flex; align-items:center; gap:6px; flex-wrap:wrap; width:100%; margin-top:4px; padding-left:34px; }
-  .rfix { flex:1; min-width:170px; max-width:280px; background:rgba(52,152,219,0.10);
-          border:1px solid rgba(52,152,219,0.35); border-radius:4px; padding:3px 8px; color:#cfe6f7; font-size:11px; }
-  .rfix.empty { color:#6f8aa3; }
-  .rfixbtn { background:rgba(52,152,219,0.20); border:1px solid rgba(52,152,219,0.5); color:#7cc1ee;
-             border-radius:4px; padding:3px 12px; font-size:10px; font-weight:700; white-space:nowrap; }
-  .rfixstatus { font-size:10.5px; font-weight:700; white-space:nowrap; }
-  .rfixstatus.pending { color:#E67E22; }
-  .rfixstatus.processing { color:#3498DB; }
-  .rfixstatus.done { color:#2ECC71; }
-  .rfixstatus.review { color:#A855F7; }
-  .rm { color:#666; font-size:13px; margin-left:2px; }
-  .arrow-tip { color:#7cc1ee; font-size:10.5px; margin-top:3px; padding-left:34px; }
+  .callout { background:#f6f7f9; border-left:4px solid #C0392B; padding:10px 14px; border-radius:0 6px 6px 0; margin:11px 0; break-inside:avoid; }
+  .callout.green { border-left-color:#1a8a4f; background:#eefaf2; }
+  .callout.blue { border-left-color:#2563eb; background:#eef4ff; }
+  .callout .ttl { font-weight:700; color:#0A0E1A; }
+
+  /* Captures d'ecran */
+  figure { margin:14px 0 6px; break-inside:avoid; }
+  figure img { width:100%; border-radius:9px; border:1px solid #d7dbe3; box-shadow:0 4px 16px rgba(10,14,26,0.16); display:block; }
+  figure.narrow img { max-width:330px; margin:0 auto; }
+  figcaption { color:#6b7280; font-size:11.5px; margin-top:6px; text-align:center; font-style:italic; }
+  .repere { font-size:12px; color:#475066; margin:8px 0 2px; }
+  .repere b { color:#0A0E1A; }
+
+  /* Puces de boutons (rappellent l'app) */
+  .k { display:inline-block; border-radius:4px; padding:1px 8px; font-size:11.5px; font-weight:700; white-space:nowrap; line-height:1.5; vertical-align:baseline; }
+  .k.corriger { background:#dbeeff; color:#1b6fb3; border:1px solid #9fcdf0; }
+  .k.repete   { background:#fdecdd; color:#b05a14; border:1px solid #f1c79a; }
+  .k.mal      { background:#f1e3fb; color:#7d34c0; border:1px solid #d9b8f2; }
+  .k.approve  { background:#dff5e6; color:#137a3c; border:1px solid #a8e0bb; }
+  .k.renvoyer { background:#eef0f3; color:#444c5a; border:1px solid #cfd5de; }
+  .k.addflag  { background:#fde6cf; color:#b8590f; border:1px solid #f3c188; }
+  .k.cat      { background:#eef0f3; color:#444c5a; border:1px solid #cfd5de; }
+
+  .feat { margin:14px 0; padding-left:14px; border-left:3px solid #e5e7eb; break-inside:avoid; }
+  .feat .h { font-weight:700; color:#0A0E1A; font-size:13.5px; margin-bottom:2px; }
+
+  .footer { margin-top: 26px; padding-top:11px; border-top:1px solid #e5e7eb; color:#6b7280; font-size:11px; }
+  .big-sec { font-size:11px; font-weight:700; color:#C0392B; letter-spacing:1.5px; text-transform:uppercase; margin-top:26px; }
 </style>
 </head>
 <body>
@@ -74,137 +75,270 @@
   <div class="header">
     <span class="badge-x">XGuard</span>
     <div>
-      <h1>Demander une correction de prononciation</h1>
-      <div class="lead">Guide rapide pour Hela &mdash; app de review des voiceovers</div>
+      <h1>Réviser les voix et les vidéos</h1>
+      <div class="lead">Guide complet pour Hela &mdash; tout ce que tu peux faire dans l'app, étape par étape.</div>
     </div>
   </div>
 
-  <p class="lead" style="margin-top:12px">
-    Quand un mot sonne mal dans un voiceover, tu peux maintenant <strong>demander la correction directement dans l'app</strong>.
-    Tu écris ce que tu veux entendre, tu cliques <strong>Corriger</strong>, et c'est traité automatiquement.
-    Tu vois ensuite un petit badge qui te dit où c'est rendu. Pas besoin d'écrire sur WhatsApp pour ça.
+  <p class="lead" style="margin-top:13px">
+    Ce guide te montre <strong>chaque écran</strong> et <strong>chaque bouton</strong> de l'app, avec des captures.
+    Le but : que tu puisses tout faire toi-même &mdash; écouter une voix, corriger un mot, valider une vidéo &mdash;
+    sans avoir à écrire à Nicolas pour chaque détail. Garde-le à côté de toi les premières fois.
   </p>
 
-  <h2>Comment faire, en 3 étapes</h2>
+  <div class="toc">
+    <a href="#quoi"><b>A.</b> C'est quoi, en 30 secondes</a>
+    <a href="#rythme"><b>B.</b> À quel rythme l'utiliser</a>
+    <a href="#cockpit"><b>1.</b> Ton cockpit (page d'accueil)</a>
+    <a href="#voix"><b>2.</b> Réviser une voix</a>
+    <a href="#badges"><b>3.</b> Les badges de statut</a>
+    <a href="#video"><b>4.</b> Valider une vidéo</a>
+    <a href="#pratiques"><b>5.</b> Bonnes pratiques</a>
+    <a href="#bloque"><b>6.</b> Si ça bloque</a>
+  </div>
 
+  <!-- ============================================================ -->
+  <h2 id="quoi">A. C'est quoi, en 30 secondes</h2>
+  <p>
+    On produit des formations en sécurité. Avant qu'une formation sorte, <strong>tu vérifies</strong> deux choses :
+  </p>
+  <ul>
+    <li><strong>La voix</strong> (le narrateur) : est-ce que tous les mots sont bien prononcés ?</li>
+    <li><strong>La vidéo finale</strong> : est-ce que l'image, le texte à l'écran et le son sont corrects ?</li>
+  </ul>
+  <p>
+    Quand un mot sonne mal, tu ne fais plus juste « le signaler » : tu peux <strong>demander la correction
+    directement dans l'app</strong>. Le système la refait tout seul (en quelques minutes) et te montre un petit
+    badge quand c'est prêt. Pour les vrais changements de texte, c'est Nicolas qui tranche &mdash; mais tu n'as
+    rien de plus à faire, c'est noté automatiquement.
+  </p>
+  <div class="callout green">
+    <span class="ttl">En une phrase :</span> tu écoutes, tu cliques sur ce qui cloche, tu écris la bonne version,
+    et la machine se charge du reste. Tu fais presque tout de bout en bout.
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="rythme">B. À quel rythme l'utiliser</h2>
+  <p>Tu n'as pas besoin d'attendre quoi que ce soit. Voici la routine simple :</p>
   <div class="step"><div class="n">1</div><div class="t">
-    Clique sur le mot qui sonne mal dans le texte (comme d'habitude) pour créer un <em>flag</em>. Il apparaît dans la liste en bas.
+    <strong>Ouvre le cockpit</strong> (la page d'accueil) quand tu commences. Il te montre ce qui t'attend, classé par priorité.
   </div></div>
   <div class="step"><div class="n">2</div><div class="t">
-    Dans le flag, repère le champ bleu <strong>« Correction voulue »</strong>. Tape la bonne version du mot, puis clique <strong>Corriger</strong>.
+    <strong>Travaille de haut en bas</strong> : d'abord les voix à re-réviser, puis les voix à réviser, puis les vidéos à valider.
+    Clique une leçon, fais-la au complet, reviens au cockpit, passe à la suivante.
   </div></div>
   <div class="step"><div class="n">3</div><div class="t">
-    Un badge apparaît et se met à jour tout seul : <span style="color:#E67E22;font-weight:600">⏳ En attente</span> &rarr;
-    <span style="color:#3498DB;font-weight:600">⚙️ En cours</span> &rarr; <span style="color:#1a8a4f;font-weight:600">✅ Corrigé</span>.
-    Tu peux fermer l'app et revenir plus tard : le badge sera à jour.
+    <strong>Pas besoin de rester devant l'écran</strong> après une demande de correction. Les badges se mettent à jour seuls
+    (environ aux 20 secondes) et restent à jour quand tu reviens plus tard.
   </div></div>
-
-  <div class="app">
-    <div class="cap">Voici à quoi ça ressemble dans la liste des flags :</div>
-    <div class="ri">
-      <span class="rt">0:05</span><span class="rs">#3</span><span class="rw">securite</span>
-      <span class="rcat">prononciation</span>
-      <span class="rc">Vérifie tes paramètres de <b>securité</b>.</span>
-      <input class="note" placeholder="Note">
-      <span class="rreflag">⚠ Mal corrigé</span>
-      <span class="rfixwrap">
-        <span class="rfix empty">Correction voulue (ex: change → changeons)</span>
-        <span class="rfixbtn">Corriger</span>
-        <span class="rfixstatus"></span>
-      </span>
-      <span class="rm">✕</span>
-    </div>
-    <div class="arrow-tip">↑ C'est ici que tu écris la correction, puis tu cliques « Corriger ».</div>
+  <div class="callout blue">
+    <span class="ttl">Combien de temps ?</span> Une leçon dure en moyenne 2 à 5 minutes d'audio. Compte environ
+    <strong>5 à 10 minutes</strong> pour la réviser : l'écouter en entier, flagger ce qui cloche, demander les corrections.
+    Une correction est habituellement prête en <strong>quelques minutes (max ~5)</strong>.
   </div>
 
-  <h2>Bien écrire ta correction</h2>
-  <p>Écris simplement <strong>le mot tel que tu veux l'entendre</strong>. Tu peux aussi utiliser une flèche
-    « mot entendu → mot voulu » si tu veux être précise. Une seule correction à la fois.</p>
+  <!-- ============================================================ -->
+  <h2 id="cockpit">1. Ton cockpit (page d'accueil)</h2>
+  <p>
+    C'est ton point de départ. Mets ton nom (<code>Héla</code>) une fois &mdash; il est retenu. Le bouton
+    <strong>🎧 Réviseuse</strong> doit être allumé (en rouge) : c'est ta vue. Elle te montre <strong>seulement ton
+    travail</strong>, rangé en trois files.
+  </p>
 
+  <figure>
+    <img src="img/cockpit.png" alt="Cockpit de Hela">
+    <figcaption>Ton cockpit en vue Réviseuse — trois files de tâches, classées par priorité.</figcaption>
+  </figure>
+
+  <p class="repere"><b>Les trois files, de haut en bas :</b></p>
+  <ul>
+    <li><strong>↻ Voix à re-réviser</strong> — des voix qui ont été corrigées : ré-écoute-les juste pour confirmer que c'est bon maintenant.</li>
+    <li><strong>🎙️ Voix à réviser</strong> — des nouvelles voix à écouter et à flagger pour la première fois.</li>
+    <li><strong>🎬 Vidéos à valider</strong> — les vidéos finales à regarder et approuver (ou renvoyer).</li>
+  </ul>
+  <p>
+    Le chiffre dans la pastille = combien il en reste dans la file. Clique une ligne pour ouvrir la leçon.
+    Quand une file est vide, il n'y a rien à faire de ce côté. Quand tout est vide : <strong>🎉 rien à réviser</strong>.
+  </p>
+  <p class="muted">
+    Le bouton <strong>🎛️ Gestion</strong> à côté, c'est la vue de Nicolas (vue d'ensemble de la production). Tu peux
+    l'ignorer &mdash; reste sur 🎧 Réviseuse.
+  </p>
+
+  <!-- ============================================================ -->
+  <h2 id="voix">2. Réviser une voix</h2>
+  <p>Quand tu cliques une leçon dans « Voix à réviser », tu arrives ici :</p>
+
+  <figure>
+    <img src="img/voice.png" alt="Écran de révision d'une voix">
+    <figcaption>L'écran de révision d'une voix : le lecteur en haut, le texte au milieu, la liste des mots à corriger en bas.</figcaption>
+  </figure>
+
+  <h3>Écouter</h3>
+  <p>
+    Clique <strong>▶</strong> pour jouer. Le texte défile et le mot lu est surligné. Tu peux changer la vitesse
+    (<strong>1×</strong>, <strong>1.25×</strong>) et cliquer dans la barre pour te déplacer. Clique sur n'importe quel
+    mot du texte pour sauter à ce moment-là dans l'audio.
+  </p>
+
+  <h3>Flagger un mot qui sonne mal</h3>
+  <p>
+    Quand un mot est mal prononcé, <strong>clique dessus dans le texte</strong>. Il devient rouge et souligné, et
+    apparaît dans la liste <strong>« Mots à corriger »</strong> en bas. (Astuce : <code>Ctrl</code>+clic sur plusieurs
+    mots d'affilée pour les grouper en un seul flag, ex. « centre commercial ».)
+  </p>
+
+  <h3>Demander la correction — le bouton <span class="k corriger">Corriger</span></h3>
+  <p>
+    Dans la ligne du flag, repère le champ bleu <strong>« Correction voulue »</strong>. Tape la bonne version du mot,
+    puis clique <span class="k corriger">Corriger</span>. C'est tout : la demande part, et un badge apparaît pour te
+    dire où c'est rendu. Le système refait l'audio tout seul.
+  </p>
+  <p class="repere"><b>Comment bien écrire la correction</b> (écris simplement le mot comme tu veux l'entendre) :</p>
   <table>
-    <tr><th>Tu veux…</th><th>Écris…</th><th></th></tr>
-    <tr><td>Corriger un accent mal prononcé</td><td><code>securite → sécurité</code> &nbsp;ou juste&nbsp; <code>sécurité</code></td><td class="ok-ex">✔ auto</td></tr>
-    <tr><td>Un nombre dit en chiffres</td><td><code>300 mètres → trois cents mètres</code></td><td class="ok-ex">✔ auto</td></tr>
-    <tr><td>Un sigle mal épelé</td><td><code>CNESST → C N E S S T</code></td><td class="ok-ex">✔ auto</td></tr>
-    <tr><td>Juste « ça sonne croche, refais-le »</td><td>laisse le champ Note, ou écris <code>refaire</code></td><td class="ok-ex">✔ auto</td></tr>
+    <tr><th>Tu veux…</th><th>Écris dans le champ…</th><th></th></tr>
+    <tr><td>Corriger un accent mal prononcé</td><td><code>sécurité</code> &nbsp;(ou&nbsp; <code>securite → sécurité</code>)</td><td class="ok-ex">✔ auto</td></tr>
+    <tr><td>Un nombre dit en chiffres</td><td><code>trois cents mètres</code></td><td class="ok-ex">✔ auto</td></tr>
+    <tr><td>Un sigle mal épelé</td><td><code>C N E S S T</code></td><td class="ok-ex">✔ auto</td></tr>
     <tr><td>Changer un mot du texte</td><td><code>change → changeons</code></td><td class="ok-ex">✔ auto</td></tr>
-    <tr><td>La voix <strong>répète</strong> ou bégaie un mot</td><td>clique <code>🔁 Se répète</code> sur le mot (pas besoin de taper de texte)</td><td class="ok-ex">✔ auto</td></tr>
+    <tr><td>Juste « refais-le »</td><td>laisse une note, ou écris <code>refaire</code></td><td class="ok-ex">✔ auto</td></tr>
   </table>
-
   <div class="callout green">
-    <strong>Astuce :</strong> dans le doute, écris ce que tu voudrais entendre, à voix haute, en bon français.
-    Le système choisit la façon la plus sûre. S'il n'est pas certain, il envoie ça à Nicolas — tu n'as rien à faire.
+    <span class="ttl">Astuce :</span> dans le doute, écris ce que tu voudrais entendre, à voix haute, en bon français.
+    Le système choisit la façon la plus sûre. S'il n'est pas certain, il passe la demande à Nicolas &mdash; tu n'as rien à faire.
   </div>
 
-  <h2>Les badges de statut</h2>
-  <p>Le badge à droite de ton bouton « Corriger » te dit où c'est rendu :</p>
+  <h3>Quand la voix répète ou bégaie — le bouton <span class="k repete">🔁 Se répète</span></h3>
+  <p>
+    Parfois le texte est bon, mais la voix <strong>répète</strong> un mot ou bégaie (ex. « centre commercial… centre
+    commercial »). Dans ce cas, ne touche pas au texte : clique simplement <span class="k repete">🔁 Se répète</span>
+    sur le flag. Le système refait juste ce bout de phrase, sans rien changer aux mots. Tu n'as pas besoin de taper quoi que ce soit.
+  </p>
 
-  <div class="app">
-    <div class="ri">
-      <span class="rt">0:05</span><span class="rs">#3</span><span class="rw">securite</span>
-      <span class="rc">…paramètres de <b>securité</b>.</span>
-      <span class="rfixwrap"><span class="rfixstatus pending">⏳ En attente</span>
-      <span class="muted" style="color:#6b7a90;font-size:10.5px">— reçu, ça s'en vient</span></span>
-    </div>
-    <div class="ri" style="margin-top:6px">
-      <span class="rt">1:12</span><span class="rs">#7</span><span class="rw">trois</span>
-      <span class="rc">à <b>300</b> mètres.</span>
-      <span class="rfixwrap"><span class="rfixstatus processing">⚙️ En cours…</span>
-      <span style="color:#6b7a90;font-size:10.5px">— en train d'être regénéré</span></span>
-    </div>
-    <div class="ri ok" style="margin-top:6px">
-      <span class="rt">2:40</span><span class="rs">#14</span><span class="rw">confidentialite</span>
-      <span class="rc">tes paramètres de <b>confidentialité</b>.</span>
-      <span class="rfixwrap"><span class="rfixstatus done">✅ Corrigé le 02/06 à 14h32</span>
-      <span style="color:#6b7a90;font-size:10.5px">— écoute la nouvelle version !</span></span>
-    </div>
-    <div class="ri" style="margin-top:6px">
-      <span class="rt">3:05</span><span class="rs">#21</span><span class="rw">change</span>
-      <span class="rc">on <b>change</b> la procédure.</span>
-      <span class="rfixwrap"><span class="rfixstatus review">👁️ À réviser (Nicolas)</span>
-      <span style="color:#6b7a90;font-size:10.5px">— Nicolas s'en occupe à la main</span></span>
-    </div>
+  <h3>Si une correction n'est toujours pas bonne — le bouton <span class="k mal">⚠ Mal corrigé</span></h3>
+  <p>
+    Une correction a été faite, tu ré-écoutes, et c'est <strong>encore</strong> pas correct ? Clique
+    <span class="k mal">⚠ Mal corrigé</span> sur ce flag. Il repasse en violet et remonte en priorité pour être refait.
+    C'est ta façon de dire « non, ça, recommence ».
+  </p>
+
+  <h3>La catégorie <span class="k cat">prononciation ▾</span></h3>
+  <p>
+    À côté du mot, un petit menu permet de préciser le <strong>type</strong> de problème. La plupart du temps, laisse
+    <strong>prononciation</strong> (la voix dit mal un mot bien écrit). Les deux autres choix servent surtout à Nicolas :
+  </p>
+  <ul>
+    <li><strong>prononciation</strong> — le mot est bien écrit mais mal dit (le cas le plus fréquent).</li>
+    <li><strong>faute de frappe</strong> — le mot est carrément mal écrit dans le texte.</li>
+    <li><strong>phrase à réécrire</strong> — toute la phrase est mal tournée.</li>
+  </ul>
+
+  <h3>La note (optionnel)</h3>
+  <p>
+    Le champ <strong>« Note »</strong> sert à laisser un commentaire libre (ex. « la voix dit le mot 2 fois »). Ce n'est
+    pas obligatoire &mdash; utilise-le si ça aide à expliquer.
+  </p>
+
+  <h3>Approuver la voix — le bouton <span class="k approve">✓ Approuver la voix</span></h3>
+  <p>
+    Quand tu as écouté toute la leçon et que la voix est bonne (ou que toutes tes corrections sont faites), clique
+    <span class="k approve">✓ Approuver la voix</span>. La leçon quitte ta file et avance vers la production de la vidéo.
+    C'est ton feu vert.
+  </p>
+
+  <!-- ============================================================ -->
+  <h2 id="badges">3. Les badges de statut</h2>
+  <p>
+    Après un <span class="k corriger">Corriger</span> ou un <span class="k repete">🔁 Se répète</span>, un badge
+    apparaît à droite du flag et se met à jour tout seul. Voici les quatre que tu verras :
+  </p>
+
+  <figure>
+    <img src="img/badges.png" alt="Les quatre badges de statut">
+    <figcaption>Les quatre statuts d'une correction, du moment où tu l'envoies jusqu'à ce qu'elle soit prête.</figcaption>
+  </figure>
+
+  <ul>
+    <li><strong style="color:#b8730f">⏳ En attente</strong> — ta demande est reçue, elle s'en vient.</li>
+    <li><strong style="color:#2871b3">⚙️ En cours…</strong> — la voix est en train d'être regénérée.</li>
+    <li><strong style="color:#1a8a4f">✅ Corrigé</strong> (avec la date) — c'est fait ! Ré-écoute la nouvelle version.</li>
+    <li><strong style="color:#8b46c9">👁️ À réviser (Nicolas)</strong> — un cas qui change le texte : Nicolas le fait à la main. Rien à faire de plus.</li>
+  </ul>
+  <p>
+    Tu peux fermer l'app et revenir plus tard : le badge sera à jour. Si jamais tu vois
+    <strong style="color:#b3261e">⚠ Erreur</strong>, re-clique simplement <span class="k corriger">Corriger</span> ;
+    si ça revient, écris à Nicolas.
+  </p>
+  <div class="callout">
+    <span class="ttl">Quand ça part « À réviser », c'est normal.</span> Pour les vrais changements de mots ou les cas
+    qui dépendent du sens, le système préfère laisser Nicolas décider plutôt que de risquer une erreur dans le script.
+    C'est noté, il le voit. Continue avec les autres flags.
   </div>
 
-  <h2>Quand ça part « À réviser »</h2>
-  <p>C'est <strong>normal et voulu</strong>. Pour les vrais changements de mots, ou quand le sens dépend du contexte,
-    le système préfère laisser Nicolas décider plutôt que de risquer une erreur dans le script.
-    Tu n'as rien à faire de plus : c'est noté, Nicolas le voit. Continue avec les autres flags.</p>
+  <!-- ============================================================ -->
+  <h2 id="video">4. Valider une vidéo</h2>
+  <p>
+    Quand la voix d'une leçon est approuvée, Nicolas produit la vidéo finale. Elle t'arrive dans la file
+    <strong>🎬 Vidéos à valider</strong>. Clique-la pour l'ouvrir :
+  </p>
 
-  <h2>Petits trucs</h2>
+  <figure>
+    <img src="img/video.png" alt="Écran de validation d'une vidéo">
+    <figcaption>L'écran de validation d'une vidéo : le lecteur, la barre de temps avec tes repères, et la liste des problèmes.</figcaption>
+  </figure>
+
+  <h3>Regarder et marquer un problème — le bouton <span class="k addflag">📍 ADD FLAG ICI</span></h3>
+  <p>
+    Regarde la vidéo. Si un moment cloche (texte coupé, image, son décalé, faute à l'écran, transition ratée…),
+    clique <span class="k addflag">📍 ADD FLAG ICI</span> <strong>au bon moment</strong>. Une petite fenêtre s'ouvre
+    pour préciser le type de problème :
+  </p>
+
+  <figure class="narrow">
+    <img src="img/addflag.png" alt="Fenêtre d'ajout d'un flag vidéo">
+    <figcaption>Choisis la catégorie, ajoute une note, indique si c'est bloquant ou mineur, puis « Ajouter ».</figcaption>
+  </figure>
+
+  <p>
+    Chaque flag apparaît ensuite sous la vidéo avec son temps (ex. <strong>0:43</strong>) et sa catégorie. Tu peux en
+    mettre plusieurs. Un repère apparaît aussi sur la barre de temps pour retrouver le moment facilement.
+  </p>
+
+  <h3>Décider — <span class="k approve">✓ Approuver</span> ou <span class="k renvoyer">↻ Renvoyer pour correction</span></h3>
+  <ul>
+    <li>Si tout est bon → <span class="k approve">✓ Approuver</span>. La leçon est prête pour le déploiement.</li>
+    <li>Si quelque chose ne va pas → <span class="k renvoyer">↻ Renvoyer pour correction</span>. Tes moments
+      flaggés + ta raison partent à Nicolas ; il refait la vidéo, et elle te revient dans
+      <strong>Vidéos à valider</strong> pour que tu vérifies la nouvelle version.</li>
+  </ul>
+  <div class="callout blue">
+    <span class="ttl">Petit truc :</span> avant de renvoyer, ajoute au moins un flag au moment du problème. Ça dit
+    exactement à Nicolas <em>où</em> regarder, pas juste <em>quoi</em>.
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 id="pratiques">5. Bonnes pratiques</h2>
   <ul>
     <li>Une correction = un mot ou un bout de phrase. Si deux mots sonnent mal, fais deux corrections.</li>
-    <li>Le bouton <span style="color:#9a4fd0;font-weight:600">⚠ Mal corrigé</span> reste utile : si une correction déjà faite n'est <em>toujours</em> pas bonne, clique-le pour qu'on la refasse en priorité.</li>
-    <li>Pas besoin d'attendre devant l'écran. Les badges se rafraîchissent tout seuls (environ aux 20 secondes) et quand tu rouvres la leçon.</li>
-    <li>Si tu vois <span style="color:#b3261e;font-weight:600">⚠ Erreur</span> : re-clique « Corriger ». Si ça revient, écris à Nicolas.</li>
-    <li>Une correction est habituellement prête en quelques minutes (max ~5).</li>
+    <li>Écoute la leçon <strong>au complet</strong> avant d'approuver &mdash; même si tu n'as flaggé qu'un mot au début.</li>
+    <li>La voix <strong>répète</strong> un mot ? → <span class="k repete">🔁 Se répète</span> (pas besoin de réécrire le texte).</li>
+    <li>Une correction déjà faite est <strong>encore</strong> mauvaise ? → <span class="k mal">⚠ Mal corrigé</span>.</li>
+    <li>Pas besoin d'attendre devant l'écran : les badges se rafraîchissent seuls.</li>
+    <li>Pour une vidéo, mets un flag <strong>au moment</strong> du problème avant de la renvoyer.</li>
   </ul>
 
-  <h2>Et les vidéos ?</h2>
-  <p>Quand toutes les voix d'une formation sont approuvées, Nicolas produit les vidéos finales.
-    Elles t'arrivent ensuite à valider — tu les retrouves dans ton cockpit, section
-    <strong>« 🎬 Vidéos à valider »</strong>.</p>
-  <ol>
-    <li>Ouvre la vidéo et regarde-la.</li>
-    <li>Si un moment cloche (texte coupé, image, son désynchronisé, faute à l'écran…), clique
-      <strong>« ADD FLAG ICI »</strong> au bon moment pour le marquer, et choisis la catégorie.</li>
-    <li>Si tout est bon → <strong>Approuver</strong>. Si quelque chose ne va pas →
-      <strong>« ↻ Renvoyer pour correction »</strong>. Tes moments flaggés + ta raison partent à
-      Nicolas ; il refait la vidéo, et elle te revient dans <strong>« Vidéos à valider »</strong>
-      pour que tu vérifies la nouvelle version.</li>
-  </ol>
-
-  <h2>Ton cockpit (page d'accueil)</h2>
-  <p>La page d'accueil te montre seulement TON travail, en trois files :</p>
+  <!-- ============================================================ -->
+  <h2 id="bloque">6. Si ça bloque</h2>
   <ul>
-    <li><strong>🎙️ Voix à réviser</strong> — les voiceovers à écouter et flagger.</li>
-    <li><strong>↻ Voix à re-réviser</strong> — des voix corrigées à ré-écouter pour confirmer.</li>
-    <li><strong>🎬 Vidéos à valider</strong> — les vidéos finales à regarder et approuver.</li>
+    <li>Badge <strong style="color:#b3261e">⚠ Erreur</strong> → re-clique <span class="k corriger">Corriger</span>. Si ça revient, écris à Nicolas.</li>
+    <li>Un badge reste <strong>⏳ En attente</strong> très longtemps (plus de ~15 min) → préviens Nicolas, le système est peut-être arrêté.</li>
+    <li>Tu ne retrouves pas une leçon → reviens au cockpit ; elle a peut-être changé de file (ex. voix approuvée → passée aux vidéos).</li>
+    <li>Un doute sur quoi écrire dans une correction → écris-le en bon français comme tu le dirais, et envoie. Le pire cas, ça part à Nicolas.</li>
   </ul>
-  <p class="muted">Quand une file est vide, il n'y a rien à faire de ce côté. 🎉</p>
 
   <div class="footer">
-    XGuard Académie — App de review des voiceovers · Guide pour Hela · Des questions ? Écris à Nicolas.
+    XGuard Académie — App de review des voix et des vidéos · Guide pour Hela · Mis à jour le 2 juin 2026 ·
+    Des questions ? Écris à Nicolas.
   </div>
 
 </body>
