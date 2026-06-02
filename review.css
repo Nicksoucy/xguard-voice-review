@@ -116,6 +116,8 @@ h1{color:#E74C3C;font-size:14px}
 .ri .rfix::placeholder{color:#557}
 .ri .rfixbtn{background:rgba(52,152,219,0.16);border:1px solid rgba(52,152,219,0.4);color:#5DADE2;border-radius:4px;padding:3px 11px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
 .ri .rfixbtn:hover{background:rgba(52,152,219,0.32);color:#fff}
+.ri .rfixbtn.rpt{background:rgba(230,126,34,0.16);border-color:rgba(230,126,34,0.45);color:#E59866}
+.ri .rfixbtn.rpt:hover{background:rgba(230,126,34,0.32);color:#fff}
 .rfixstatus{font-size:10px;font-weight:600;font-family:inherit;white-space:nowrap}
 .rfixstatus.pending{color:#E67E22}
 .rfixstatus.processing{color:#3498DB}

@@ -1025,7 +1025,7 @@ function renderFlags(){
     }
     // Champ "Demander une correction automatique" (boucle Hela -> Nitro -> statut in-app).
     // Hela tape la correction voulue ; si pas de fleche, on prefixe avec le mot flagge.
-    var rfixBlock = '<span class="rfixwrap"><input class="rfix" id="rfix'+ii+'" placeholder="Correction voulue (ex: change \u2192 changeons)"><button class="rfixbtn" title="Demander une correction automatique" onclick="submitCorrectionRequest('+ii+')">Corriger</button><span class="rfixstatus" id="rfixstatus'+ii+'"></span></span>';
+    var rfixBlock = '<span class="rfixwrap"><input class="rfix" id="rfix'+ii+'" placeholder="Correction voulue (ex: change \u2192 changeons)"><button class="rfixbtn" title="Demander une correction automatique" onclick="submitCorrectionRequest('+ii+')">Corriger</button><button class="rfixbtn rpt" title="La voix répète ou bégaie ce mot — refaire ce bout (sans changer le texte)" onclick="submitRepeat('+ii+')">🔁 Se répète</button><span class="rfixstatus" id="rfixstatus'+ii+'"></span></span>';
     el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span>'+groupBadge+catSelect+'<span class="rc">'+hl(d.context)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="flags.get('+ii+').note=this.value;scheduleAutoSave()">'+reflagBtn+rfixBlock+'<button class="rm" onclick="flags.delete('+ii+');'+groupIndicesStr+'.forEach(function(g){if(els[g]){els[g].classList.remove(\'flagged\',\'resolved\',\'approved\',\'grouped\',\'reflagged\')}});renderFlags();scheduleAutoSave()">\u2715</button>';
     l.appendChild(el)})(sorted[k][0],sorted[k][1])}
   // Re-applique les statuts de correction connus (renderFlags efface le DOM a chaque appel).
@@ -1071,6 +1071,37 @@ function submitCorrectionRequest(ii){
       correctionStatuses[ii] = {status:'pending'};
       applyCorrectionStatuses();
       if (input) input.value = '';
+      startCorrectionPolling();
+    } else {
+      r.text().then(function(t){ setCorrectionStatusEl(ii, 'error', '⚠ ' + r.status + ' : ' + t.slice(0,80)); });
+    }
+  }).catch(function(e){ setCorrectionStatusEl(ii, 'error', '⚠ ' + e.message); });
+}
+
+// Bouton "Se répète" : la voix bégaie/répète ce mot. Le script étant correct, on refait juste
+// ce bout (re-roll), sans toucher au texte. Crée une correction_request marquée [répétition].
+function submitRepeat(ii){
+  if (!L) return;
+  var d = flags.get(ii);
+  if (!d) return;
+  var rn = (localStorage.getItem('rn') || 'Anonyme').trim();
+  var payload = {
+    lesson_key: L.lesson_key,
+    phrase_index: ii,
+    sentence_index: (d.sentenceIndex != null ? d.sentenceIndex : null),
+    phrase_text: d.context || null,
+    correction_note: '[répétition]',
+    requested_by: rn
+  };
+  setCorrectionStatusEl(ii, 'pending', '⏳ envoi...');
+  fetch(API+'/correction_requests', {
+    method: 'POST',
+    headers: Object.assign({}, H, {'Content-Type':'application/json','Prefer':'return=minimal'}),
+    body: JSON.stringify(payload)
+  }).then(function(r){
+    if (r.ok) {
+      correctionStatuses[ii] = {status:'pending'};
+      applyCorrectionStatuses();
       startCorrectionPolling();
     } else {
       r.text().then(function(t){ setCorrectionStatusEl(ii, 'error', '⚠ ' + r.status + ' : ' + t.slice(0,80)); });
