@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Guide Hela — Demander une correction</title>
+<style>
+  @page { size: A4; margin: 14mm 15mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1d2330; line-height: 1.55; font-size: 13px; margin: 0;
+  }
+  h1 { font-size: 23px; margin: 0 0 2px; color: #0A0E1A; }
+  h2 { font-size: 16px; margin: 22px 0 8px; color: #C0392B; border-bottom: 2px solid #f0d9d6; padding-bottom: 4px; }
+  h3 { font-size: 13.5px; margin: 14px 0 5px; color: #0A0E1A; }
+  p { margin: 6px 0; }
+  .lead { color: #475066; font-size: 13.5px; }
+  .muted { color: #6b7280; }
+  ol, ul { margin: 6px 0 6px 4px; padding-left: 20px; }
+  li { margin: 5px 0; }
+  code { background: #eef1f6; padding: 1px 6px; border-radius: 4px; font-family: 'Consolas', monospace; font-size: 12px; color: #0A0E1A; }
+  .header { display:flex; align-items:center; gap:12px; border-bottom: 3px solid #C0392B; padding-bottom: 10px; }
+  .badge-x { background:#C0392B; color:#fff; font-weight:700; padding:6px 11px; border-radius:6px; font-size:15px; letter-spacing:.5px; }
+  .step { display:flex; gap:12px; margin:10px 0; }
+  .step .n { flex:0 0 26px; height:26px; background:#C0392B; color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; }
+  .step .t { flex:1; }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 12.5px; }
+  th, td { border: 1px solid #dfe3ea; padding: 7px 9px; text-align: left; vertical-align: top; }
+  th { background: #f6f7f9; color:#0A0E1A; }
+  .ok-ex { color:#1a8a4f; font-weight:600; }
+  .no-ex { color:#b3261e; font-weight:600; }
+  .callout { background:#f6f7f9; border-left:4px solid #C0392B; padding:9px 13px; border-radius:0 6px 6px 0; margin:10px 0; }
+  .callout.green { border-left-color:#1a8a4f; background:#eefaf2; }
+  .footer { margin-top: 22px; padding-top:10px; border-top:1px solid #e5e7eb; color:#6b7280; font-size:11px; }
+
+  /* ====== Apercu fidele de l'app (theme sombre, comme ce que Hela voit) ====== */
+  .app { background:#0A0E1A; border:1px solid #1d2942; border-radius:9px; padding:11px 12px; margin:9px 0; }
+  .app .cap { color:#94A3B8; font-size:10.5px; margin:0 0 7px; font-family:'Segoe UI',sans-serif; }
+  .ri { display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:12px;
+        background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
+        border-radius:5px; padding:6px 9px; color:#F0F0F0; }
+  .ri.ok { background:rgba(39,174,96,0.07); border:1px solid rgba(39,174,96,0.2); }
+  .ri.ok .rw { color:#27AE60; text-decoration:line-through; }
+  .ri.ok .rc { color:#5a8a6e; }
+  .ri.ok::before { content:"\2713"; color:#27AE60; font-weight:700; margin-right:4px; }
+  .rt { color:#666; min-width:30px; }
+  .rs { color:#E67E22; font-family:monospace; min-width:22px; font-size:11px; }
+  .rw { color:#E74C3C; font-weight:600; }
+  .rcat { background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.14); border-radius:4px;
+          color:#aab4c4; font-size:11px; padding:2px 6px; }
+  .rc { color:#8a93a3; flex:1; min-width:130px; }
+  .rc b { color:#F0F0F0; }
+  .note { max-width:90px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12);
+          border-radius:4px; padding:3px 7px; color:#8893a5; font-size:11px; }
+  .rreflag { background:rgba(168,85,247,0.14); border:1px solid rgba(168,85,247,0.4); color:#C58BF7;
+             border-radius:4px; padding:3px 8px; font-size:10px; font-weight:600; white-space:nowrap; }
+  .rfixwrap { display:flex; align-items:center; gap:6px; flex-wrap:wrap; width:100%; margin-top:4px; padding-left:34px; }
+  .rfix { flex:1; min-width:170px; max-width:280px; background:rgba(52,152,219,0.10);
+          border:1px solid rgba(52,152,219,0.35); border-radius:4px; padding:3px 8px; color:#cfe6f7; font-size:11px; }
+  .rfix.empty { color:#6f8aa3; }
+  .rfixbtn { background:rgba(52,152,219,0.20); border:1px solid rgba(52,152,219,0.5); color:#7cc1ee;
+             border-radius:4px; padding:3px 12px; font-size:10px; font-weight:700; white-space:nowrap; }
+  .rfixstatus { font-size:10.5px; font-weight:700; white-space:nowrap; }
+  .rfixstatus.pending { color:#E67E22; }
+  .rfixstatus.processing { color:#3498DB; }
+  .rfixstatus.done { color:#2ECC71; }
+  .rfixstatus.review { color:#A855F7; }
+  .rm { color:#666; font-size:13px; margin-left:2px; }
+  .arrow-tip { color:#7cc1ee; font-size:10.5px; margin-top:3px; padding-left:34px; }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <span class="badge-x">XGuard</span>
+    <div>
+      <h1>Demander une correction de prononciation</h1>
+      <div class="lead">Guide rapide pour Hela &mdash; app de review des voiceovers</div>
+    </div>
+  </div>
+
+  <p class="lead" style="margin-top:12px">
+    Quand un mot sonne mal dans un voiceover, tu peux maintenant <strong>demander la correction directement dans l'app</strong>.
+    Tu écris ce que tu veux entendre, tu cliques <strong>Corriger</strong>, et c'est traité automatiquement.
+    Tu vois ensuite un petit badge qui te dit où c'est rendu. Pas besoin d'écrire sur WhatsApp pour ça.
+  </p>
+
+  <h2>Comment faire, en 3 étapes</h2>
+
+  <div class="step"><div class="n">1</div><div class="t">
+    Clique sur le mot qui sonne mal dans le texte (comme d'habitude) pour créer un <em>flag</em>. Il apparaît dans la liste en bas.
+  </div></div>
+  <div class="step"><div class="n">2</div><div class="t">
+    Dans le flag, repère le champ bleu <strong>« Correction voulue »</strong>. Tape la bonne version du mot, puis clique <strong>Corriger</strong>.
+  </div></div>
+  <div class="step"><div class="n">3</div><div class="t">
+    Un badge apparaît et se met à jour tout seul : <span style="color:#E67E22;font-weight:600">⏳ En attente</span> &rarr;
+    <span style="color:#3498DB;font-weight:600">⚙️ En cours</span> &rarr; <span style="color:#1a8a4f;font-weight:600">✅ Corrigé</span>.
+    Tu peux fermer l'app et revenir plus tard : le badge sera à jour.
+  </div></div>
+
+  <div class="app">
+    <div class="cap">Voici à quoi ça ressemble dans la liste des flags :</div>
+    <div class="ri">
+      <span class="rt">0:05</span><span class="rs">#3</span><span class="rw">securite</span>
+      <span class="rcat">prononciation</span>
+      <span class="rc">Vérifie tes paramètres de <b>securité</b>.</span>
+      <input class="note" placeholder="Note">
+      <span class="rreflag">⚠ Mal corrigé</span>
+      <span class="rfixwrap">
+        <span class="rfix empty">Correction voulue (ex: change → changeons)</span>
+        <span class="rfixbtn">Corriger</span>
+        <span class="rfixstatus"></span>
+      </span>
+      <span class="rm">✕</span>
+    </div>
+    <div class="arrow-tip">↑ C'est ici que tu écris la correction, puis tu cliques « Corriger ».</div>
+  </div>
+
+  <h2>Bien écrire ta correction</h2>
+  <p>Écris simplement <strong>le mot tel que tu veux l'entendre</strong>. Tu peux aussi utiliser une flèche
+    « mot entendu → mot voulu » si tu veux être précise. Une seule correction à la fois.</p>
+
+  <table>
+    <tr><th>Tu veux…</th><th>Écris…</th><th></th></tr>
+    <tr><td>Corriger un accent mal prononcé</td><td><code>securite → sécurité</code> &nbsp;ou juste&nbsp; <code>sécurité</code></td><td class="ok-ex">✔ auto</td></tr>
+    <tr><td>Un nombre dit en chiffres</td><td><code>300 mètres → trois cents mètres</code></td><td class="ok-ex">✔ auto</td></tr>
+    <tr><td>Un sigle mal épelé</td><td><code>CNESST → C N E S S T</code></td><td class="ok-ex">✔ auto</td></tr>
+    <tr><td>Juste « ça sonne croche, refais-le »</td><td>laisse le champ Note, ou écris <code>refaire</code></td><td class="ok-ex">✔ auto</td></tr>
+    <tr><td>Changer carrément le mot du texte</td><td><code>change → changeons</code></td><td class="no-ex">→ Nicolas</td></tr>
+  </table>
+
+  <div class="callout green">
+    <strong>Astuce :</strong> dans le doute, écris ce que tu voudrais entendre, à voix haute, en bon français.
+    Le système choisit la façon la plus sûre. S'il n'est pas certain, il envoie ça à Nicolas — tu n'as rien à faire.
+  </div>
+
+  <h2>Les badges de statut</h2>
+  <p>Le badge à droite de ton bouton « Corriger » te dit où c'est rendu :</p>
+
+  <div class="app">
+    <div class="ri">
+      <span class="rt">0:05</span><span class="rs">#3</span><span class="rw">securite</span>
+      <span class="rc">…paramètres de <b>securité</b>.</span>
+      <span class="rfixwrap"><span class="rfixstatus pending">⏳ En attente</span>
+      <span class="muted" style="color:#6b7a90;font-size:10.5px">— reçu, ça s'en vient</span></span>
+    </div>
+    <div class="ri" style="margin-top:6px">
+      <span class="rt">1:12</span><span class="rs">#7</span><span class="rw">trois</span>
+      <span class="rc">à <b>300</b> mètres.</span>
+      <span class="rfixwrap"><span class="rfixstatus processing">⚙️ En cours…</span>
+      <span style="color:#6b7a90;font-size:10.5px">— en train d'être regénéré</span></span>
+    </div>
+    <div class="ri ok" style="margin-top:6px">
+      <span class="rt">2:40</span><span class="rs">#14</span><span class="rw">confidentialite</span>
+      <span class="rc">tes paramètres de <b>confidentialité</b>.</span>
+      <span class="rfixwrap"><span class="rfixstatus done">✅ Corrigé le 02/06 à 14h32</span>
+      <span style="color:#6b7a90;font-size:10.5px">— écoute la nouvelle version !</span></span>
+    </div>
+    <div class="ri" style="margin-top:6px">
+      <span class="rt">3:05</span><span class="rs">#21</span><span class="rw">change</span>
+      <span class="rc">on <b>change</b> la procédure.</span>
+      <span class="rfixwrap"><span class="rfixstatus review">👁️ À réviser (Nicolas)</span>
+      <span style="color:#6b7a90;font-size:10.5px">— Nicolas s'en occupe à la main</span></span>
+    </div>
+  </div>
+
+  <h2>Quand ça part « À réviser »</h2>
+  <p>C'est <strong>normal et voulu</strong>. Pour les vrais changements de mots, ou quand le sens dépend du contexte,
+    le système préfère laisser Nicolas décider plutôt que de risquer une erreur dans le script.
+    Tu n'as rien à faire de plus : c'est noté, Nicolas le voit. Continue avec les autres flags.</p>
+
+  <h2>Petits trucs</h2>
+  <ul>
+    <li>Une correction = un mot ou un bout de phrase. Si deux mots sonnent mal, fais deux corrections.</li>
+    <li>Le bouton <span style="color:#9a4fd0;font-weight:600">⚠ Mal corrigé</span> reste utile : si une correction déjà faite n'est <em>toujours</em> pas bonne, clique-le pour qu'on la refasse en priorité.</li>
+    <li>Pas besoin d'attendre devant l'écran. Les badges se rafraîchissent tout seuls (environ aux 20 secondes) et quand tu rouvres la leçon.</li>
+    <li>Si tu vois <span style="color:#b3261e;font-weight:600">⚠ Erreur</span> : re-clique « Corriger ». Si ça revient, écris à Nicolas.</li>
+    <li>Une correction est habituellement prête en quelques minutes (max ~5).</li>
+  </ul>
+
+  <div class="footer">
+    XGuard Académie — App de review des voiceovers · Guide pour Hela · Des questions ? Écris à Nicolas.
+  </div>
+
+</body>
+</html>
