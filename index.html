@@ -105,9 +105,10 @@ var DATA = null;
 Promise.all([
   fetch(API+'/courses?visible=eq.true&order=sort_order.asc',{headers:H}).then(function(r){return r.json()}),
   fetch(API+'/lesson_status_full?select=lesson_key,course_id,module_id,module_index,lesson_index,sort_order,title,short_title,status,pipeline_stage,video_stale,video_status,video_reject_reason,video_flags_count,voiceover_version,video_version',{headers:H}).then(function(r){return r.json()}),
-  fetch(API+'/correction_requests?status=eq.needs_review&select=lesson_key,correction_note,reason,requested_by,created_at&order=created_at.desc',{headers:H}).then(function(r){return r.json()})
+  fetch(API+'/correction_requests?status=eq.needs_review&select=lesson_key,correction_note,reason,requested_by,created_at&order=created_at.desc',{headers:H}).then(function(r){return r.json()}),
+  fetch(API+'/correction_requests?md_sync_failed=eq.true&select=lesson_key,correction_note,reason,requested_by,completed_at&order=completed_at.desc',{headers:H}).then(function(r){return r.json()})
 ]).then(function(res){
-  DATA = { courses:res[0], lessons:res[1]||[], needsReview:res[2]||[] };
+  DATA = { courses:res[0], lessons:res[1]||[], needsReview:res[2]||[], syncFailed:res[3]||[] };
   render();
 }).catch(function(err){
   document.getElementById('view').innerHTML = '<div class="err">Erreur de chargement: '+esc(err.message)+'</div>';
@@ -208,6 +209,20 @@ function renderManager(){
     }).join('');
     html += '<div class="sec"><h2>👁️ Corrections à trancher <span class="count">'+DATA.needsReview.length+'</span></h2>'
           + '<div class="hint">Demandes de Hela qui changent le texte — à appliquer à la main dans le .md.</div>'+nrRows+'</div>';
+  }
+
+  // Textes maitres a verifier : audio corrige mais le .md canonique n'a pas pu etre edite
+  // automatiquement (md_sync_failed). Rendu visible pour ne plus enterrer la divergence.
+  if (DATA.syncFailed && DATA.syncFailed.length){
+    var sfRows = DATA.syncFailed.map(function(c){
+      return '<a class="qrow" style="--c:#E67E22" href="review.html?key='+encodeURIComponent(c.lesson_key)+'">'
+        + '<span class="qname">'+esc(c.correction_note)+'</span>'
+        + '<span class="qctx">'+esc(CT[(c.lesson_key||'').split('/')[0]]||c.lesson_key)+'</span>'
+        + '<span class="qwhy">audio OK · texte à vérifier</span>'
+        + '<span class="qarrow">→</span></a>';
+    }).join('');
+    html += '<div class="sec"><h2>📝 Textes maîtres à vérifier <span class="count">'+DATA.syncFailed.length+'</span></h2>'
+          + '<div class="hint">Audio corrigé, mais le texte source (.md) n\'a pas pu être édité automatiquement — à corriger à la main dans Obsidian, puis décocher.</div>'+sfRows+'</div>';
   }
 
   // Rollup par formation
