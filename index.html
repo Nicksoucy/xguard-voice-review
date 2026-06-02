@@ -1,116 +1,79 @@
 <!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Voice Review — XGuard Academy</title>
-<!-- Sentry error tracking : DOIT etre charge en premier -->
+<title>Cockpit — XGuard Academy</title>
 <script src="https://js.sentry-cdn.com/ab9916085bc6c9e93779c21fad74456f.min.js" crossorigin="anonymous"></script>
 <script src="sentry-init.js?v=20260509a"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#0A0E1A;color:#F0F0F0;padding:24px;min-height:100vh;max-width:820px;margin:0 auto}
-h1{color:#E74C3C;font-size:22px;margin-bottom:4px}
-.sub{color:#94A3B8;font-size:13px;margin-bottom:16px}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0A0E1A;color:#F0F0F0;padding:24px;min-height:100vh;max-width:880px;margin:0 auto}
+h1{color:#E74C3C;font-size:21px;margin-bottom:2px}
+.sub{color:#94A3B8;font-size:13px;margin-bottom:14px}
+a{text-decoration:none;color:inherit}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:8px}
+.navlink{color:#94A3B8;font-size:12px;padding:6px 13px;border-radius:5px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1)}
+.navlink:hover{background:rgba(255,255,255,0.12);color:#fff}
 
-.info{background:rgba(255,255,255,0.04);border-left:3px solid #E74C3C;padding:12px 16px;margin-bottom:16px;border-radius:0 8px 8px 0}
+/* Role toggle */
+.roletoggle{display:inline-flex;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:7px;overflow:hidden;margin-bottom:14px}
+.roletoggle button{background:none;border:none;color:#94A3B8;font-family:inherit;font-size:12.5px;font-weight:600;padding:8px 16px;cursor:pointer}
+.roletoggle button.on{background:#C0392B;color:#fff}
+.roletoggle button:not(.on):hover{background:rgba(255,255,255,0.08);color:#fff}
+
+.info{background:rgba(255,255,255,0.04);border-left:3px solid #E74C3C;padding:10px 14px;margin-bottom:16px;border-radius:0 8px 8px 0}
 .info label{color:#94A3B8;font-size:13px;margin-right:8px}
-.info input{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:6px 12px;color:#F0F0F0;font-size:14px;width:220px}
+.info input{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:6px 12px;color:#F0F0F0;font-size:14px;width:200px}
 
-/* Global stats bar */
-.global-stats{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:16px 20px;margin-bottom:16px}
-.global-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;flex-wrap:wrap;gap:6px}
-.global-title{color:#F0F0F0;font-size:13px;font-weight:600}
-.global-pct{color:#2ECC71;font-size:20px;font-weight:700}
-.global-bar{height:10px;background:rgba(255,255,255,0.06);border-radius:5px;overflow:hidden;display:flex}
-.global-bar > span{height:100%;transition:width .3s}
-.seg-approved{background:#27AE60}
-.seg-recheck{background:#E74C3C}
-.seg-flagged{background:#F39C12}
-.seg-progress{background:#3B82F6}
-.seg-todo{background:rgba(255,255,255,0.08)}
-.global-legend{display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;font-size:11px;color:#94A3B8}
-.global-legend span{display:flex;align-items:center;gap:4px}
-.global-legend i{display:inline-block;width:10px;height:10px;border-radius:2px}
+/* Section header */
+.sec{margin:22px 0 10px}
+.sec h2{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px}
+.sec .count{font-size:12px;color:#0A0E1A;background:#94A3B8;border-radius:10px;padding:1px 9px;font-weight:700}
+.sec .hint{color:#94A3B8;font-size:12px;margin-top:2px}
 
-/* Next action banner */
-.next-action{background:linear-gradient(90deg,rgba(231,76,60,0.18),rgba(231,76,60,0.08));border:1px solid rgba(231,76,60,0.4);border-radius:10px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .15s}
-.next-action:hover{background:linear-gradient(90deg,rgba(231,76,60,0.24),rgba(231,76,60,0.12));transform:translateY(-1px)}
-.next-action.hidden{display:none}
-.next-action .icon{font-size:24px}
-.next-action .text{flex:1;font-size:13px;color:#F8CACE;line-height:1.4}
-.next-action .text strong{color:#fff;display:block;font-size:14px;margin-bottom:2px}
-.next-action .arrow{color:#E74C3C;font-size:20px}
+/* Queue rows (lesson list) */
+.qrow{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.07);border-left:3px solid var(--c,#3B82F6);border-radius:7px;padding:9px 13px;margin-bottom:6px;transition:all .12s}
+.qrow:hover{background:rgba(255,255,255,0.07);transform:translateX(2px)}
+.qname{font-size:13px;font-weight:600;color:#F0F0F0;flex:0 0 auto;max-width:48%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qctx{font-size:11px;color:#94A3B8;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qwhy{font-size:11px;color:#E67E22;font-weight:600;white-space:nowrap}
+.qarrow{color:#E74C3C;font-size:16px}
+.empty{color:#5b6577;font-style:italic;font-size:13px;padding:8px 2px}
+.allgood{background:rgba(39,174,96,0.08);border:1px solid rgba(39,174,96,0.25);border-radius:10px;padding:22px;text-align:center;color:#B9E8CB;font-size:15px}
 
-/* Today stats */
-.today{background:rgba(39,174,96,0.08);border-left:3px solid #27AE60;padding:10px 14px;margin-bottom:16px;border-radius:0 8px 8px 0;font-size:12px;color:#B9E8CB}
-.today strong{color:#2ECC71}
-.today.hidden{display:none}
+/* Course rollup card (manager) */
+.course{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:15px 18px;margin-bottom:10px;display:block}
+.course:hover{background:rgba(255,255,255,0.07);border-color:rgba(231,76,60,0.35)}
+.course .title{color:#E74C3C;font-size:15px;font-weight:600;margin-bottom:7px;display:flex;align-items:center;gap:8px;justify-content:space-between}
+.course .phase{font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;letter-spacing:.3px}
+.phase.ready{background:rgba(39,174,96,0.18);color:#2ECC71}
+.phase.video{background:rgba(26,188,156,0.18);color:#1ABC9C}
+.phase.voice{background:rgba(59,130,246,0.18);color:#3B82F6}
+.stagebar{height:9px;background:rgba(255,255,255,0.06);border-radius:5px;overflow:hidden;display:flex;margin:4px 0 8px}
+.stagebar > span{height:100%}
+.crow{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:#94A3B8}
+.crow b{color:#F0F0F0}
+.dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:3px;vertical-align:-1px}
 
-a{text-decoration:none}
-.course{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:18px 22px;margin-bottom:12px;transition:all .15s;cursor:pointer;display:block;position:relative;overflow:hidden}
-.course:hover{background:rgba(255,255,255,0.08);border-color:rgba(231,76,60,0.4);transform:translateY(-1px)}
-.course.priority-high{border-color:rgba(231,76,60,0.6);background:linear-gradient(90deg,rgba(231,76,60,0.08),rgba(255,255,255,0.04))}
-.course.priority-low{opacity:.65}
-.course .title{color:#E74C3C;font-size:16px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:8px}
-.course .urgent{background:#E74C3C;color:#fff;font-size:9px;padding:2px 6px;border-radius:3px;font-weight:700;letter-spacing:.3px}
-.course .desc{color:#94A3B8;font-size:12px;line-height:1.5;margin-bottom:8px}
-.course .meta{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
-.course .tag{background:rgba(231,76,60,0.15);color:#E74C3C;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:600}
-
-/* Course progress bar */
-.course-progress{height:8px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;display:flex;margin:10px 0 8px 0}
-.course-progress > span{height:100%;transition:width .3s}
-.course-pct{font-size:11px;color:#94A3B8;margin-bottom:8px;display:flex;justify-content:space-between}
-.course-pct strong{color:#F0F0F0}
-
-.badges{display:flex;gap:5px;flex-wrap:wrap}
-.badge{padding:3px 9px;border-radius:4px;font-size:10px;font-weight:600;letter-spacing:.3px}
-.b-approved{background:rgba(39,174,96,0.15);color:#2ECC71}
-.b-recheck{background:rgba(231,76,60,0.22);color:#F8CACE;border:1px solid rgba(231,76,60,0.5)}
-.b-flagged{background:rgba(243,156,18,0.15);color:#F39C12}
-.b-progress{background:rgba(59,130,246,0.15);color:#3B82F6}
-.b-todo{background:rgba(100,116,139,0.15);color:#94A3B8}
-
-.skeleton{background:rgba(255,255,255,0.04);height:150px;border-radius:10px;margin-bottom:12px;animation:pulse 1.5s infinite;border:1px solid rgba(255,255,255,0.06)}
+.skeleton{background:rgba(255,255,255,0.04);height:80px;border-radius:10px;margin-bottom:10px;animation:pulse 1.5s infinite;border:1px solid rgba(255,255,255,0.06)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
 .err{color:#E74C3C;padding:20px;background:rgba(231,76,60,0.08);border-left:3px solid #E74C3C;border-radius:0 8px 8px 0;font-size:13px}
+.load{color:#94A3B8;font-size:13px;padding:10px 2px}
 </style></head><body>
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:8px">
-  <h1>Voice Review — XGuard Academy</h1>
-  <div style="display:flex;gap:6px;flex-wrap:wrap">
-    <a href="analytics.html" style="color:#94A3B8;font-size:12px;text-decoration:none;padding:6px 14px;border-radius:5px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1)" onmouseover="this.style.background='rgba(255,255,255,0.12)';this.style.color='#fff'" onmouseout="this.style.background='rgba(255,255,255,0.06)';this.style.color='#94A3B8'">📊 Analytics</a>
-    <a href="exports.html" style="color:#94A3B8;font-size:12px;text-decoration:none;padding:6px 14px;border-radius:5px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1)" onmouseover="this.style.background='rgba(255,255,255,0.12)';this.style.color='#fff'" onmouseout="this.style.background='rgba(255,255,255,0.06)';this.style.color='#94A3B8'">📥 Exports</a>
-  </div>
+
+<div class="topbar">
+  <h1>Cockpit — XGuard Academy</h1>
+  <div id="nav" style="display:flex;gap:6px;flex-wrap:wrap"></div>
 </div>
-<p class="sub">Tableau de bord de review des voiceovers</p>
+<p class="sub" id="subtitle">Pipeline de production des formations</p>
 
-<div class="info"><label>Ton nom :</label><input type="text" id="name" placeholder="Ex: Vanessa" oninput="localStorage.setItem('rn',this.value);refreshToday()"></div>
-
-<!-- Global stats (Batch 1 C1 + A2) -->
-<div id="global-stats" class="global-stats" style="display:none">
-  <div class="global-header">
-    <span class="global-title" id="global-title">Progression globale</span>
-    <span class="global-pct" id="global-pct">—</span>
-  </div>
-  <div class="global-bar" id="global-bar"></div>
-  <div class="global-legend">
-    <span><i class="seg-approved"></i>Approuvees</span>
-    <span><i class="seg-recheck"></i>A revoir</span>
-    <span><i class="seg-flagged"></i>Flaggees</span>
-    <span><i class="seg-progress"></i>En cours</span>
-    <span><i class="seg-todo"></i>A faire</span>
-  </div>
+<div class="roletoggle">
+  <button id="btn-reviewer" onclick="setRole('reviewer')">🎧 Réviseuse</button>
+  <button id="btn-manager" onclick="setRole('manager')">🎛️ Gestion</button>
 </div>
 
-<!-- Next action banner (Batch 3 B2) -->
-<div id="next-action" class="next-action hidden"></div>
+<div class="info"><label>Ton nom :</label><input type="text" id="name" placeholder="Ex: Héla" oninput="localStorage.setItem('rn',this.value)"></div>
 
-<!-- Today counter (Batch 3 C2) -->
-<div id="today" class="today hidden"></div>
-
-<div id="courses">
-  <div class="skeleton"></div>
-  <div class="skeleton"></div>
-  <div class="skeleton"></div>
-  <div class="skeleton"></div>
+<div id="view">
+  <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
 </div>
 
 <script>
@@ -121,156 +84,163 @@ var H = {apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY};
 
 document.getElementById('name').value = localStorage.getItem('rn') || '';
 
-function fmtHours(m){return (m/60).toFixed(m%60===0?0:1)}
+// Config des etapes du pipeline (cle = pipeline_stage de la vue lesson_status_full)
+var STAGE = {
+  voice_recheck:    {label:'Voix à re-réviser', who:'hela',    emoji:'↻',  color:'#E74C3C', link:'review.html',       hint:'Voix corrigées — ré-écoute pour confirmer.'},
+  voice_review:     {label:'Voix à réviser',    who:'hela',    emoji:'🎙️', color:'#3B82F6', link:'review.html',       hint:'Écoute et flagge ce qui sonne mal.'},
+  video_review:     {label:'Vidéos à valider',  who:'hela',    emoji:'🎬', color:'#1ABC9C', link:'review-video.html', hint:'Regarde et approuve (ou rejette) la vidéo finale.'},
+  video_production: {label:'Vidéos à produire', who:'nicolas', emoji:'🎬', color:'#9B59B6', link:'review-video.html', hint:'Voix approuvée, vidéo pas encore produite.'},
+  video_redo:       {label:'Vidéos à refaire',  who:'nicolas', emoji:'↻',  color:'#E67E22', link:'review-video.html', hint:'Voix changée ou vidéo rejetée — re-render requis.'},
+  done:             {label:'Prêt',              who:'-',       emoji:'✅', color:'#27AE60', link:'course.html',       hint:''}
+};
+var STAGE_ORDER = ['voice_review','voice_recheck','video_production','video_redo','video_review','done'];
 
-function buildBar(stats, total) {
-  // Segments empiles dans l'ordre : approved, recheck, flagged, progress, todo
-  var segs = [
-    ['approved', stats.approved || 0, 'seg-approved'],
-    ['needs_recheck', stats.needs_recheck || 0, 'seg-recheck'],
-    ['flagged', stats.flagged || 0, 'seg-flagged'],
-    ['in_review', stats.in_review || 0, 'seg-progress'],
-    ['not_reviewed', stats.not_reviewed || 0, 'seg-todo']
-  ];
-  return segs.map(function(s){
-    var pct = total > 0 ? (s[1] / total * 100) : 0;
-    return pct > 0 ? '<span class="'+s[2]+'" style="width:'+pct+'%" title="'+s[0]+': '+s[1]+'"></span>' : '';
-  }).join('');
-}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function role(){ return localStorage.getItem('role') || (/(h[ée]la)/i.test(localStorage.getItem('rn')||'') ? 'reviewer' : 'reviewer'); }
+function setRole(r){ localStorage.setItem('role', r); render(); }
 
-// Priorite : un cours est "priority-high" si il a des needs_recheck, "priority-low" si tout est approuve
-function coursePriority(stats) {
-  if (stats.needs_recheck) return 'priority-high';
-  var total = (stats.approved || 0) + (stats.needs_recheck || 0) + (stats.flagged || 0) + (stats.in_review || 0) + (stats.not_reviewed || 0);
-  if (total > 0 && stats.approved === total) return 'priority-low';
-  return '';
-}
-
-// Score pour le tri : plus haut = plus prioritaire
-function courseScore(stats) {
-  var s = 0;
-  s += (stats.needs_recheck || 0) * 1000;  // Urgent
-  s += (stats.flagged || 0) * 100;          // Important
-  s += (stats.in_review || 0) * 10;         // En cours
-  s += (stats.not_reviewed || 0) * 1;       // A faire
-  // approved ne compte pas (0)
-  return s;
-}
-
-// Refresh du compteur "aujourd'hui" quand le nom change
-function refreshToday() {
-  var rn = (document.getElementById('name').value || '').trim();
-  if (!rn) { document.getElementById('today').classList.add('hidden'); return; }
-  var today = new Date().toISOString().slice(0,10);
-  fetch(API+'/voice_reviews?reviewer_name=eq.'+encodeURIComponent(rn)+'&updated_at=gte.'+today+'&select=lesson_key,approved,updated_at',{headers:H})
-    .then(function(r){return r.json()})
-    .then(function(rows){
-      if (!rows.length) { document.getElementById('today').classList.add('hidden'); return; }
-      var approved = rows.filter(function(r){return r.approved}).length;
-      var flagged = rows.length - approved;
-      var txt = '<strong>'+rows.length+' lecon'+(rows.length>1?'s':'')+' reviewee'+(rows.length>1?'s':'')+' aujourd\'hui</strong> par '+rn;
-      if (approved) txt += ' · '+approved+' approuvee'+(approved>1?'s':'');
-      if (flagged) txt += ' · '+flagged+' avec flags';
-      document.getElementById('today').innerHTML = txt;
-      document.getElementById('today').classList.remove('hidden');
-    }).catch(function(){});
-}
+// Etat charge
+var DATA = null;
 
 Promise.all([
   fetch(API+'/courses?visible=eq.true&order=sort_order.asc',{headers:H}).then(function(r){return r.json()}),
-  fetch(API+'/lesson_status?select=course_id,status,lesson_key,latest_reviewer,latest_review_at',{headers:H}).then(function(r){return r.json()})
-]).then(function(results){
-  var courses = results[0];
-  var statuses = results[1];
-
-  // Aggreger les stats par cours
-  var statsByCourse = {};
-  courses.forEach(function(c){ statsByCourse[c.id] = {approved:0,needs_recheck:0,flagged:0,in_review:0,not_reviewed:0}; });
-  statuses.forEach(function(s){
-    if (!statsByCourse[s.course_id]) return;
-    if (statsByCourse[s.course_id][s.status] !== undefined) statsByCourse[s.course_id][s.status]++;
-  });
-
-  // Global stats
-  var global = {approved:0,needs_recheck:0,flagged:0,in_review:0,not_reviewed:0};
-  statuses.forEach(function(s){
-    if (global[s.status] !== undefined) global[s.status]++;
-  });
-  var totalGlobal = statuses.length;
-  var globalApprovedPct = totalGlobal > 0 ? Math.round(global.approved / totalGlobal * 100) : 0;
-
-  document.getElementById('global-title').textContent =
-    totalGlobal + ' lecons totales · ' + global.approved + ' approuvees';
-  document.getElementById('global-pct').textContent = globalApprovedPct + '% ✓';
-  document.getElementById('global-bar').innerHTML = buildBar(global, totalGlobal);
-  document.getElementById('global-stats').style.display = 'block';
-
-  // Next action : trouver la premiere lecon needs_recheck ou flagged a prioriser
-  var urgent = statuses.filter(function(s){return s.status === 'needs_recheck'});
-  var nextToReview = statuses.filter(function(s){return s.status === 'flagged'});
-  var nextAction = document.getElementById('next-action');
-  if (urgent.length) {
-    var first = urgent[0];
-    nextAction.innerHTML =
-      '<span class="icon">⚠</span>'
-      + '<div class="text"><strong>'+urgent.length+' lecon'+(urgent.length>1?'s':'')+' a revoir en urgence</strong>'
-      + 'Regenereees depuis ta derniere approbation. Clique pour ouvrir la premiere.</div>'
-      + '<span class="arrow">→</span>';
-    nextAction.onclick = function(){ location.href = 'review.html?key='+encodeURIComponent(first.lesson_key) };
-    nextAction.classList.remove('hidden');
-  } else if (nextToReview.length > 10) {
-    var firstFlagged = nextToReview[0];
-    nextAction.innerHTML =
-      '<span class="icon">📋</span>'
-      + '<div class="text"><strong>'+nextToReview.length+' lecons avec corrections en attente</strong>'
-      + 'Commence par la premiere.</div>'
-      + '<span class="arrow">→</span>';
-    nextAction.onclick = function(){ location.href = 'review.html?key='+encodeURIComponent(firstFlagged.lesson_key) };
-    nextAction.classList.remove('hidden');
-  }
-
-  // Ordonner les cours par priorite
-  var sortedCourses = courses.slice().sort(function(a,b){
-    return courseScore(statsByCourse[b.id]) - courseScore(statsByCourse[a.id]);
-  });
-
-  var html = sortedCourses.map(function(c){
-    var s = statsByCourse[c.id];
-    var total = c.lesson_count || 0;
-    var pct = total > 0 ? Math.round((s.approved || 0) / total * 100) : 0;
-    var priorityClass = coursePriority(s);
-
-    var badges = [];
-    if (s.approved)       badges.push('<span class="badge b-approved">✓ '+s.approved+' approuvees</span>');
-    if (s.needs_recheck)  badges.push('<span class="badge b-recheck">↻ '+s.needs_recheck+' a revoir</span>');
-    if (s.flagged)        badges.push('<span class="badge b-flagged">⚠ '+s.flagged+' flaggees</span>');
-    if (s.in_review)      badges.push('<span class="badge b-progress">'+s.in_review+' en cours</span>');
-    if (s.not_reviewed)   badges.push('<span class="badge b-todo">'+s.not_reviewed+' a faire</span>');
-    if (!badges.length)   badges.push('<span class="badge b-todo">aucune lecon</span>');
-
-    var urgentTag = s.needs_recheck ? '<span class="urgent">URGENT</span>' : '';
-
-    return '<a href="course.html?course='+encodeURIComponent(c.id)+'" class="course '+priorityClass+'">'
-      + '<div class="title">'+c.title+urgentTag+'</div>'
-      + (c.subtitle ? '<div class="desc">'+c.subtitle+'</div>' : '')
-      + '<div class="meta">'
-        + '<span class="tag">'+fmtHours(c.duration_minutes||0)+' heures</span>'
-        + '<span class="tag">'+total+' lecons</span>'
-        + '<span class="tag">'+(c.module_count||0)+' modules</span>'
-      + '</div>'
-      + '<div class="course-progress">'+buildBar(s, total)+'</div>'
-      + '<div class="course-pct"><strong>'+pct+'% approuvees</strong><span>'+(s.approved||0)+' / '+total+'</span></div>'
-      + '<div class="badges">'+badges.join('')+'</div>'
-    + '</a>';
-  }).join('');
-
-  document.getElementById('courses').innerHTML = html || '<div class="err">Aucune formation trouvee.</div>';
-
-  // Today counter
-  refreshToday();
+  fetch(API+'/lesson_status_full?select=lesson_key,course_id,module_id,module_index,lesson_index,sort_order,title,short_title,status,pipeline_stage,video_stale,video_status,video_reject_reason,voiceover_version,video_version',{headers:H}).then(function(r){return r.json()}),
+  fetch(API+'/correction_requests?status=eq.needs_review&select=lesson_key,correction_note,reason,requested_by,created_at&order=created_at.desc',{headers:H}).then(function(r){return r.json()})
+]).then(function(res){
+  DATA = { courses:res[0], lessons:res[1]||[], needsReview:res[2]||[] };
+  render();
 }).catch(function(err){
-  document.getElementById('courses').innerHTML = '<div class="err">Erreur de chargement: '+err.message+'</div>';
+  document.getElementById('view').innerHTML = '<div class="err">Erreur de chargement: '+esc(err.message)+'</div>';
   console.error(err);
 });
+
+function byStage(lessons){
+  var m = {}; STAGE_ORDER.forEach(function(s){m[s]=[]});
+  lessons.forEach(function(l){ if(m[l.pipeline_stage]) m[l.pipeline_stage].push(l); });
+  // tri par cours puis ordre de lecon
+  Object.keys(m).forEach(function(s){ m[s].sort(function(a,b){ return (a.course_id+'').localeCompare(b.course_id) || (a.sort_order||0)-(b.sort_order||0); }); });
+  return m;
+}
+function courseTitleMap(courses){ var t={}; courses.forEach(function(c){t[c.id]=c.title||c.id}); return t; }
+
+function lessonRow(l, link, why){
+  var name = l.short_title || l.title || l.lesson_key.split('/').pop();
+  var ctx = (CT[l.course_id]||l.course_id);
+  return '<a class="qrow" style="--c:'+(STAGE[l.pipeline_stage]?STAGE[l.pipeline_stage].color:'#3B82F6')+'" href="'+link+'?key='+encodeURIComponent(l.lesson_key)+'">'
+    + '<span class="qname">'+esc(name)+'</span>'
+    + '<span class="qctx">'+esc(ctx)+'</span>'
+    + (why?'<span class="qwhy">'+esc(why)+'</span>':'')
+    + '<span class="qarrow">→</span></a>';
+}
+
+function sectionList(stageKey, lessons){
+  var st = STAGE[stageKey];
+  if (!lessons.length) return '';
+  var rows = lessons.map(function(l){
+    var why = '';
+    if (stageKey === 'video_redo') {
+      why = l.video_status === 'rejected' && l.video_reject_reason ? ('rejet: '+l.video_reject_reason)
+          : ('voix v'+(l.voiceover_version||'?')+' › vidéo v'+(l.video_version||'?'));
+    }
+    return lessonRow(l, st.link, why);
+  }).join('');
+  return '<div class="sec"><h2>'+st.emoji+' '+st.label+' <span class="count">'+lessons.length+'</span></h2>'
+       + (st.hint?'<div class="hint">'+st.hint+'</div>':'') + rows + '</div>';
+}
+
+var CT = {};
+
+function render(){
+  if (!DATA) return;
+  CT = courseTitleMap(DATA.courses);
+  var r = role();
+  document.getElementById('btn-reviewer').className = r==='reviewer'?'on':'';
+  document.getElementById('btn-manager').className = r==='manager'?'on':'';
+  document.getElementById('nav').innerHTML = r==='manager'
+    ? '<a class="navlink" href="analytics.html">📊 Analytics</a><a class="navlink" href="exports.html">📥 Exports</a>'
+    : '<a class="navlink" href="guide.html">📖 Guide</a>';
+  document.getElementById('subtitle').textContent = r==='manager'
+    ? 'Pipeline de production — vue gestion' : 'Tes tâches de review';
+  if (r==='manager') renderManager(); else renderReviewer();
+}
+
+function renderReviewer(){
+  var m = byStage(DATA.lessons);
+  var total = m.voice_review.length + m.voice_recheck.length + m.video_review.length;
+  var html = '';
+  if (total === 0) {
+    html = '<div class="allgood">🎉 Rien à réviser pour l\'instant. Merci !</div>';
+  } else {
+    html += sectionList('voice_recheck', m.voice_recheck);
+    html += sectionList('voice_review', m.voice_review);
+    html += sectionList('video_review', m.video_review);
+  }
+  document.getElementById('view').innerHTML = html;
+}
+
+function renderManager(){
+  var lessons = DATA.lessons;
+  var m = byStage(lessons);
+  var counts = {}; STAGE_ORDER.forEach(function(s){counts[s]=m[s].length});
+
+  // En-tete global
+  var doneN = counts.done, tot = lessons.length;
+  var pct = tot ? Math.round(doneN/tot*100) : 0;
+  var html = '<div class="sec"><h2>📈 Vue d\'ensemble</h2><div class="hint">'
+    + DATA.courses.length + ' formations · ' + tot + ' leçons · ' + doneN + ' prêtes (' + pct + '%)</div></div>';
+
+  // Files d'action (ce qui attend Nicolas)
+  html += sectionList('video_production', m.video_production);
+  html += sectionList('video_redo', m.video_redo);
+
+  // Corrections a trancher (needs_review)
+  if (DATA.needsReview.length){
+    var nrRows = DATA.needsReview.map(function(c){
+      return '<a class="qrow" style="--c:#A855F7" href="review.html?key='+encodeURIComponent(c.lesson_key)+'">'
+        + '<span class="qname">'+esc(c.correction_note)+'</span>'
+        + '<span class="qctx">'+esc(CT[(c.lesson_key||'').split('/')[0]]||c.lesson_key)+'</span>'
+        + '<span class="qarrow">→</span></a>';
+    }).join('');
+    html += '<div class="sec"><h2>👁️ Corrections à trancher <span class="count">'+DATA.needsReview.length+'</span></h2>'
+          + '<div class="hint">Demandes de Hela qui changent le texte — à appliquer à la main dans le .md.</div>'+nrRows+'</div>';
+  }
+
+  // Rollup par formation
+  html += '<div class="sec"><h2>🗂️ Par formation</h2></div>';
+  var perCourse = {};
+  DATA.courses.forEach(function(c){ perCourse[c.id] = {}; STAGE_ORDER.forEach(function(s){perCourse[c.id][s]=0}); });
+  lessons.forEach(function(l){ if(perCourse[l.course_id]) perCourse[l.course_id][l.pipeline_stage]++; });
+
+  // ordre : formations les moins avancees d'abord (plus de travail restant)
+  var ordered = DATA.courses.slice().sort(function(a,b){
+    return (perCourse[b.id].voice_review+perCourse[b.id].voice_recheck+perCourse[b.id].video_redo+perCourse[b.id].video_production)
+         - (perCourse[a.id].voice_review+perCourse[a.id].voice_recheck+perCourse[a.id].video_redo+perCourse[a.id].video_production);
+  });
+
+  html += ordered.map(function(c){
+    var s = perCourse[c.id];
+    var t = STAGE_ORDER.reduce(function(a,k){return a+s[k]},0);
+    if (!t) return '';
+    var voiceDone = t - s.voice_review - s.voice_recheck;     // voix finalisee (a atteint le stade video)
+    var bar = STAGE_ORDER.map(function(k){
+      var p = t? s[k]/t*100 : 0;
+      return p>0 ? '<span style="width:'+p+'%;background:'+STAGE[k].color+'" title="'+STAGE[k].label+': '+s[k]+'"></span>' : '';
+    }).join('');
+    var phase, pcls;
+    if (s.done===t){ phase='✅ Prêt LMS'; pcls='ready'; }
+    else if (voiceDone===t){ phase='🎬 Phase vidéo'; pcls='video'; }
+    else { phase='🎙️ Phase voix'; pcls='voice'; }
+    var bits = [];
+    bits.push('Voix <b>'+voiceDone+'/'+t+'</b>');
+    bits.push('Vidéo <b>'+s.done+'/'+t+'</b>');
+    if (s.video_redo) bits.push('<span style="color:#E67E22"><b>'+s.video_redo+'</b> à refaire</span>');
+    return '<a class="course" href="course.html?course='+encodeURIComponent(c.id)+'">'
+      + '<div class="title"><span>'+esc(c.title)+'</span><span class="phase '+pcls+'">'+phase+'</span></div>'
+      + '<div class="stagebar">'+bar+'</div>'
+      + '<div class="crow">'+bits.join('')+'</div></a>';
+  }).join('');
+
+  document.getElementById('view').innerHTML = html;
+}
 </script>
 </body></html>

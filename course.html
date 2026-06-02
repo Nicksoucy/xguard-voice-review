@@ -68,6 +68,8 @@ a{text-decoration:none}
 .action-btn.video:hover{background:#8E44AD;color:#fff;border-color:#8E44AD}
 .action-btn.video.done{background:rgba(39,174,96,0.12);color:#2ECC71;border-color:rgba(39,174,96,0.35)}
 .action-btn.video.todo{animation:pulse-video 1.5s infinite}
+.action-btn.video.redo{background:rgba(230,126,34,0.15);color:#E67E22;border-color:rgba(230,126,34,0.5)}
+.action-btn.video.redo:hover{background:#E67E22;color:#fff;border-color:#E67E22}
 .action-btn.disabled{background:rgba(100,116,139,0.08);color:#555;border-color:rgba(100,116,139,0.15);cursor:not-allowed;pointer-events:none}
 @keyframes pulse-video{0%,100%{box-shadow:0 0 0 0 rgba(155,89,182,0.5)}50%{box-shadow:0 0 0 6px rgba(155,89,182,0)}}
 
@@ -354,6 +356,11 @@ resolveCourseId(function(courseId){
           videoCls += ' disabled';
           videoTitle = 'Video pas encore produite';
           videoLabel = '🎬 ⏳';
+        } else if (l.video_stale) {
+          // Voix regeneree apres la video -> video perimee, a refaire
+          videoCls += ' redo';
+          videoTitle = 'Voix changee depuis la video — a refaire (re-render)';
+          videoLabel = '🎬 ↻';
         } else if (l.video_status === 'approved') {
           videoCls += ' done';
           videoLabel = '🎬 ✓';
