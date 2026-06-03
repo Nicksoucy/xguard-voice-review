@@ -511,6 +511,27 @@ function pickBestTimestamps(candidates){
   loadStatus();
   loadHistory();
   loadRegenIndices();
+  checkCourseArchived();
+}
+
+// Garde-fou : previent de reviser une formation ARCHIVEE (courses.visible=false). Hela peut
+// arriver sur une telle lecon par un lien direct (favori d'avant l'archivage) ; sans ce
+// bandeau, toutes ses corrections tombent en "Erreur" (lecon introuvable cote worker) sans
+// explication. Bug vecu 2026-06-03 (prevention-incendie-p1, 93 corrections perdues).
+function checkCourseArchived(){
+  if (!L || !L.lesson_key) return;
+  var courseId = L.lesson_key.split('/')[0];
+  fetch(API+'/courses?id=eq.'+encodeURIComponent(courseId)+'&select=visible', {headers:H})
+    .then(function(r){return r.json()})
+    .then(function(rows){
+      if (rows && rows.length && rows[0].visible === false) {
+        var b = document.createElement('div');
+        b.style.cssText = 'background:rgba(231,76,60,0.16);border:1px solid #E74C3C;border-left:4px solid #E74C3C;color:#F8CACE;padding:12px 16px;border-radius:8px;margin:10px 0;font-size:13px;line-height:1.5';
+        b.innerHTML = '⚠ <strong>Cette formation est archivée (retirée).</strong> Pas besoin de la réviser — tes corrections ici ne seront pas traitées. Si tu penses qu’elle devrait être active, préviens Nicolas.';
+        document.body.insertBefore(b, document.body.firstChild);
+      }
+    })
+    .catch(function(){ /* non bloquant */ });
 }
 
 // Calcule le range temporel de chaque phrase (start du premier mot, end du dernier mot)
