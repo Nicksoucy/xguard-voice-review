@@ -54,6 +54,22 @@ a{text-decoration:none;color:inherit}
 .crow b{color:#F0F0F0}
 .dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:3px;vertical-align:-1px}
 
+/* Carte formation repliable (vue Reviseuse) */
+.revcard{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:13px 16px;margin-bottom:10px}
+.revcard.idle{opacity:.72}
+.revhead{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.revhead:hover .revtitle{color:#ff6f5f}
+.revchev{color:#94A3B8;font-size:12px;width:12px;flex:0 0 auto}
+.revtitle{color:#E74C3C;font-size:15px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.revbadge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:11px;background:rgba(230,126,34,0.18);color:#E67E22;white-space:nowrap;flex:0 0 auto}
+.revbadge.done{background:rgba(39,174,96,0.16);color:#2ECC71}
+.revbar{margin:9px 0 7px}
+.revsub{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:#94A3B8;margin-bottom:4px}
+.revsub b{color:#F0F0F0}
+.revbody{margin-top:8px}
+.revbody.collapsed{display:none}
+.revbody .qstage{font-size:13px;flex:0 0 auto;margin-right:2px}
+
 .skeleton{background:rgba(255,255,255,0.04);height:80px;border-radius:10px;margin-bottom:10px;animation:pulse 1.5s infinite;border:1px solid rgba(255,255,255,0.06)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
 .err{color:#E74C3C;padding:20px;background:rgba(231,76,60,0.08);border-left:3px solid #E74C3C;border-radius:0 8px 8px 0;font-size:13px}
@@ -191,17 +207,83 @@ function healthBannerHtml(){
   return '<div class="health-down">'+msg+sub+'</div>';
 }
 
+// Stades qui concernent Hela (reviseuse), avec leur priorite d'affichage.
+var REV_STAGES = { voice_recheck:0, voice_review:1, video_review:2 };
+
+// Ligne lecon dans la vue par formation : emoji stage + nom + (why) + fleche, SANS contexte cours
+// (le cours est deja l'en-tete de la carte).
+function reviewerLessonRow(l){
+  var st = STAGE[l.pipeline_stage] || {};
+  var name = l.short_title || l.title || l.lesson_key.split('/').pop();
+  var why = l.pipeline_stage === 'voice_recheck' ? 'voix corrigée' : '';
+  return '<a class="qrow" style="--c:'+(st.color||'#3B82F6')+'" href="'+(st.link||'review.html')+'?key='+encodeURIComponent(l.lesson_key)+'">'
+    + '<span class="qstage">'+(st.emoji||'')+'</span>'
+    + '<span class="qname">'+esc(name)+'</span>'
+    + (why?'<span class="qwhy">'+why+'</span>':'')
+    + '<span class="qarrow">→</span></a>';
+}
+
+// Replier/deplier les lecons d'une formation (etat memorise par formation).
+function toggleRevCard(courseId){
+  var body = document.getElementById('revbody-'+courseId);
+  if (!body) return;
+  var collapsed = body.classList.toggle('collapsed');
+  localStorage.setItem('rev_open_'+courseId, collapsed ? '0' : '1');
+  var chev = document.getElementById('revchev-'+courseId);
+  if (chev) chev.textContent = collapsed ? '▸' : '▾';
+}
+
 function renderReviewer(){
-  var m = byStage(DATA.lessons);
-  var total = m.voice_review.length + m.voice_recheck.length + m.video_review.length;
-  var html = '';
-  if (total === 0) {
-    html = '<div class="allgood">🎉 Rien à réviser pour l\'instant. Merci !</div>';
-  } else {
-    html += sectionList('voice_recheck', m.voice_recheck);
-    html += sectionList('voice_review', m.voice_review);
-    html += sectionList('video_review', m.video_review);
-  }
+  var lessons = DATA.lessons;
+  // Comptes par stage par cours (idem renderManager).
+  var perCourse = {};
+  DATA.courses.forEach(function(c){ perCourse[c.id] = {}; STAGE_ORDER.forEach(function(s){perCourse[c.id][s]=0}); });
+  lessons.forEach(function(l){ if(perCourse[l.course_id]) perCourse[l.course_id][l.pipeline_stage]++; });
+
+  // Lecons aux stades reviseuse, regroupees par cours.
+  var byCourse = {};
+  lessons.forEach(function(l){
+    if (!(l.pipeline_stage in REV_STAGES)) return;
+    (byCourse[l.course_id] = byCourse[l.course_id] || []).push(l);
+  });
+  var totalTasks = Object.keys(byCourse).reduce(function(a,k){return a+byCourse[k].length;},0);
+
+  // Ordre : le plus de travail reviseuse d'abord ; les "a jour" en bas.
+  var ordered = DATA.courses.filter(function(c){ return perCourse[c.id]; }).sort(function(a,b){
+    return (byCourse[b.id]||[]).length - (byCourse[a.id]||[]).length || (a.sort_order||0)-(b.sort_order||0);
+  });
+
+  var html = totalTasks === 0 ? '<div class="allgood">🎉 Tout est à jour — rien à réviser. Merci !</div>' : '';
+
+  html += ordered.map(function(c){
+    var s = perCourse[c.id];
+    var t = STAGE_ORDER.reduce(function(a,k){return a+s[k];},0);
+    if (!t) return ''; // formation sans aucune lecon -> ignorer
+    var tasks = (byCourse[c.id] || []).slice().sort(function(a,b){
+      return REV_STAGES[a.pipeline_stage]-REV_STAGES[b.pipeline_stage] || (a.sort_order||0)-(b.sort_order||0);
+    });
+    var n = tasks.length;
+    var voiceDone = t - s.voice_review - s.voice_recheck;
+    var bar = STAGE_ORDER.map(function(k){
+      var p = t ? s[k]/t*100 : 0;
+      return p>0 ? '<span style="width:'+p+'%;background:'+STAGE[k].color+'" title="'+STAGE[k].label+': '+s[k]+'"></span>' : '';
+    }).join('');
+    var saved = localStorage.getItem('rev_open_'+c.id);
+    var open = saved!=null ? saved==='1' : false;   // defaut : tout replie (clic pour ouvrir)
+    var badge = n>0 ? '<span class="revbadge">'+n+' à faire</span>' : '<span class="revbadge done">✓ à jour</span>';
+    var chev = n>0 ? '<span class="revchev" id="revchev-'+c.id+'">'+(open?'▾':'▸')+'</span>' : '<span class="revchev"></span>';
+    return '<div class="revcard'+(n>0?'':' idle')+'">'
+      + '<div class="revhead"'+(n>0?' onclick="toggleRevCard(\''+c.id+'\')"':'')+'>'
+      +   chev
+      +   '<span class="revtitle">'+esc(c.title)+'</span>'
+      +   badge
+      + '</div>'
+      + '<div class="stagebar revbar">'+bar+'</div>'
+      + '<div class="revsub">Voix <b>'+voiceDone+'/'+t+'</b> · Vidéo <b>'+s.done+'/'+t+'</b></div>'
+      + (n>0 ? '<div class="revbody'+(open?'':' collapsed')+'" id="revbody-'+c.id+'">'+tasks.map(reviewerLessonRow).join('')+'</div>' : '')
+      + '</div>';
+  }).join('');
+
   document.getElementById('view').innerHTML = html;
 }
 
