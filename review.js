@@ -501,7 +501,17 @@ function pickBestTimestamps(candidates){
     });
   }
   if (!best) {
-    document.getElementById('wc').innerHTML = '<div class="err">Impossible de charger les timestamps pour cette lecon.</div>';
+    // Pas de timestamps trouves. Deux cas tres differents a distinguer :
+    //  (a) lecon-conteneur SANS voiceover (brouillon, jamais produite) -> etat propre.
+    //  (b) vraie lecon produite mais timestamps absents/corrompus -> vrai bug technique.
+    // On tranche en regardant voiceover_uploaded_at en base (lesson_status).
+    fetch(API+'/lesson_status?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=voiceover_uploaded_at',{headers:H})
+      .then(function(r){return r.json()})
+      .then(function(rows){
+        var hasVoice = rows && rows.length && rows[0].voiceover_uploaded_at;
+        if (hasVoice) renderTimestampError(); else renderDraftState();
+      })
+      .catch(function(){ renderTimestampError(); });
     return;
   }
   W = best;
@@ -512,6 +522,34 @@ function pickBestTimestamps(candidates){
   loadHistory();
   loadRegenIndices();
   checkCourseArchived();
+}
+
+// Etat "brouillon" : lecon-conteneur sans voiceover produit. On cache le lecteur audio ET
+// tout le panneau de review (sinon Hela peut cliquer Approuver/Sauvegarder sur du vide) et
+// on explique clairement, avec un retour vers le cours. Vu 2026-06-05 (Surete MET M08-15,
+// 24 conteneurs vides "Introduction / Procedures / Application terrain" sans audio).
+function renderDraftState(){
+  var player = document.querySelector('.player'); if (player) player.style.display = 'none';
+  var fp = document.querySelector('.fp'); if (fp) fp.style.display = 'none';
+  var courseId = (L && L.lesson_key) ? L.lesson_key.split('/')[0] : '';
+  document.getElementById('wc').innerHTML =
+    '<div style="text-align:center;padding:42px 24px;color:#cbd5e1">'
+    + '<div style="font-size:42px;margin-bottom:14px">📝</div>'
+    + '<div style="font-size:17px;font-weight:700;color:#F0F0F0;margin-bottom:10px">Cette lecon n\'a pas de voiceover</div>'
+    + '<div style="font-size:14px;line-height:1.65;max-width:520px;margin:0 auto;color:#94A3B8">'
+    + 'C\'est un titre de section (brouillon), pas une vraie lecon a reviser. '
+    + 'Le contenu se trouve dans les sous-lecons du module. Il n\'y a rien a corriger ici.'
+    + '</div>'
+    + '<div style="margin-top:24px">'
+    + '<a href="course.html?course='+encodeURIComponent(courseId)+'" style="display:inline-block;background:#C0392B;color:#fff;text-decoration:none;padding:11px 20px;border-radius:7px;font-weight:600;font-size:14px">← Retour au cours</a>'
+    + '</div></div>';
+}
+
+// Vraie lecon produite mais timestamps manquants/corrompus : vrai probleme technique a signaler.
+function renderTimestampError(){
+  document.getElementById('wc').innerHTML =
+    '<div class="err">Impossible de charger les reperes de mots (timestamps) pour cette lecon. '
+    + 'Le voiceover existe mais ses timestamps sont manquants ou corrompus — previens Nicolas pour qu\'il les regenere.</div>';
 }
 
 // Garde-fou : previent de reviser une formation ARCHIVEE (courses.visible=false). Hela peut

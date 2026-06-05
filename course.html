@@ -73,6 +73,9 @@ a{text-decoration:none}
 .action-btn.video.rejected{background:rgba(231,76,60,0.15);color:#E74C3C;border-color:rgba(231,76,60,0.5)}
 .action-btn.video.rejected:hover{background:#E74C3C;color:#fff;border-color:#E74C3C}
 .action-btn.disabled{background:rgba(100,116,139,0.08);color:#555;border-color:rgba(100,116,139,0.15);cursor:not-allowed;pointer-events:none}
+/* Brouillon : lecon-conteneur sans voiceover produit -> visuel neutre, non cliquable */
+.action-btn.voice.draft{background:rgba(100,116,139,0.10);color:#7a8699;border-color:rgba(100,116,139,0.25);cursor:default;pointer-events:none;font-style:italic}
+.item[data-draft="1"]{opacity:.6}
 @keyframes pulse-video{0%,100%{box-shadow:0 0 0 0 rgba(155,89,182,0.5)}50%{box-shadow:0 0 0 6px rgba(155,89,182,0)}}
 
 /* Plus de cursor:pointer sur l'item entier — les actions sont sur les boutons */
@@ -274,9 +277,13 @@ resolveCourseId(function(courseId){
     document.getElementById('sub').textContent = (c.duration_minutes/60).toFixed(c.duration_minutes%60===0?0:1) + ' h — ' + c.lesson_count + ' lecons — ' + c.module_count + ' modules';
 
     // Course progress header
-    var total = lessonStatuses.length;
+    // On exclut les conteneurs brouillons (sans voiceover produit) du rollup : sinon ils
+    // gonflent le denominateur et font paraitre la formation moins avancee qu'elle ne l'est
+    // (ex. Surete MET affichait 127/153 = 83% au lieu de 127/129 = 98%).
+    var realLessons = lessonStatuses.filter(function(l){ return l.voiceover_uploaded_at; });
+    var total = realLessons.length;
     var globalStats = {approved:0,needs_recheck:0,flagged:0,in_review:0,not_reviewed:0};
-    lessonStatuses.forEach(function(l){ if(globalStats[l.status]!==undefined) globalStats[l.status]++; });
+    realLessons.forEach(function(l){ if(globalStats[l.status]!==undefined) globalStats[l.status]++; });
     var pct = total > 0 ? Math.round(globalStats.approved / total * 100) : 0;
     document.getElementById('cph-pct').textContent = pct + '% ✓';
     document.getElementById('cph-stats').innerHTML =
@@ -310,18 +317,21 @@ resolveCourseId(function(courseId){
       // Stats du module
       var modStats = {approved:0,needs_recheck:0,flagged:0,in_review:0,not_reviewed:0};
       var modNewCount = 0;
+      var modReal = 0; // lecons reellement produites (avec voiceover) — exclut les conteneurs brouillons
       mod.lessons.forEach(function(l){
+        if (!l.voiceover_uploaded_at) return; // brouillon : hors rollup
+        modReal++;
         if(modStats[l.status]!==undefined) modStats[l.status]++;
         if (hasNewFlags(l.lesson_key)) modNewCount++;
       });
-      var modPct = mod.lessons.length > 0 ? Math.round(modStats.approved / mod.lessons.length * 100) : 0;
+      var modPct = modReal > 0 ? Math.round(modStats.approved / modReal * 100) : 0;
 
       var header = document.createElement('div');
       header.className = 'mod-header';
       header.setAttribute('data-module-id', modId);
       header.innerHTML =
         'Module ' + mod.index
-        + '<span class="mod-pct"><strong>'+modPct+'%</strong> · '+modStats.approved+'/'+mod.lessons.length+' approuvees'
+        + '<span class="mod-pct"><strong>'+modPct+'%</strong> · '+modStats.approved+'/'+modReal+' approuvees'
         + (modNewCount ? ' · <span style="color:#FF6B5B">🔴 '+modNewCount+' NEW</span>' : '')
         + '</span>';
       list.appendChild(header);
@@ -349,10 +359,28 @@ resolveCourseId(function(courseId){
         }
         if (l.latest_reviewer) metaR += '<span class="tag-reviewer">'+l.latest_reviewer+'</span>';
 
+        // Garde-fou BROUILLON : une lecon-conteneur (scaffold) n'a pas de voiceover produit
+        // (voiceover_uploaded_at null). Avant, elle s'affichait comme une lecon cliquable 🎙 --
+        // qui "ne s'ouvre pas" cote Hela (aucun audio/timestamps en storage). On la marque
+        // brouillon, non cliquable, pour les 2 boutons.
+        var voiceBtn, videoBtn;
+        if (!l.voiceover_uploaded_at) {
+          voiceBtn = '<span class="action-btn voice draft" title="Brouillon — pas encore de voiceover produit">📝 brouillon</span>';
+          videoBtn = '<span class="action-btn video disabled" title="Pas de voiceover — rien a produire">🎬 🔒</span>';
+          item.setAttribute('data-draft', '1');
+          item.innerHTML =
+            '<span class="n">'+l.lesson_index+'</span>'
+            + '<span class="t">'+(l.short_title || l.title)+'</span>'
+            + '<span class="meta-r">'+metaR+'</span>'
+            + '<span class="item-actions">'+voiceBtn+videoBtn+'</span>';
+          list.appendChild(item);
+          return;
+        }
+
         // Voice button : toujours actif, vert si approved
         var voiceCls = 'action-btn voice' + (l.status === 'approved' ? ' done' : '');
         var voiceLabel = l.status === 'approved' ? '🎙 ✓' : '🎙 ' + (badgeText(l.status));
-        var voiceBtn = '<a href="review.html?key='+encodeURIComponent(l.lesson_key)+'" class="'+voiceCls+'" title="Voiceover review">'+voiceLabel+'</a>';
+        voiceBtn = '<a href="review.html?key='+encodeURIComponent(l.lesson_key)+'" class="'+voiceCls+'" title="Voiceover review">'+voiceLabel+'</a>';
 
         // Video button : disabled si voice ≠ approved OU pas de video
         var videoCls = 'action-btn video';
