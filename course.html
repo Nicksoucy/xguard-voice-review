@@ -70,6 +70,8 @@ a{text-decoration:none}
 .action-btn.video.todo{animation:pulse-video 1.5s infinite}
 .action-btn.video.redo{background:rgba(230,126,34,0.15);color:#E67E22;border-color:rgba(230,126,34,0.5)}
 .action-btn.video.redo:hover{background:#E67E22;color:#fff;border-color:#E67E22}
+.action-btn.video.rejected{background:rgba(231,76,60,0.15);color:#E74C3C;border-color:rgba(231,76,60,0.5)}
+.action-btn.video.rejected:hover{background:#E74C3C;color:#fff;border-color:#E74C3C}
 .action-btn.disabled{background:rgba(100,116,139,0.08);color:#555;border-color:rgba(100,116,139,0.15);cursor:not-allowed;pointer-events:none}
 @keyframes pulse-video{0%,100%{box-shadow:0 0 0 0 rgba(155,89,182,0.5)}50%{box-shadow:0 0 0 6px rgba(155,89,182,0)}}
 
@@ -103,6 +105,14 @@ a{text-decoration:none}
   <button class="f-btn" data-filter="needs_recheck">↻ A revoir</button>
   <span style="flex:1"></span>
   <button class="f-btn" id="lms-export-btn" onclick="exportToGhl()" title="Exporter le cours pour GHL Memberships" style="background:rgba(155,89,182,0.15);color:#bb8fce;border-color:rgba(155,89,182,0.4);display:none">🚀 Exporter pour GHL</button>
+</div>
+
+<div id="legend" style="display:none;font-size:11px;color:#94A3B8;margin:-4px 0 12px;gap:16px;flex-wrap:wrap;align-items:center">
+  <span><strong style="color:#bb8fce">🎙 voix</strong> · <strong style="color:#bb8fce">🎬 vidéo</strong> :</span>
+  <span style="color:#2ECC71">✓ approuvé</span>
+  <span style="color:#E74C3C">✗ rejeté — à refaire</span>
+  <span style="color:#E67E22">↻ à refaire (voix changée)</span>
+  <span>⏳ pas produite · 🔒 voix pas approuvée · NEW à valider</span>
 </div>
 
 <!-- LMS export modal -->
@@ -278,6 +288,7 @@ resolveCourseId(function(courseId){
     document.getElementById('cph-bar').innerHTML = buildBar(globalStats, total);
     document.getElementById('course-progress-header').style.display = 'block';
     document.getElementById('filters').style.display = 'flex';
+    document.getElementById('legend').style.display = 'flex';
 
     // Phase 3 : show LMS export button if at least 1 lesson approved
     checkAndShowLmsButton(globalStats.approved || 0);
@@ -365,8 +376,10 @@ resolveCourseId(function(courseId){
           videoCls += ' done';
           videoLabel = '🎬 ✓';
         } else if (l.video_status === 'rejected') {
+          // Rejetee par Hela (renvoyee pour correction) -> ROUGE, pas vert : a refaire.
+          videoCls += ' rejected';
+          videoTitle = 'Video rejetee par Hela — ' + (l.video_flags_count || 0) + ' probleme(s) signale(s), a refaire';
           videoLabel = '🎬 ✗';
-          videoCls += ' done'; // gris
         } else if (l.video_status === 'in_review') {
           videoLabel = '🎬 ' + (l.video_flags_count || 0);
         } else {
