@@ -258,16 +258,19 @@ function loadExistingReview(){
       var rev = rows[0];
       if (Array.isArray(rev.flags)) {
         rev.flags.forEach(function(f){
-          // Regenerer le contexte. Si flag groupe (groupIndices), utiliser getGroupCtx.
+          // Rafraichir le contexte depuis les timestamps actuels — MAIS seulement si le
+          // re-calcul retombe bien sur le mot flagge. Apres une regen, les index bougent et
+          // un re-calcul aveugle surlignerait le mauvais mot (bug Hela 2026-06-08). Si ca ne
+          // correspond plus, on garde le contexte d'origine (correct au moment du flag).
           if (Array.isArray(f.groupIndices) && f.groupIndices.length > 0) {
             var newGCtx = getGroupCtx(f.groupIndices);
-            if (newGCtx && newGCtx !== f.context) {
+            if (newGCtx && newGCtx !== f.context && boldWords(newGCtx) === (f.word||'').trim()) {
               f.context = newGCtx;
               dirty = true;
             }
           } else if (typeof f.index === 'number' && W[f.index]) {
             var newCtx = getCtx(f.index);
-            if (newCtx && newCtx !== f.context) {
+            if (newCtx && newCtx !== f.context && ctxHasWord(newCtx, f.word)) {
               f.context = newCtx;
               dirty = true;
             }
@@ -978,6 +981,49 @@ function flagStutter(){
 
 function hl(ctx){return (ctx||'').replace(/\*\*(.+?)\*\*/g,'<b style="color:#E74C3C">$1</b>')}
 
+// Tokens nus du contexte (les mots de W joints par espaces, marqueurs ** retires).
+function ctxTokens(ctx){ return (ctx||'').replace(/\*\*/g,'').split(' '); }
+
+// Normalise un token pour comparaison : retire les accents et met en minuscules. Necessaire
+// parce qu'une correction d'orthographe CHANGE souvent l'accent (le mot flagge "observee" est
+// devenu "observée" dans le texte corrige). Sans ca, on ne retrouverait plus le mot.
+function normTok(s){
+  var map = {'à':'a','â':'a','ä':'a','é':'e','è':'e','ê':'e','ë':'e','î':'i','ï':'i','ô':'o','ö':'o','û':'u','ù':'u','ü':'u','ç':'c'};
+  return (s||'').toLowerCase().replace(/[àâäéèêëîïôöûùüç]/g, function(c){ return map[c]; });
+}
+
+// Surligne le mot FLAGGE dans son contexte par correspondance de TEXTE (insensible aux accents),
+// pas par index. Pourquoi : le contexte est sauvegarde avec des marqueurs **...** calcules a
+// partir de l'index du mot dans les timestamps. Apres une regeneration, le nombre de mots d'une
+// phrase change (surtout les "phrase a reecrire"), l'index ne pointe plus sur le meme mot et le
+// gras tombe a cote. Bug Hela 2026-06-08 : elle flag "observee" mais "avec" est surligne en rouge.
+// On recible directement le vrai mot flagge (d.word) dans le texte du contexte.
+function hlFlag(ctx, word){
+  var w = normTok((word||'').trim());
+  if (!w) return hl(ctx);
+  var toks = ctxTokens(ctx);
+  var done = false;
+  for (var i=0;i<toks.length;i++){
+    if (!done && normTok(toks[i]) === w){ toks[i] = '**'+toks[i]+'**'; done = true; }
+  }
+  return hl(done ? toks.join(' ') : ctx);  // si introuvable (ex: flag groupe), fallback marqueurs
+}
+
+// Le contexte contient-il le mot flagge comme token (insensible aux accents) ? (garde au chargement)
+function ctxHasWord(ctx, word){
+  var w = normTok((word||'').trim());
+  if (!w) return false;
+  var toks = ctxTokens(ctx);
+  for (var i=0;i<toks.length;i++){ if (normTok(toks[i]) === w) return true; }
+  return false;
+}
+
+// Mots en gras (**...**) d'un contexte, joints par espace (pour valider un re-calcul de groupe).
+function boldWords(ctx){
+  var m = (ctx||'').match(/\*\*(.+?)\*\*/g) || [];
+  return m.map(function(s){ return s.replace(/\*\*/g,''); }).join(' ').trim();
+}
+
 function renderGlitches(){
   var l=document.getElementById('gl');
   // Cacher les glitches auto_resolved (deja regenereses et marques cote serveur)
@@ -1085,7 +1131,7 @@ function renderFlags(){
     // Champ "Demander une correction automatique" (boucle Hela -> Nitro -> statut in-app).
     // Hela tape la correction voulue ; si pas de fleche, on prefixe avec le mot flagge.
     var rfixBlock = '<span class="rfixwrap"><input class="rfix" id="rfix'+ii+'" placeholder="Correction voulue (ex: change \u2192 changeons)"><button class="rfixbtn" title="Demander une correction automatique" onclick="submitCorrectionRequest('+ii+')">Corriger</button><button class="rfixbtn rpt" title="La voix répète ou bégaie ce mot — refaire ce bout (sans changer le texte)" onclick="submitRepeat('+ii+')">🔁 Se répète</button><span class="rfixstatus" id="rfixstatus'+ii+'"></span></span>';
-    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span>'+groupBadge+catSelect+'<span class="rc">'+hl(d.context)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="flags.get('+ii+').note=this.value;scheduleAutoSave()">'+reflagBtn+rfixBlock+'<button class="rm" onclick="flags.delete('+ii+');'+groupIndicesStr+'.forEach(function(g){if(els[g]){els[g].classList.remove(\'flagged\',\'resolved\',\'approved\',\'grouped\',\'reflagged\')}});renderFlags();scheduleAutoSave()">\u2715</button>';
+    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span>'+groupBadge+catSelect+'<span class="rc">'+hlFlag(d.context, d.word)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="flags.get('+ii+').note=this.value;scheduleAutoSave()">'+reflagBtn+rfixBlock+'<button class="rm" onclick="flags.delete('+ii+');'+groupIndicesStr+'.forEach(function(g){if(els[g]){els[g].classList.remove(\'flagged\',\'resolved\',\'approved\',\'grouped\',\'reflagged\')}});renderFlags();scheduleAutoSave()">\u2715</button>';
     l.appendChild(el)})(sorted[k][0],sorted[k][1])}
   // Re-applique les statuts de correction connus (renderFlags efface le DOM a chaque appel).
   applyCorrectionStatuses();
