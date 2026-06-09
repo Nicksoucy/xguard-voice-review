@@ -282,6 +282,15 @@ resolveCourseId(function(courseId){
     // (ex. Surete MET affichait 127/153 = 83% au lieu de 127/129 = 98%).
     var realLessons = lessonStatuses.filter(function(l){ return l.voiceover_uploaded_at; });
     var total = realLessons.length;
+    // Coquilles vides : lecon-parent (ex .../01-introduction) restee apres le decoupage
+    // en sous-lecons (.../01-introduction-1/-2/-3). Si le parent n'a pas de voix MAIS qu'une
+    // sous-lecon -N est produite, on cache le parent (le vrai contenu est dans les sous-lecons).
+    var producedBaseKeys = {};
+    lessonStatuses.forEach(function(l){
+      if (!l.voiceover_uploaded_at) return;
+      var m = l.lesson_key.match(/^(.*)-\d+$/);
+      if (m) producedBaseKeys[m[1]] = true;
+    });
     var globalStats = {approved:0,needs_recheck:0,flagged:0,in_review:0,not_reviewed:0};
     realLessons.forEach(function(l){ if(globalStats[l.status]!==undefined) globalStats[l.status]++; });
     var pct = total > 0 ? Math.round(globalStats.approved / total * 100) : 0;
@@ -337,6 +346,8 @@ resolveCourseId(function(courseId){
       list.appendChild(header);
 
       mod.lessons.forEach(function(l){
+        // Cacher les coquilles vides : parent sans voix dont une sous-lecon est produite.
+        if (!l.voiceover_uploaded_at && producedBaseKeys[l.lesson_key]) return;
         var item = document.createElement('div');
         item.className = 'item';
         item.setAttribute('data-status', l.status);
