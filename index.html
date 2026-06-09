@@ -126,9 +126,12 @@ Promise.all([
   fetch(API+'/lesson_status_full?select=lesson_key,course_id,module_id,module_index,lesson_index,sort_order,title,short_title,status,pipeline_stage,video_stale,video_status,video_reject_reason,video_flags_count,voiceover_version,video_version',{headers:H}).then(function(r){return r.json()}),
   fetch(API+'/correction_requests?status=eq.needs_review&select=lesson_key,correction_note,reason,requested_by,created_at&order=created_at.desc',{headers:H}).then(function(r){return r.json()}),
   fetch(API+'/correction_requests?md_sync_failed=eq.true&select=lesson_key,correction_note,reason,requested_by,completed_at&order=completed_at.desc',{headers:H}).then(function(r){return r.json()}),
+  // Corrections qui ont ECHOUE (worker a abandonne apres N tentatives). Invisibles avant : Hela
+  // re-soumettait en boucle sans que Nicolas les voie. On les remonte dans une file dediee.
+  fetch(API+'/correction_requests?status=eq.error&select=lesson_key,correction_note,reason,attempts,requested_by,completed_at&order=completed_at.desc',{headers:H}).then(function(r){return r.json()}).catch(function(){return []}),
   fetch(API+'/watchdog_heartbeat?id=eq.xguard-correction&select=status,last_heartbeat,next_jobs',{headers:H}).then(function(r){return r.json()}).catch(function(){return []})
 ]).then(function(res){
-  DATA = { courses:res[0], lessons:res[1]||[], needsReview:res[2]||[], syncFailed:res[3]||[], health:(res[4]&&res[4][0])||null };
+  DATA = { courses:res[0], lessons:res[1]||[], needsReview:res[2]||[], syncFailed:res[3]||[], failed:res[4]||[], health:(res[5]&&res[5][0])||null };
   render();
 }).catch(function(err){
   document.getElementById('view').innerHTML = '<div class="err">Erreur de chargement: '+esc(err.message)+'</div>';
@@ -301,6 +304,30 @@ function renderManager(){
   // Files d'action (ce qui attend Nicolas)
   html += sectionList('video_production', m.video_production);
   html += sectionList('video_redo', m.video_redo);
+
+  // Corrections EN ECHEC (status=error) : le worker a abandonne apres N tentatives. Souvent un
+  // glitch audio a refaire via « Se repete » plutot qu'un changement de texte. On dedupe les
+  // re-soumissions (ex. « consolide » re-soumis 5 fois = 1 ligne, pas 5).
+  if (DATA.failed && DATA.failed.length){
+    var failMap = {};
+    DATA.failed.forEach(function(c){
+      var k = c.lesson_key + '|' + c.correction_note;
+      if (!failMap[k]) failMap[k] = {c:c, n:0, att:0};
+      failMap[k].n++;
+      failMap[k].att = Math.max(failMap[k].att, c.attempts||0);
+    });
+    var failRows = Object.keys(failMap).map(function(k){
+      var f = failMap[k], c = f.c;
+      var why = f.att + ' tentative'+(f.att>1?'s':'') + (f.n>1 ? ' · '+f.n+' re-soumissions' : '');
+      return '<a class="qrow" style="--c:#E74C3C" href="review.html?key='+encodeURIComponent(c.lesson_key)+'">'
+        + '<span class="qname">'+esc(c.correction_note)+'</span>'
+        + '<span class="qctx">'+esc(CT[(c.lesson_key||'').split('/')[0]]||c.lesson_key)+'</span>'
+        + '<span class="qwhy">'+esc(why)+'</span>'
+        + '<span class="qarrow">→</span></a>';
+    }).join('');
+    html += '<div class="sec"><h2>⚠ Corrections en échec <span class="count">'+Object.keys(failMap).length+'</span></h2>'
+          + '<div class="hint">Le système a abandonné après plusieurs essais. Souvent un glitch audio à refaire via « 🔁 Se répète » (pas un changement de texte). Hela re-soumet en boucle tant que ce n\'est pas réglé.</div>'+failRows+'</div>';
+  }
 
   // Corrections a trancher (needs_review)
   if (DATA.needsReview.length){
