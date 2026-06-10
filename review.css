@@ -7,10 +7,12 @@ h1{color:#E74C3C;font-size:14px}
 .nav a:hover,.nav button:hover{background:rgba(255,255,255,0.12);color:#fff}
 .nav .cur{color:#E74C3C;cursor:default}
 
-/* Lesson info bar (E3) */
-.info-bar{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:8px 14px;margin-bottom:10px;display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:#94A3B8}
-.info-bar strong{color:#F0F0F0}
-.info-bar .sep{color:#333}
+/* Lesson info bar (E3) — lisibilite relevee (audit 2026-06-10) : Hela ne
+   voyait pas la ligne Version/Produite en 11px gris sur fond a 3% d'opacite
+   et confondait l'ancienne et la nouvelle video. */
+.info-bar{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.16);border-radius:6px;padding:10px 16px;margin-bottom:10px;display:flex;gap:16px;flex-wrap:wrap;align-items:baseline;font-size:13px;color:#CBD5E1}
+.info-bar strong{color:#FFFFFF}
+.info-bar .sep{color:#475569}
 
 .recheck-banner{background:rgba(231,76,60,0.14);border-left:4px solid #E74C3C;padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:12px;font-size:12px;color:#F8CACE;line-height:1.6}
 .recheck-banner strong{color:#fff;font-size:13px}

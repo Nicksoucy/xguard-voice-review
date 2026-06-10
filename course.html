@@ -110,12 +110,18 @@ a{text-decoration:none}
   <button class="f-btn" id="lms-export-btn" onclick="exportToGhl()" title="Exporter le cours pour GHL Memberships" style="background:rgba(155,89,182,0.15);color:#bb8fce;border-color:rgba(155,89,182,0.4);display:none">🚀 Exporter pour GHL</button>
 </div>
 
-<div id="legend" style="display:none;font-size:11px;color:#94A3B8;margin:-4px 0 12px;gap:16px;flex-wrap:wrap;align-items:center">
-  <span><strong style="color:#bb8fce">🎙 voix</strong> · <strong style="color:#bb8fce">🎬 vidéo</strong> :</span>
-  <span style="color:#2ECC71">✓ approuvé</span>
-  <span style="color:#E74C3C">✗ rejeté — à refaire</span>
-  <span style="color:#E67E22">↻ à refaire (voix changée)</span>
-  <span>⏳ pas produite · 🔒 voix pas approuvée · NEW à valider</span>
+<div id="legend" style="display:none;font-size:11px;color:#94A3B8;margin:-4px 0 12px;gap:14px;flex-wrap:wrap;align-items:center;line-height:1.8">
+  <span><strong style="color:#E74C3C">🎙 Voix</strong> :</span>
+  <span style="color:#2ECC71">✓ approuvée</span>
+  <span style="color:#F39C12">⚠ mots à corriger</span>
+  <span style="color:#E74C3C">à ré-écouter</span>
+  <span style="color:#475569">·</span>
+  <span><strong style="color:#bb8fce">🎬 Vidéo</strong> :</span>
+  <span style="color:#2ECC71">✓ approuvée</span>
+  <span style="color:#bb8fce">NOUVELLE — à regarder</span>
+  <span style="color:#E74C3C">✗ refusée — sera corrigée</span>
+  <span style="color:#E67E22">sera refaite (la voix a changé) — rien à faire</span>
+  <span>⏳ pas encore produite · 🔒 attend la voix</span>
 </div>
 
 <!-- LMS export modal -->
@@ -173,7 +179,8 @@ function badgeClass(s){
   return ({approved:'b-approved',needs_recheck:'b-recheck',flagged:'b-flagged',in_review:'b-progress',not_reviewed:'b-todo'})[s] || 'b-todo';
 }
 function badgeText(s){
-  return ({approved:'✓',needs_recheck:'↻ A REVOIR',flagged:'⚠',in_review:'...',not_reviewed:'--'})[s] || '--';
+  // Libelles en mots pour Hela (audit 2026-06-10) — fini les symboles cryptiques
+  return ({approved:'✓',needs_recheck:'à ré-écouter',flagged:'⚠ à corriger',in_review:'en cours',not_reviewed:'à faire'})[s] || 'à faire';
 }
 
 function buildBar(stats, total) {
@@ -407,24 +414,32 @@ resolveCourseId(function(courseId){
           videoTitle = 'Video pas encore produite';
           videoLabel = '🎬 ⏳';
         } else if (l.video_stale) {
-          // Voix regeneree apres la video -> video perimee, a refaire
+          // Voix regeneree apres la video -> video perimee, sera re-produite.
+          // Libelle en MOTS (audit 2026-06-10) : le ↻ etait le meme symbole que
+          // « voix a re-reviser », Hela ne comprenait pas le badge orange.
           videoCls += ' redo';
-          videoTitle = 'Voix changee depuis la video — a refaire (re-render)';
-          videoLabel = '🎬 ↻';
+          videoTitle = 'La voix de cette lecon a ete refaite apres le montage de la video. Nicolas va re-produire la video. Rien a faire de ton cote.';
+          videoLabel = '🎬 sera refaite';
         } else if (l.video_status === 'approved') {
           videoCls += ' done';
+          videoTitle = 'Video approuvee — rien a faire';
           videoLabel = '🎬 ✓';
         } else if (l.video_status === 'rejected') {
           // Rejetee par Hela (renvoyee pour correction) -> ROUGE, pas vert : a refaire.
           videoCls += ' rejected';
-          videoTitle = 'Video rejetee par Hela — ' + (l.video_flags_count || 0) + ' probleme(s) signale(s), a refaire';
-          videoLabel = '🎬 ✗';
+          videoTitle = 'Tu as refuse cette video (' + (l.video_flags_count || 0) + ' probleme(s) signale(s)). Nicolas la corrige — rien a faire en attendant.';
+          videoLabel = '🎬 ✗ refusée';
         } else if (l.video_status === 'in_review') {
-          videoLabel = '🎬 ' + (l.video_flags_count || 0);
+          videoTitle = 'Revision commencee — ' + (l.video_flags_count || 0) + ' note(s) posee(s), pense a approuver ou refuser a la fin';
+          videoLabel = '🎬 en cours (' + (l.video_flags_count || 0) + ')';
         } else {
-          // not_reviewed mais video prete
+          // not_reviewed mais video prete (ou nouvelle version produite depuis
+          // ta derniere visite : la vue retombe a not_reviewed dans ce cas).
           videoCls += ' todo';
-          videoLabel = '🎬 NEW';
+          videoTitle = (l.video_version > 1)
+            ? 'NOUVELLE VERSION (v' + l.video_version + ') depuis ton dernier passage — la video a ete refaite, a regarder'
+            : 'Nouvelle video prete — a regarder';
+          videoLabel = (l.video_version > 1) ? '🎬 NOUVELLE v' + l.video_version : '🎬 NOUVELLE';
         }
         var videoBtn = '<a href="'+videoHref+'" class="'+videoCls+'" title="'+videoTitle+'">'+videoLabel+'</a>';
 

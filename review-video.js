@@ -168,11 +168,14 @@ function initVideoPlayer() {
 function renderInfoBar() {
   var bar = document.getElementById('info-bar');
   var parts = [];
-  parts.push('<strong>Version ' + (VM.version || 1) + '</strong>');
+  var v = VM.version || 1;
+  // Version en evidence (ambre si re-production) : Hela confondait v2 et v3
+  // parce que la version etait noyee dans du gris 11px (audit 2026-06-10).
+  parts.push('<strong style="' + (v > 1 ? 'color:#F39C12;font-size:14px' : 'font-size:14px') + '">Version ' + v + '</strong>');
   if (VM.produced_at) parts.push('Produite : <strong>' + fmtDate(VM.produced_at) + '</strong>');
   if (VM.duration_seconds) parts.push('Duree : <strong>' + fmtTime(VM.duration_seconds) + '</strong>');
   if (VM.produced_by) parts.push('Source : <strong>' + VM.produced_by + '</strong>');
-  parts.push('Voice : <strong style="color:#27AE60">✓ Approuve</strong>');
+  parts.push('Voix : <strong style="color:#27AE60">✓ approuvee</strong>');
   bar.innerHTML = parts.join('<span class="sep">·</span>');
   bar.style.display = 'flex';
 }
@@ -299,15 +302,35 @@ function loadExistingReview() {
       if (rows && rows[0]) {
         flags = (rows[0].flags || []).slice();
         flags.sort(function(a,b){ return a.time - b.time; });
-        if (rows[0].approved) {
-          var banner = document.getElementById('approved-banner');
-          banner.innerHTML = '<strong>✓ Cette video est deja approuvee</strong><br>Approuvee par <strong>' + escapeHtml(rn) + '</strong> le <strong>' + fmtDate(rows[0].updated_at) + '</strong>';
-          banner.classList.remove('hidden');
-        }
-        if (rows[0].rejected) {
-          var banner2 = document.getElementById('recheck-banner');
-          banner2.innerHTML = '<strong>✗ Cette video a ete rejetee</strong><br>' + (rows[0].reject_reason ? '<em>"' + escapeHtml(rows[0].reject_reason) + '"</em>' : '');
-          banner2.classList.remove('hidden');
+
+        // Nouvelle version produite depuis le dernier passage de la reviseuse ?
+        // (audit 2026-06-10 : Hela confondait ancienne et nouvelle video.)
+        var versionRevue = rows[0].video_version || 1;
+        var versionCourante = (VM && VM.version) || 1;
+        if (versionCourante > versionRevue) {
+          var nb = document.getElementById('new-version-banner');
+          if (nb) {
+            nb.innerHTML =
+              '<strong>🆕 NOUVELLE VIDEO — version ' + versionCourante + '</strong>' +
+              (VM.produced_at ? ', produite le <strong>' + fmtDate(VM.produced_at) + '</strong>' : '') + '<br>' +
+              'Tu avais regarde la version ' + versionRevue +
+              (rows[0].rejected ? ' et tu l\'avais refusee — la video a ete corrigee depuis.' : '.') +
+              ' Regarde celle-ci au complet, puis approuve ou refuse.';
+            nb.classList.remove('hidden');
+          }
+          // Les verdicts (approuvee/rejetee) concernent l'ANCIENNE version :
+          // on ne les affiche pas, ce serait trompeur sur la nouvelle.
+        } else {
+          if (rows[0].approved) {
+            var banner = document.getElementById('approved-banner');
+            banner.innerHTML = '<strong>✓ Cette video est deja approuvee</strong><br>Approuvee par <strong>' + escapeHtml(rn) + '</strong> le <strong>' + fmtDate(rows[0].updated_at) + '</strong>';
+            banner.classList.remove('hidden');
+          }
+          if (rows[0].rejected) {
+            var banner2 = document.getElementById('recheck-banner');
+            banner2.innerHTML = '<strong>✗ Cette video a ete rejetee</strong><br>' + (rows[0].reject_reason ? '<em>"' + escapeHtml(rows[0].reject_reason) + '"</em>' : '');
+            banner2.classList.remove('hidden');
+          }
         }
       }
       renderFlagsList();

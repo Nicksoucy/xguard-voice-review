@@ -104,13 +104,15 @@ var H = {apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY};
 document.getElementById('name').value = localStorage.getItem('rn') || '';
 
 // Config des etapes du pipeline (cle = pipeline_stage de la vue lesson_status_full)
+// Libelles en langage Hela (audit 2026-06-10). Le ↻ est RESERVE a la
+// re-revision voix (Hela) ; la file re-production (Nicolas) passe sur 🔧.
 var STAGE = {
-  voice_recheck:    {label:'Voix à re-réviser', who:'hela',    emoji:'↻',  color:'#E74C3C', link:'review.html',       hint:'Voix corrigées — ré-écoute pour confirmer.'},
-  voice_review:     {label:'Voix à réviser',    who:'hela',    emoji:'🎙️', color:'#3B82F6', link:'review.html',       hint:'Écoute et flagge ce qui sonne mal.'},
-  video_review:     {label:'Vidéos à valider',  who:'hela',    emoji:'🎬', color:'#1ABC9C', link:'review-video.html', hint:'Regarde et approuve (ou rejette) la vidéo finale.'},
-  video_production: {label:'Vidéos à produire', who:'nicolas', emoji:'🎬', color:'#9B59B6', link:'review-video.html', hint:'Voix approuvée, vidéo pas encore produite.'},
-  video_redo:       {label:'Vidéos à refaire',  who:'nicolas', emoji:'↻',  color:'#E67E22', link:'review-video.html', hint:'Voix changée ou vidéo rejetée — re-render requis.'},
-  done:             {label:'Prêt',              who:'-',       emoji:'✅', color:'#27AE60', link:'course.html',       hint:''}
+  voice_recheck:    {label:'Voix corrigées — à ré-écouter', who:'hela',    emoji:'↻',  color:'#E74C3C', link:'review.html',       hint:'La voix a été refaite après tes flags. Ré-écoute les phrases en vert pour confirmer.'},
+  voice_review:     {label:'Voix à réviser',                who:'hela',    emoji:'🎙️', color:'#3B82F6', link:'review.html',       hint:'Écoute et clique sur les mots qui sonnent mal.'},
+  video_review:     {label:'Vidéos à regarder',             who:'hela',    emoji:'🎬', color:'#1ABC9C', link:'review-video.html', hint:'Regarde la vidéo au complet, puis approuve ou refuse.'},
+  video_production: {label:'Vidéos à produire',             who:'nicolas', emoji:'🎬', color:'#9B59B6', link:'review-video.html', hint:'Voix approuvée, vidéo pas encore produite.'},
+  video_redo:       {label:'Vidéos en re-production',       who:'nicolas', emoji:'🔧', color:'#E67E22', link:'review-video.html', hint:'Voix changée ou vidéo refusée — Nicolas re-produit, rien à faire côté révision.'},
+  done:             {label:'Prêt',                          who:'-',       emoji:'✅', color:'#27AE60', link:'course.html',       hint:''}
 };
 var STAGE_ORDER = ['voice_review','voice_recheck','video_production','video_redo','video_review','done'];
 
@@ -124,12 +126,12 @@ var DATA = null;
 Promise.all([
   fetch(API+'/courses?visible=eq.true&order=sort_order.asc',{headers:H}).then(function(r){return r.json()}),
   fetch(API+'/lesson_status_full?select=lesson_key,course_id,module_id,module_index,lesson_index,sort_order,title,short_title,status,pipeline_stage,video_stale,video_status,video_reject_reason,video_flags_count,voiceover_version,video_version',{headers:H}).then(function(r){return r.json()}),
-  fetch(API+'/correction_requests?status=eq.needs_review&select=lesson_key,correction_note,reason,requested_by,created_at&order=created_at.desc',{headers:H}).then(function(r){return r.json()}),
+  fetch(API+'/correction_requests?status=eq.needs_review&select=lesson_key,correction_note,reason,requested_by,created_at&order=created_at.asc',{headers:H}).then(function(r){return r.json()}),
   fetch(API+'/correction_requests?md_sync_failed=eq.true&select=lesson_key,correction_note,reason,requested_by,completed_at&order=completed_at.desc',{headers:H}).then(function(r){return r.json()}),
   // Corrections qui ont ECHOUE (worker a abandonne apres N tentatives). Invisibles avant : Hela
   // re-soumettait en boucle sans que Nicolas les voie. On les remonte dans une file dediee.
   fetch(API+'/correction_requests?status=eq.error&select=lesson_key,correction_note,reason,attempts,requested_by,completed_at&order=completed_at.desc',{headers:H}).then(function(r){return r.json()}).catch(function(){return []}),
-  fetch(API+'/watchdog_heartbeat?id=eq.xguard-correction&select=status,last_heartbeat,next_jobs',{headers:H}).then(function(r){return r.json()}).catch(function(){return []})
+  fetch(API+'/watchdog_heartbeat?id=eq.xguard-correction&select=status,last_heartbeat,next_jobs,version',{headers:H}).then(function(r){return r.json()}).catch(function(){return []})
 ]).then(function(res){
   DATA = { courses:res[0], lessons:res[1]||[], needsReview:res[2]||[], syncFailed:res[3]||[], failed:res[4]||[], health:(res[5]&&res[5][0])||null };
   render();
@@ -207,7 +209,10 @@ function healthBannerHtml(){
     ? '⚠ La boucle de correction a signalé une erreur à son dernier passage.'
     : '⚠ La boucle de correction n\'a pas tourné depuis '+Math.round(ageMin)+' min — Nitro est peut-être éteint.';
   var sub = pending ? ' '+pending+' correction(s) en attente.' : '';
-  return '<div class="health-down">'+msg+sub+'</div>';
+  // G10 (audit 2026-06-10) : version du code qui tourne sur Nitro (figee par
+  // deploy-to-nitro.ps1) — une vieille version deployee devient visible.
+  var ver = h.version && h.version !== 'correction-loop' ? ' <span style="opacity:0.7;font-weight:400;font-size:11px">· worker '+h.version+'</span>' : '';
+  return '<div class="health-down">'+msg+sub+ver+'</div>';
 }
 
 // Stades qui concernent Hela (reviseuse), avec leur priorite d'affichage.
@@ -224,6 +229,25 @@ function reviewerLessonRow(l){
     + '<span class="qname">'+esc(name)+'</span>'
     + (why?'<span class="qwhy">'+why+'</span>':'')
     + '<span class="qarrow">→</span></a>';
+}
+
+// Lecons groupees par etape avec une ligne d'explication PERMANENTE (audit
+// 2026-06-10 : Hela ne survole pas les tooltips, elle lit le texte affiche).
+function reviewerRowsGrouped(tasks){
+  var html = '';
+  var lastStage = null;
+  tasks.forEach(function(l){
+    if (l.pipeline_stage !== lastStage) {
+      lastStage = l.pipeline_stage;
+      var st = STAGE[lastStage] || {};
+      html += '<div style="font-size:11px;font-weight:700;color:'+(st.color||'#94A3B8')+';margin:10px 2px 4px;display:flex;gap:6px;align-items:baseline;flex-wrap:wrap">'
+        + (st.emoji||'') + ' ' + esc(st.label||lastStage)
+        + (st.hint ? ' <span style="color:#94A3B8;font-weight:400">— '+esc(st.hint)+'</span>' : '')
+        + '</div>';
+    }
+    html += reviewerLessonRow(l);
+  });
+  return html;
 }
 
 // Replier/deplier les lecons d'une formation (etat memorise par formation).
@@ -283,7 +307,7 @@ function renderReviewer(){
       + '</div>'
       + '<div class="stagebar revbar">'+bar+'</div>'
       + '<div class="revsub">Voix <b>'+voiceDone+'/'+t+'</b> · Vidéo <b>'+s.done+'/'+t+'</b></div>'
-      + (n>0 ? '<div class="revbody'+(open?'':' collapsed')+'" id="revbody-'+c.id+'">'+tasks.map(reviewerLessonRow).join('')+'</div>' : '')
+      + (n>0 ? '<div class="revbody'+(open?'':' collapsed')+'" id="revbody-'+c.id+'">'+reviewerRowsGrouped(tasks)+'</div>' : '')
       + '</div>';
   }).join('');
 
@@ -329,16 +353,23 @@ function renderManager(){
           + '<div class="hint">Le système a abandonné après plusieurs essais. Souvent un glitch audio à refaire via « 🔁 Se répète » (pas un changement de texte). Hela re-soumet en boucle tant que ce n\'est pas réglé.</div>'+failRows+'</div>';
   }
 
-  // Corrections a trancher (needs_review)
+  // Corrections a trancher (needs_review) — les plus VIEILLES d'abord (audit
+  // 2026-06-10) + pastille d'attente au-dela de 7 jours : a 187 items la pile
+  // etait illisible et rien ne montrait depuis quand ca trainait.
   if (DATA.needsReview.length){
     var nrRows = DATA.needsReview.map(function(c){
+      var ageJours = Math.floor((Date.now() - new Date(c.created_at).getTime()) / 86400000);
+      var ageBadge = '';
+      if (ageJours >= 7) ageBadge = '<span style="color:#E74C3C;font-size:10px;font-weight:700;white-space:nowrap">⏳ '+ageJours+' j</span>';
+      else if (ageJours >= 2) ageBadge = '<span style="color:#F39C12;font-size:10px;white-space:nowrap">'+ageJours+' j</span>';
       return '<a class="qrow" style="--c:#A855F7" href="review.html?key='+encodeURIComponent(c.lesson_key)+'">'
         + '<span class="qname">'+esc(c.correction_note)+'</span>'
+        + ageBadge
         + '<span class="qctx">'+esc(CT[(c.lesson_key||'').split('/')[0]]||c.lesson_key)+'</span>'
         + '<span class="qarrow">→</span></a>';
     }).join('');
     html += '<div class="sec"><h2>👁️ Corrections à trancher <span class="count">'+DATA.needsReview.length+'</span></h2>'
-          + '<div class="hint">Demandes de Hela qui changent le texte — à appliquer à la main dans le .md.</div>'+nrRows+'</div>';
+          + '<div class="hint">Demandes de Hela qui changent le texte — à appliquer à la main dans le .md. Les plus vieilles en premier.</div>'+nrRows+'</div>';
   }
 
   // Textes maitres a verifier : audio corrige mais le .md canonique n'a pas pu etre edite

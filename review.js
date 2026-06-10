@@ -281,7 +281,11 @@ function loadExistingReview(){
           var memberIndices = isGroup ? f.groupIndices : [f.index];
           memberIndices.forEach(function(memberIdx){
             if (!els[memberIdx]) return;
-            if (isApproved(f)) els[memberIdx].classList.add('approved');
+            // Audit 2026-06-10 : un flag REGLE (approuve apres regen ou auto-
+            // resolu) ne marque PLUS le mot — Hela voyait des soulignements
+            // sur des mots deja corriges et les re-flaggait pour rien.
+            if (f.reflagged) els[memberIdx].classList.add('flagged','reflagged');
+            else if (isApproved(f) || isAutoResolved(f)) { /* regle : aucune marque */ }
             else if (isResolved(f)) els[memberIdx].classList.add('resolved');
             else els[memberIdx].classList.add('flagged');
             if (isGroup) els[memberIdx].classList.add('grouped');
@@ -364,11 +368,12 @@ function loadStatus(){
       }
 
       if (s.status === 'needs_recheck') {
+        // Langage clair (audit 2026-06-10) : dire QUOI FAIRE, pas juste l'etat.
         document.getElementById('recheck-banner').innerHTML =
-          '<strong>⚠ Cette lecon a ete regeneree depuis ta derniere approbation</strong><br>'
-          + 'Voiceover regenere : ' + fmtDate(s.voiceover_uploaded_at) + '<br>'
-          + 'Tu l\'avais approuvee : ' + fmtDate(s.latest_review_at) + '<br>'
-          + (s.regen_source ? 'Source : ' + s.regen_source : '');
+          '<strong>🆕 La voix a ete refaite le ' + fmtDate(s.voiceover_uploaded_at) + '</strong><br>'
+          + 'Tu avais approuve l\'ancienne version le ' + fmtDate(s.latest_review_at) + '. '
+          + 'Seules les phrases changees sont a re-ecouter — elles sont surlignees en vert '
+          + 'et le filtre <strong>🔍 a revoir</strong> s\'active tout seul pour te les montrer.';
         document.getElementById('recheck-banner').classList.remove('hidden');
       } else if (s.status === 'approved') {
         document.getElementById('approved-banner').innerHTML =
@@ -710,7 +715,9 @@ function refreshFlagClasses(){
     memberIndices.forEach(function(memberIdx){
       var ele = els[memberIdx];
       if (!ele || !ele.classList) return;
-      if (isApproved(f)) ele.classList.add('approved');
+      // Meme cascade qu'au chargement : un flag regle ne marque plus le mot.
+      if (f.reflagged) ele.classList.add('flagged','reflagged');
+      else if (isApproved(f) || isAutoResolved(f)) { /* regle : aucune marque */ }
       else if (isResolved(f)) ele.classList.add('resolved');
       else ele.classList.add('flagged');
       if (isGroup) ele.classList.add('grouped');
@@ -811,8 +818,10 @@ function buildWords(){
       });
     }
     if (fgFound) {
-      if (isApproved(fgFound)) s.classList.add('approved');
-      else if (fgFound.reflagged) s.classList.add('flagged','reflagged');
+      // Cascade harmonisee (audit 2026-06-10) : reflagged prioritaire, les
+      // flags regles ne marquent plus le mot.
+      if (fgFound.reflagged) s.classList.add('flagged','reflagged');
+      else if (isApproved(fgFound) || isAutoResolved(fgFound)) { /* regle : aucune marque */ }
       else if (isResolved(fgFound)) s.classList.add('resolved');
       else s.classList.add('flagged');
       if (isGroupMember) s.classList.add('grouped');
@@ -1131,7 +1140,15 @@ function renderFlags(){
     // Champ "Demander une correction automatique" (boucle Hela -> Nitro -> statut in-app).
     // Hela tape la correction voulue ; si pas de fleche, on prefixe avec le mot flagge.
     var rfixBlock = '<span class="rfixwrap"><input class="rfix" id="rfix'+ii+'" placeholder="Correction voulue (ex: change \u2192 changeons)"><button class="rfixbtn" title="Demander une correction automatique" onclick="submitCorrectionRequest('+ii+')">Corriger</button><button class="rfixbtn rpt" title="La voix répète ou bégaie ce mot — refaire ce bout (sans changer le texte)" onclick="submitRepeat('+ii+')">🔁 Se répète</button><span class="rfixstatus" id="rfixstatus'+ii+'"></span></span>';
-    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span>'+groupBadge+catSelect+'<span class="rc">'+hlFlag(d.context, d.word)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="flags.get('+ii+').note=this.value;scheduleAutoSave()">'+reflagBtn+rfixBlock+'<button class="rm" onclick="flags.delete('+ii+');'+groupIndicesStr+'.forEach(function(g){if(els[g]){els[g].classList.remove(\'flagged\',\'resolved\',\'approved\',\'grouped\',\'reflagged\')}});renderFlags();scheduleAutoSave()">\u2715</button>';
+    // Badge clair pour les flags REGLES (visibles seulement via le toggle
+    // "afficher les corriges") : Hela sait quoi en penser sans deviner.
+    var regleBadge = '';
+    if ((approved || autoResolved) && !reflagged) {
+      regleBadge = '<span style="color:#27AE60;font-size:10px;white-space:nowrap" title="'
+        + (autoResolved ? 'Le mot a ete corrige automatiquement (il a disparu ou ete remplace dans le texte)' : 'Tu as approuve cette correction apres re-ecoute')
+        + '">\u2713 ' + (autoResolved ? 'corrige automatiquement' : 'corrige et approuve') + '</span>';
+    }
+    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span>'+regleBadge+groupBadge+catSelect+'<span class="rc">'+hlFlag(d.context, d.word)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="flags.get('+ii+').note=this.value;scheduleAutoSave()">'+reflagBtn+rfixBlock+'<button class="rm" onclick="flags.delete('+ii+');'+groupIndicesStr+'.forEach(function(g){if(els[g]){els[g].classList.remove(\'flagged\',\'resolved\',\'approved\',\'grouped\',\'reflagged\')}});renderFlags();scheduleAutoSave()">\u2715</button>';
     l.appendChild(el)})(sorted[k][0],sorted[k][1])}
   // Re-applique les statuts de correction connus (renderFlags efface le DOM a chaque appel).
   applyCorrectionStatuses();
@@ -1167,19 +1184,36 @@ function submitCorrectionRequest(ii){
     requested_by: rn
   };
   setCorrectionStatusEl(ii, 'pending', '⏳ envoi...');
-  fetch(API+'/correction_requests', {
-    method: 'POST',
-    headers: Object.assign({}, H, {'Content-Type':'application/json','Prefer':'return=minimal'}),
-    body: JSON.stringify(payload)
-  }).then(function(r){
-    if (r.ok) {
-      correctionStatuses[ii] = {status:'pending'};
-      applyCorrectionStatuses();
-      if (input) input.value = '';
-      startCorrectionPolling();
-    } else {
-      r.text().then(function(t){ setCorrectionStatusEl(ii, 'error', '⚠ ' + r.status + ' : ' + t.slice(0,80)); });
+  // Dedup (audit 2026-06-10) : si la MEME demande est deja en traitement,
+  // on ne la recree pas — re-cliquer ne fait pas avancer plus vite, ca
+  // creait des doublons (neglige→negligé soumis 3 fois sur 3 jours).
+  var dedupUrl = API+'/correction_requests?lesson_key=eq.'+encodeURIComponent(L.lesson_key)
+    + '&correction_note=eq.'+encodeURIComponent(note)
+    + '&status=in.(pending,processing,needs_review)&select=id,status,created_at&limit=1';
+  fetch(dedupUrl, {headers:H}).then(function(r){ return r.ok ? r.json() : []; }).then(function(existing){
+    if (existing && existing[0]) {
+      var quand = new Date(existing[0].created_at);
+      var quandTxt = quand.toLocaleDateString('fr-CA', {day:'numeric', month:'long'});
+      var statutTxt = existing[0].status === 'needs_review'
+        ? 'Nicolas doit trancher celle-la a la main'
+        : 'elle est en traitement automatique';
+      setCorrectionStatusEl(ii, 'pending', '⏳ Deja demande le ' + quandTxt + ' — ' + statutTxt + '. Pas besoin de re-cliquer.');
+      return;
     }
+    fetch(API+'/correction_requests', {
+      method: 'POST',
+      headers: Object.assign({}, H, {'Content-Type':'application/json','Prefer':'return=minimal'}),
+      body: JSON.stringify(payload)
+    }).then(function(r){
+      if (r.ok) {
+        correctionStatuses[ii] = {status:'pending'};
+        applyCorrectionStatuses();
+        if (input) input.value = '';
+        startCorrectionPolling();
+      } else {
+        r.text().then(function(t){ setCorrectionStatusEl(ii, 'error', '⚠ ' + r.status + ' : ' + t.slice(0,80)); });
+      }
+    }).catch(function(e){ setCorrectionStatusEl(ii, 'error', '⚠ ' + e.message); });
   }).catch(function(e){ setCorrectionStatusEl(ii, 'error', '⚠ ' + e.message); });
 }
 
