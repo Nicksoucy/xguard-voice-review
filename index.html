@@ -291,6 +291,7 @@ function renderReviewer(){
     });
     var n = tasks.length;
     var voiceDone = t - s.voice_review - s.voice_recheck;
+    var totalLes = t + (s.not_produced||0);   // total lecons du cours (incl. sans voix produite)
     var bar = STAGE_ORDER.map(function(k){
       var p = t ? s[k]/t*100 : 0;
       return p>0 ? '<span style="width:'+p+'%;background:'+STAGE[k].color+'" title="'+STAGE[k].label+': '+s[k]+'"></span>' : '';
@@ -306,7 +307,7 @@ function renderReviewer(){
       +   badge
       + '</div>'
       + '<div class="stagebar revbar">'+bar+'</div>'
-      + '<div class="revsub">Voix <b>'+voiceDone+'/'+t+'</b> · Vidéo <b>'+s.done+'/'+t+'</b></div>'
+      + '<div class="revsub">Voix <b>'+t+'/'+totalLes+'</b> · Vidéo <b>'+s.done+'/'+t+'</b></div>'
       + (n>0 ? '<div class="revbody'+(open?'':' collapsed')+'" id="revbody-'+c.id+'">'+reviewerRowsGrouped(tasks)+'</div>' : '')
       + '</div>';
   }).join('');
@@ -403,6 +404,7 @@ function renderManager(){
     var t = STAGE_ORDER.reduce(function(a,k){return a+s[k]},0);
     if (!t) return '';
     var voiceDone = t - s.voice_review - s.voice_recheck;     // voix finalisee (a atteint le stade video)
+    var totalLes = t + (s.not_produced||0);   // total lecons du cours (incl. sans voix produite)
     var bar = STAGE_ORDER.map(function(k){
       var p = t? s[k]/t*100 : 0;
       return p>0 ? '<span style="width:'+p+'%;background:'+STAGE[k].color+'" title="'+STAGE[k].label+': '+s[k]+'"></span>' : '';
@@ -412,7 +414,7 @@ function renderManager(){
     else if (voiceDone===t){ phase='🎬 Phase vidéo'; pcls='video'; }
     else { phase='🎙️ Phase voix'; pcls='voice'; }
     var bits = [];
-    bits.push('Voix <b>'+voiceDone+'/'+t+'</b>');
+    bits.push('Voix <b>'+t+'/'+totalLes+'</b>');
     bits.push('Vidéo <b>'+s.done+'/'+t+'</b>');
     if (s.video_redo) bits.push('<span style="color:#E67E22"><b>'+s.video_redo+'</b> à refaire</span>');
     return '<a class="course" href="course.html?course='+encodeURIComponent(c.id)+'">'
