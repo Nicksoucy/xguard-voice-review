@@ -328,7 +328,7 @@ function loadExistingReview() {
           }
           if (rows[0].rejected) {
             var banner2 = document.getElementById('recheck-banner');
-            banner2.innerHTML = '<strong>✗ Cette video a ete rejetee</strong><br>' + (rows[0].reject_reason ? '<em>"' + escapeHtml(rows[0].reject_reason) + '"</em>' : '');
+            banner2.innerHTML = '<strong>✗ Rejetée — 🔧 à refaire</strong><br>' + (rows[0].reject_reason ? '<em>"' + escapeHtml(rows[0].reject_reason) + '"</em><br>' : '') + '<span style="opacity:.75">En attente de re-production. Une nouvelle version apparaîtra ici une fois la vidéo refaite.</span>';
             banner2.classList.remove('hidden');
           }
         }
