@@ -1,0 +1,471 @@
+function resolveLesson(cb){
+  if (lessonKey) {
+    fetch(API+'/lessons?lesson_key=eq.'+encodeURIComponent(lessonKey)+'&select=*',{headers:H})
+      .then(function(r){return r.json()})
+      .then(function(rows){ cb(rows[0] || null) });
+    return;
+  }
+  if (legacyIdx !== null && /^\d+$/.test(legacyIdx)) {
+    fetch(API+'/lesson_status?select=lesson_key&order=course_id.asc,sort_order.asc',{headers:H})
+      .then(function(r){return r.json()})
+      .then(function(rows){
+        var idx = parseInt(legacyIdx,10);
+        if (idx >= 0 && idx < rows.length) {
+          lessonKey = rows[idx].lesson_key;
+          resolveLesson(cb);
+        } else cb(null);
+      });
+    return;
+  }
+  cb(null);
+}
+
+function loadExistingReview(){
+  var rn = (localStorage.getItem('rn') || 'Anonyme').trim();
+  fetch(API+'/voice_reviews?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&reviewer_name=eq.'+encodeURIComponent(rn)+'&select=*',{headers:H})
+    .then(function(r){return r.json()})
+    .then(function(rows){
+      if (!rows.length) return;
+      var rev = rows[0];
+      if (Array.isArray(rev.flags)) {
+        rev.flags.forEach(function(f){
+          // Rafraichir le contexte depuis les timestamps actuels — MAIS seulement si le
+          // re-calcul retombe bien sur le mot flagge. Apres une regen, les index bougent et
+          // un re-calcul aveugle surlignerait le mauvais mot (bug Hela 2026-06-08). Si ca ne
+          // correspond plus, on garde le contexte d'origine (correct au moment du flag).
+          if (Array.isArray(f.groupIndices) && f.groupIndices.length > 0) {
+            var newGCtx = getGroupCtx(f.groupIndices);
+            if (newGCtx && newGCtx !== f.context && boldWords(newGCtx) === (f.word||'').trim()) {
+              f.context = newGCtx;
+              dirty = true;
+            }
+          } else if (typeof f.index === 'number' && W[f.index]) {
+            var newCtx = getCtx(f.index);
+            if (newCtx && newCtx !== f.context && ctxHasWord(newCtx, f.word)) {
+              f.context = newCtx;
+              dirty = true;
+            }
+          }
+          flags.set(f.index, f);
+          // Marquer le leader + tous les membres du groupe avec flagged/grouped
+          var isGroup = Array.isArray(f.groupIndices) && f.groupIndices.length > 1;
+          var memberIndices = isGroup ? f.groupIndices : [f.index];
+          memberIndices.forEach(function(memberIdx){
+            if (!els[memberIdx]) return;
+            // Audit 2026-06-10 : un flag REGLE (approuve apres regen ou auto-
+            // resolu) ne marque PLUS le mot — Hela voyait des soulignements
+            // sur des mots deja corriges et les re-flaggait pour rien.
+            if (f.reflagged) els[memberIdx].classList.add('flagged','reflagged');
+            else if (isApproved(f) || isAutoResolved(f)) { /* regle : aucune marque */ }
+            else if (isResolved(f)) els[memberIdx].classList.add('resolved');
+            else els[memberIdx].classList.add('flagged');
+            if (isGroup) els[memberIdx].classList.add('grouped');
+          });
+        });
+      }
+      if (Array.isArray(rev.glitches)) glitches = rev.glitches.slice();
+      renderFlags();
+      renderGlitches();
+    });
+}
+
+function loadStatus(){
+  fetch(API+'/lesson_status?lesson_key=eq.'+encodeURIComponent(L.lesson_key),{headers:H})
+    .then(function(r){return r.json()})
+    .then(function(rows){
+      if (!rows.length) return;
+      var s = rows[0];
+
+      // Info bar (E3) : nb phrases + derniere regen
+      var infoBar = document.getElementById('info-bar');
+      var parts = [];
+      if (W.length) {
+        var sentences = Math.max.apply(null, W.map(function(w){return w.sentenceIndex || 0})) + 1;
+        parts.push('<strong>'+sentences+'</strong> phrases · <strong>'+W.length+'</strong> mots');
+      }
+      if (L.duration_seconds) parts.push('<strong>'+Math.round(L.duration_seconds/60)+' min</strong> de voiceover');
+      if (s.voiceover_uploaded_at) {
+        parts.push('Dernier upload : <strong>'+fmtDate(s.voiceover_uploaded_at)+'</strong>');
+        // Cache-buster stable base sur la date d'upload : meme version = cache hit,
+        // nouvelle version = re-download. Remplace le Date.now() initial.
+        if (au) {
+          var stableBust = encodeURIComponent(s.voiceover_uploaded_at);
+          // Detecter si on est sur preview/ (Edge TTS) ou path final (ElevenLabs)
+          var isPreviewSrc = au.src && au.src.indexOf('/preview/') !== -1;
+          var basePath = isPreviewSrc ? '/preview/' : '/';
+          var newSrc = STORAGE + basePath + L.lesson_key + '/voiceover.mp3?v=' + stableBust;
+          if (au.src.indexOf('?v=' + stableBust) === -1) {
+            var t = au.currentTime;
+            var wasPlaying = !au.paused;
+            au.src = newSrc;
+            au.currentTime = t;
+            if (wasPlaying) au.play();
+          }
+          // Mismatch timestamps/audio : les timestamps viennent d'un autre chemin
+          // que l'audio (ex : timestamps preview mais audio ElevenLabs final).
+          // On recharge les timestamps depuis le bon chemin pour corriger le desync.
+          var expectedTsSource = isPreviewSrc ? 'preview' : 'final';
+          if (W_source !== expectedTsSource) {
+            var bust2 = '?v=' + Date.now();
+            var tsBase = isPreviewSrc ? (STORAGE + '/preview/') : (STORAGE + '/');
+            var tsUrl1 = tsBase + L.lesson_key + '/voiceover-timestamps.json' + bust2;
+            var tsUrl2 = tsBase + L.lesson_key + '/timestamps.json' + bust2;
+            // Recharger depuis le bon chemin, garder le meilleur des 2
+            Promise.all([tsUrl1, tsUrl2].map(function(u){
+              return fetch(u).then(function(r){return r.ok ? r.json() : null}).catch(function(){return null});
+            })).then(function(res){
+              // Prendre le premier valide avec sentenceIndex 0
+              var fixed = null;
+              for (var k = 0; k < res.length; k++) {
+                var c = res[k];
+                if (!Array.isArray(c) || !c.length) continue;
+                if (c.some(function(w){return w.sentenceIndex === 0})) { fixed = c; break; }
+              }
+              if (fixed) {
+                W = fixed;
+                W_source = expectedTsSource;
+                computeSentenceRanges();
+                buildWords();
+              }
+            });
+          }
+        }
+      }
+      if (s.voiceover_version && s.voiceover_version > 1) parts.push('Version <strong>'+s.voiceover_version+'</strong>');
+      if (s.regen_source) parts.push('Source : <strong>'+s.regen_source+'</strong>');
+      if (parts.length) {
+        infoBar.innerHTML = parts.join('<span class="sep">·</span>');
+        infoBar.style.display = 'flex';
+      }
+
+      if (s.status === 'needs_recheck') {
+        // Langage clair (audit 2026-06-10) : dire QUOI FAIRE, pas juste l'etat.
+        document.getElementById('recheck-banner').innerHTML =
+          '<strong>🆕 La voix a ete refaite le ' + fmtDate(s.voiceover_uploaded_at) + '</strong><br>'
+          + 'Tu avais approuve l\'ancienne version le ' + fmtDate(s.latest_review_at) + '. '
+          + 'Seules les phrases changees sont a re-ecouter — elles sont surlignees en vert '
+          + 'et le filtre <strong>🔍 a revoir</strong> s\'active tout seul pour te les montrer.';
+        document.getElementById('recheck-banner').classList.remove('hidden');
+      } else if (s.status === 'approved') {
+        document.getElementById('approved-banner').innerHTML =
+          '<strong>✓ Cette lecon est deja approuvee</strong><br>'
+          + 'Approuvee par ' + (s.latest_reviewer || 'Anonyme') + ' le ' + fmtDate(s.latest_review_at);
+        document.getElementById('approved-banner').classList.remove('hidden');
+      }
+    });
+}
+
+// Load history (E1)
+function loadHistory(){
+  fetch(API+'/voice_review_history?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&order=archived_at.desc&limit=10',{headers:H})
+    .then(function(r){return r.json()})
+    .then(function(rows){
+      if (!rows.length) return;
+      var panel = document.getElementById('history-panel');
+      var list = document.getElementById('history-list');
+      document.getElementById('history-title').textContent = 'Historique (' + rows.length + ' revisions archivees)';
+      list.innerHTML = rows.map(function(r){
+        var flagsCnt = Array.isArray(r.flags) ? r.flags.length : 0;
+        var approved = r.approved ? '<span style="color:#2ECC71">✓ approuvee</span>' : (flagsCnt+' flags');
+        return '<div class="history-row"><strong>'+fmtDate(r.archived_at)+'</strong> · '+r.reviewer_name+' · '+approved+'</div>';
+      }).join('');
+      panel.classList.remove('hidden');
+    }).catch(function(){});
+}
+
+resolveLesson(function(lesson){
+  if (!lesson) {
+    document.body.innerHTML = '<a href="index.html" style="color:#94A3B8">← Retour</a><div class="err">Lecon introuvable.</div>';
+    return;
+  }
+  L = lesson;
+
+  // Ajouter le numero de sous-lecon (ex: "M3 / 1.2 - Introduction") quand c'est une sous-lecon
+  var baseTitle = L.short_title || L.title;
+  var lessonIdx = parseFloat(L.lesson_index);
+  if (lessonIdx && lessonIdx !== Math.floor(lessonIdx)) {
+    // Sous-lecon (ex 1.2, 3.3) — inserer le numero apres "MX / "
+    var subNum = lessonIdx.toFixed(1);  // "1.2"
+    if (baseTitle.match(/^M\d+\s*\/\s*/)) {
+      baseTitle = baseTitle.replace(/^(M\d+\s*\/)\s*/, '$1 ' + subNum + ' — ');
+    } else {
+      baseTitle = subNum + ' — ' + baseTitle;
+    }
+  } else if (lessonIdx) {
+    // Lecon entiere (ex 1, 2, 3) — ajouter le numero apres "MX / "
+    if (baseTitle.match(/^M\d+\s*\/\s*/)) {
+      baseTitle = baseTitle.replace(/^(M\d+\s*\/)\s*/, '$1 ' + lessonIdx + ' — ');
+    }
+  }
+  document.getElementById('title').textContent = baseTitle;
+
+  var nav = document.getElementById('nav');
+  nav.innerHTML = '<a href="course.html?course='+encodeURIComponent(L.course_id)+'">← Cours</a>'
+    + '<a href="index.html">Index</a>';
+
+  // Cache-buster initial (Date.now) pour forcer un fresh load a chaque ouverture.
+  // Sera remplace par ?v=<voiceover_uploaded_at> quand loadStatus() recoit la metadata.
+  // Test si le voiceover existe au path final, sinon fallback sur preview/ (Edge TTS).
+  var initialBust = Date.now();
+  var primaryUrl = STORAGE + '/' + L.lesson_key + '/voiceover.mp3?v=' + initialBust;
+  var previewUrl = STORAGE + '/preview/' + L.lesson_key + '/voiceover.mp3?v=' + initialBust;
+  au = new Audio(primaryUrl);
+  // HEAD check non bloquant — si primary 4xx, swap vers preview
+  fetch(primaryUrl, {method:'HEAD'}).then(function(r){
+    if (!r.ok) au.src = previewUrl;
+  }).catch(function(){ au.src = previewUrl; });
+  au.onplay = function(){document.getElementById('bp').textContent='\u23f8';requestAnimationFrame(sync)};
+  au.onpause = function(){document.getElementById('bp').textContent='\u25b6'};
+  au.onended = function(){document.getElementById('bp').textContent='\u25b6'};
+  au.onseeked = function(){var t=au.currentTime;for(var i=0;i<els.length;i++){if(W[i].start>t){els[i].classList.remove('spoken');els[i].classList.remove('now')}else{els[i].classList.add('spoken')}}prevIdx=-1;sync()};
+
+  // Charger les timestamps en essayant les 2 fichiers possibles.
+  // On garde celui qui a la premiere phrase (sentenceIndex 0), parce que
+  // certains anciens timestamps.json sont corrompus (partiels, ne contiennent
+  // qu'une sous-partie des phrases du voiceover).
+  loadTimestamps();
+});
+
+function loadTimestamps(){
+  // Cache-buster pour eviter de servir un timestamps.json desync de la nouvelle MP3
+  var bust = '?v=' + Date.now();
+  // On essaie 4 paths. ORDRE DE PRIORITE:
+  // 1-2. /preview/ (Edge TTS recent) — prioritaire car les vieux uploads ElevenLabs
+  //      peuvent encore exister sur path final.
+  // 3-4. path final (ElevenLabs production / fallback)
+  var urls = [
+    STORAGE + '/preview/' + L.lesson_key + '/voiceover-timestamps.json' + bust,
+    STORAGE + '/preview/' + L.lesson_key + '/timestamps.json' + bust,
+    STORAGE + '/' + L.lesson_key + '/voiceover-timestamps.json' + bust,
+    STORAGE + '/' + L.lesson_key + '/timestamps.json' + bust
+  ];
+  var results = [];
+  var done = 0;
+  urls.forEach(function(url, idx){
+    fetch(url)
+      .then(function(r){return r.ok ? r.json() : null})
+      .catch(function(){return null})
+      .then(function(data){
+        results[idx] = data;
+        done++;
+        if (done === urls.length) pickBestTimestamps(results);
+      });
+  });
+}
+
+function pickBestTimestamps(candidates){
+  // Strategie : prendre le PREMIER candidat valide (ordre = priorite).
+  // /preview/ vient d'abord — si il existe, on l'utilise (Edge TTS recent).
+  // Les anciens timestamps ElevenLabs sur path final sont ignores.
+  // Note : si l'audio est au chemin final (ElevenLabs), loadStatus() corrigera
+  // un eventuel mismatch en rechargeant les timestamps depuis le bon chemin.
+  var best = null;
+  var bestIdx = -1;
+  for (var i = 0; i < candidates.length; i++) {
+    var c = candidates[i];
+    if (!Array.isArray(c) || !c.length) continue;
+    var hasStart = c.some(function(w){return w.sentenceIndex === 0});
+    if (!hasStart) continue;  // fichier corrompu, ignore
+    best = c;
+    bestIdx = i;
+    break;  // premier valide gagne (ordre de priorite)
+  }
+  // Indices 0-1 = preview/, 2-3 = chemin final
+  W_source = (bestIdx >= 0 && bestIdx <= 1) ? 'preview' : 'final';
+  // Si aucun fichier n'a sentenceIndex 0, on fallback sur celui qui a le plus de mots
+  if (!best) {
+    candidates.forEach(function(c){
+      if (!Array.isArray(c) || !c.length) return;
+      if (!best || c.length > best.length) best = c;
+    });
+  }
+  if (!best) {
+    // Pas de timestamps trouves. Deux cas tres differents a distinguer :
+    //  (a) lecon-conteneur SANS voiceover (brouillon, jamais produite) -> etat propre.
+    //  (b) vraie lecon produite mais timestamps absents/corrompus -> vrai bug technique.
+    // On tranche en regardant voiceover_uploaded_at en base (lesson_status).
+    fetch(API+'/lesson_status?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=voiceover_uploaded_at',{headers:H})
+      .then(function(r){return r.json()})
+      .then(function(rows){
+        var hasVoice = rows && rows.length && rows[0].voiceover_uploaded_at;
+        if (hasVoice) renderTimestampError(); else renderDraftState();
+      })
+      .catch(function(){ renderTimestampError(); });
+    return;
+  }
+  W = best;
+  computeSentenceRanges();
+  buildWords();
+  loadExistingReview();
+  loadStatus();
+  loadHistory();
+  loadRegenIndices();
+  checkCourseArchived();
+}
+
+// Etat "brouillon" : lecon-conteneur sans voiceover produit. On cache le lecteur audio ET
+// tout le panneau de review (sinon Hela peut cliquer Approuver/Sauvegarder sur du vide) et
+// on explique clairement, avec un retour vers le cours. Vu 2026-06-05 (Surete MET M08-15,
+// 24 conteneurs vides "Introduction / Procedures / Application terrain" sans audio).
+function renderDraftState(){
+  var player = document.querySelector('.player'); if (player) player.style.display = 'none';
+  var fp = document.querySelector('.fp'); if (fp) fp.style.display = 'none';
+  var courseId = (L && L.lesson_key) ? L.lesson_key.split('/')[0] : '';
+  document.getElementById('wc').innerHTML =
+    '<div style="text-align:center;padding:42px 24px;color:#cbd5e1">'
+    + '<div style="font-size:42px;margin-bottom:14px">📝</div>'
+    + '<div style="font-size:17px;font-weight:700;color:#F0F0F0;margin-bottom:10px">Cette lecon n\'a pas de voiceover</div>'
+    + '<div style="font-size:14px;line-height:1.65;max-width:520px;margin:0 auto;color:#94A3B8">'
+    + 'C\'est un titre de section (brouillon), pas une vraie lecon a reviser. '
+    + 'Le contenu se trouve dans les sous-lecons du module. Il n\'y a rien a corriger ici.'
+    + '</div>'
+    + '<div style="margin-top:24px">'
+    + '<a href="course.html?course='+encodeURIComponent(courseId)+'" style="display:inline-block;background:#C0392B;color:#fff;text-decoration:none;padding:11px 20px;border-radius:7px;font-weight:600;font-size:14px">← Retour au cours</a>'
+    + '</div></div>';
+}
+
+// Vraie lecon produite mais timestamps manquants/corrompus : vrai probleme technique a signaler.
+function renderTimestampError(){
+  document.getElementById('wc').innerHTML =
+    '<div class="err">Impossible de charger les reperes de mots (timestamps) pour cette lecon. '
+    + 'Le voiceover existe mais ses timestamps sont manquants ou corrompus — previens Nicolas pour qu\'il les regenere.</div>';
+}
+
+// Garde-fou : previent de reviser une formation ARCHIVEE (courses.visible=false). Hela peut
+// arriver sur une telle lecon par un lien direct (favori d'avant l'archivage) ; sans ce
+// bandeau, toutes ses corrections tombent en "Erreur" (lecon introuvable cote worker) sans
+// explication. Bug vecu 2026-06-03 (prevention-incendie-p1, 93 corrections perdues).
+function checkCourseArchived(){
+  if (!L || !L.lesson_key) return;
+  var courseId = L.lesson_key.split('/')[0];
+  fetch(API+'/courses?id=eq.'+encodeURIComponent(courseId)+'&select=visible', {headers:H})
+    .then(function(r){return r.json()})
+    .then(function(rows){
+      if (rows && rows.length && rows[0].visible === false) {
+        var b = document.createElement('div');
+        b.style.cssText = 'background:rgba(231,76,60,0.16);border:1px solid #E74C3C;border-left:4px solid #E74C3C;color:#F8CACE;padding:12px 16px;border-radius:8px;margin:10px 0;font-size:13px;line-height:1.5';
+        b.innerHTML = '⚠ <strong>Cette formation est archivée (retirée).</strong> Pas besoin de la réviser — tes corrections ici ne seront pas traitées. Si tu penses qu’elle devrait être active, préviens Nicolas.';
+        document.body.insertBefore(b, document.body.firstChild);
+      }
+    })
+    .catch(function(){ /* non bloquant */ });
+}
+
+// Calcule le range temporel de chaque phrase (start du premier mot, end du dernier mot)
+// pour pouvoir sauter d'une phrase a l'autre en mode filtre.
+function computeSentenceRanges(){
+  sentenceRanges = {};
+  for (var i = 0; i < W.length; i++) {
+    var w = W[i];
+    var si = w.sentenceIndex;
+    if (si === null || si === undefined) continue;
+    if (!sentenceRanges[si]) {
+      sentenceRanges[si] = {start: w.start, end: (w.end != null ? w.end : w.start)};
+    } else {
+      if (w.start < sentenceRanges[si].start) sentenceRanges[si].start = w.start;
+      var we = (w.end != null ? w.end : w.start);
+      if (we > sentenceRanges[si].end) sentenceRanges[si].end = we;
+    }
+  }
+}
+
+// Charger la liste des phrases regenerees depuis voiceover_metadata.
+// Si la lecon a ete regeneree recemment via regen-from-reviews.mjs, cette colonne
+// contient un JSON array d'indices (ex: [0, 5, 12, 18]). On affiche le bouton
+// Filtrer et, si la lecon est en needs_recheck, on active le mode filtre
+// automatiquement pour que le reviewer ne voie que les phrases a revoir.
+//
+// IMPORTANT : le bouton "X a revoir" ne doit apparaitre QUE si la lecon a deja
+// ete reviewee au moins une fois en DB. Pour une lecon fraichement generee
+// (1ere upload, aucune review), on cache le bouton — l'utilisateur ecoute
+// et flag au fil de l'eau, pas besoin de filtre "a revoir".
+//
+// On fetch EXPLICITEMENT voice_reviews en DB (pas flags.size local) parce que
+// loadExistingReview tourne en parallele et peut ne pas avoir fini au moment
+// ou on verifie l'existence de flags.
+function loadRegenIndices(){
+  fetch(API+'/voiceover_metadata?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=regenerated_sentence_indices',{headers:H})
+    .then(function(r){return r.json()})
+    .then(function(rows){
+      if (!rows.length) return;
+      var indices = rows[0].regenerated_sentence_indices;
+      if (!Array.isArray(indices) || indices.length === 0) return;
+      regenIndices = indices;
+      // CRITICAL: refresh des classes des mots dans le texte des que regenIndices arrive,
+      // peu importe l'etat du bouton filtre. Sinon les mots restent marques 'flagged'
+      // alors qu'ils devraient etre 'resolved' (vert) dans la phrase regeneree.
+      // Le timing : loadExistingReview tourne en parallele et a deja marque les mots
+      // en 'flagged' avant que regenIndices arrive.
+      refreshFlagClasses();
+      renderFlags();
+      // Re-render des mots pour appliquer le surlignage vert .regenerated
+      // (independant du mode filtre — visible des qu'il y a des indices regen).
+      buildWords();
+      // Verifier explicitement dans la DB si une review existe pour cette lecon
+      return fetch(API+'/voice_reviews?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=flags',{headers:H})
+        .then(function(r){return r.json()})
+        .then(function(reviews){
+          var btn = document.getElementById('filterBtn');
+          // Verifier si au moins une review existe avec au moins un flag
+          var hasExistingFlags = false;
+          if (Array.isArray(reviews)) {
+            for (var i = 0; i < reviews.length; i++) {
+              var flagsInDb = reviews[i].flags;
+              if (Array.isArray(flagsInDb) && flagsInDb.length > 0) {
+                hasExistingFlags = true;
+                break;
+              }
+            }
+          }
+          if (!hasExistingFlags) {
+            // 1ere ecoute : ne pas afficher le bouton.
+            btn.style.display = 'none';
+            return;
+          }
+          // Lecon deja reviewee et regeneree : afficher le bouton filtre.
+          btn.style.display = 'inline-block';
+          updateFilterBtnCount();
+          refreshFlagClasses();
+          renderFlags();
+          // Auto-enable si la lecon est en needs_recheck (workflow principal)
+          return fetch(API+'/lesson_status?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=status',{headers:H})
+            .then(function(r){return r.json()})
+            .then(function(rr){
+              if (rr.length && rr[0].status === 'needs_recheck') {
+                filterModeActive = true;
+                btn.classList.add('on');
+                buildWords();
+              }
+            });
+        });
+    }).catch(function(){});
+}
+
+// Met a jour le compteur du bouton filtre ("X a revoir") en temps reel.
+// Compte uniquement les phrases regenerees qui ont un flag NON-approuve.
+// Une phrase regeneree SANS flag = Nicolas a deja accepte (pas besoin de la revoir).
+// Quand tous les flags sont approuves, le compteur disparait.
+function updateFilterBtnCount(){
+  var btn = document.getElementById('filterBtn');
+  if (!btn || !regenIndices) return;
+  // Compter les phrases regenerees qui ont encore au moins 1 flag actif
+  // (non approved_after_regen, non auto_resolved)
+  var phrasesWithUnresolved = new Set();
+  flags.forEach(function(f){
+    if (!isHidden(f) && regenIndices.indexOf(f.sentenceIndex) !== -1) {
+      phrasesWithUnresolved.add(f.sentenceIndex);
+    }
+  });
+  var total = phrasesWithUnresolved.size;
+  if (total === 0) {
+    // Plus rien a revoir : cacher le bouton completement.
+    btn.style.display = 'none';
+  } else {
+    btn.textContent = '\u{1F50D} ' + total + ' a revoir';
+    btn.style.display = 'inline-block';
+    btn.style.opacity = '1';
+  }
+}
+
+// Re-applique les classes flagged/resolved sur tous les mots actuellement rendus.
+// Utile quand regenIndices arrive APRES loadExistingReview (async race).

@@ -1,0 +1,466 @@
+/**
+ * cockpit.js — Logique du cockpit XGuard, organisé en 5 ONGLETS par phase du pipeline :
+ *   audio (révision voix) → video (révision vidéo) → prod (production) → done (finies) → ghl (import GHL)
+ *
+ * Données : vue lesson_status_full (colonne pipeline_stage), courses, correction_requests,
+ * watchdog_heartbeat, et course_lms_status (suivi import GHL au niveau cours).
+ * Config Supabase via window.XG (lib/app-config.js).
+ */
+var API = window.XG.API, H = window.XG.H;
+
+// Config des étapes du pipeline (clé = pipeline_stage de la vue lesson_status_full).
+var STAGE = {
+  voice_recheck:    {label:'Voix corrigées — à ré-écouter', emoji:'↻',  color:'#E74C3C', link:'review.html',       hint:'La voix a été refaite après tes flags. Ré-écoute les phrases en vert pour confirmer.'},
+  voice_review:     {label:'Voix à réviser',                emoji:'🎙️', color:'#3B82F6', link:'review.html',       hint:'Écoute et clique sur les mots qui sonnent mal.'},
+  video_review:     {label:'Vidéos à regarder',             emoji:'🎬', color:'#1ABC9C', link:'review-video.html', hint:'Regarde la vidéo au complet, puis approuve ou refuse.'},
+  video_production: {label:'Vidéos à produire',             emoji:'🎬', color:'#9B59B6', link:'review-video.html', hint:'Voix approuvée, vidéo pas encore produite.'},
+  video_redo:       {label:'Vidéos en re-production',       emoji:'🔧', color:'#E67E22', link:'review-video.html', hint:'Voix changée ou vidéo refusée — Nicolas re-produit, rien à faire côté révision.'},
+  done:             {label:'Prêt',                          emoji:'✅', color:'#27AE60', link:'course.html',       hint:''}
+};
+var STAGE_ORDER = ['voice_review','voice_recheck','video_production','video_redo','video_review','done'];
+
+// Stades par phase de révision (Héla). Valeur = priorité d'affichage.
+var AUDIO_STAGES = { voice_recheck:0, voice_review:1 };
+var VIDEO_STAGES = { video_review:0 };
+
+// Onglets, dans l'ordre du pipeline.
+var TABS = [
+  {id:'audio', emoji:'🎙️', label:'Révision audio'},
+  {id:'video', emoji:'🎬', label:'Révision vidéo'},
+  {id:'prod',  emoji:'🛠️', label:'Production'},
+  {id:'done',  emoji:'✅', label:'Formations finies'},
+  {id:'ghl',   emoji:'🚀', label:'Import GHL'}
+];
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function tab(){ var t = localStorage.getItem('tab'); return TABS.some(function(x){return x.id===t}) ? t : 'audio'; }
+function setTab(t){ localStorage.setItem('tab', t); render(); }
+window.setTab = setTab;
+
+var DATA = null, CT = {};
+
+document.getElementById('name').value = localStorage.getItem('rn') || '';
+
+Promise.all([
+  window.XG.api('courses?visible=eq.true&order=sort_order.asc'),
+  window.XG.api('lesson_status_full?select=lesson_key,course_id,module_id,module_index,lesson_index,sort_order,title,short_title,status,pipeline_stage,video_stale,video_status,video_reject_reason,video_flags_count,voiceover_version,video_version'),
+  window.XG.api('correction_requests?status=eq.needs_review&select=lesson_key,correction_note,reason,requested_by,created_at&order=created_at.asc'),
+  window.XG.api('correction_requests?md_sync_failed=eq.true&select=lesson_key,correction_note,reason,requested_by,completed_at&order=completed_at.desc'),
+  window.XG.api('correction_requests?status=eq.error&select=lesson_key,correction_note,reason,attempts,requested_by,completed_at&order=completed_at.desc').catch(function(){return []}),
+  window.XG.api('watchdog_heartbeat?id=eq.xguard-correction&select=status,last_heartbeat,next_jobs,version').catch(function(){return []}),
+  window.XG.api('course_lms_status?target=eq.ghl&select=course_id,status,exported_at,imported_at,live_at,updated_by').catch(function(){return []})
+]).then(function(res){
+  DATA = { courses:res[0], lessons:res[1]||[], needsReview:res[2]||[], syncFailed:res[3]||[], failed:res[4]||[], health:(res[5]&&res[5][0])||null, lms:res[6]||[] };
+  render();
+}).catch(function(err){
+  document.getElementById('view').innerHTML = '<div class="err">Erreur de chargement: '+esc(err.message)+'</div>';
+  console.error(err);
+});
+
+// ───────────────────────── Helpers partagés ─────────────────────────
+
+function byStage(lessons){
+  var m = {}; STAGE_ORDER.forEach(function(s){m[s]=[]});
+  lessons.forEach(function(l){ if(m[l.pipeline_stage]) m[l.pipeline_stage].push(l); });
+  Object.keys(m).forEach(function(s){ m[s].sort(function(a,b){ return (a.course_id+'').localeCompare(b.course_id) || (a.sort_order||0)-(b.sort_order||0); }); });
+  return m;
+}
+function courseTitleMap(courses){ var t={}; courses.forEach(function(c){t[c.id]=c.title||c.id}); return t; }
+
+// Comptes par stage par cours, calculés une fois.
+function perCourseCounts(){
+  var pc = {};
+  DATA.courses.forEach(function(c){ pc[c.id] = {}; STAGE_ORDER.forEach(function(s){pc[c.id][s]=0}); pc[c.id].not_produced=0; });
+  DATA.lessons.forEach(function(l){ if(pc[l.course_id] && (l.pipeline_stage in pc[l.course_id])) pc[l.course_id][l.pipeline_stage]++; else if(pc[l.course_id]) pc[l.course_id].not_produced++; });
+  return pc;
+}
+
+function lessonRow(l, link, why){
+  var name = l.short_title || l.title || l.lesson_key.split('/').pop();
+  var ctx = (CT[l.course_id]||l.course_id);
+  return '<a class="qrow" style="--c:'+(STAGE[l.pipeline_stage]?STAGE[l.pipeline_stage].color:'#3B82F6')+'" href="'+link+'?key='+encodeURIComponent(l.lesson_key)+'">'
+    + '<span class="qname">'+esc(name)+'</span>'
+    + '<span class="qctx">'+esc(ctx)+'</span>'
+    + (why?'<span class="qwhy">'+esc(why)+'</span>':'')
+    + '<span class="qarrow">→</span></a>';
+}
+
+function sectionList(stageKey, lessons){
+  var st = STAGE[stageKey];
+  if (!lessons.length) return '';
+  var rows = lessons.map(function(l){
+    var why = '';
+    if (stageKey === 'video_redo') {
+      if (l.video_status === 'rejected') {
+        why = 'rejetée'
+            + (l.video_flags_count ? ' — '+l.video_flags_count+' issue'+(l.video_flags_count>1?'s':'') : '')
+            + (l.video_reject_reason ? ' · '+l.video_reject_reason : '');
+      } else {
+        why = 'voix v'+(l.voiceover_version||'?')+' › vidéo v'+(l.video_version||'?');
+      }
+    }
+    return lessonRow(l, st.link, why);
+  }).join('');
+  return '<div class="sec"><h2>'+st.emoji+' '+st.label+' <span class="count">'+lessons.length+'</span></h2>'
+       + (st.hint?'<div class="hint">'+st.hint+'</div>':'') + rows + '</div>';
+}
+
+// Ligne leçon dans une carte de formation : emoji stade + nom + (why) + flèche.
+function reviewerLessonRow(l){
+  var st = STAGE[l.pipeline_stage] || {};
+  var name = l.short_title || l.title || l.lesson_key.split('/').pop();
+  var why = l.pipeline_stage === 'voice_recheck' ? 'voix corrigée' : '';
+  return '<a class="qrow" style="--c:'+(st.color||'#3B82F6')+'" href="'+(st.link||'review.html')+'?key='+encodeURIComponent(l.lesson_key)+'">'
+    + '<span class="qstage">'+(st.emoji||'')+'</span>'
+    + '<span class="qname">'+esc(name)+'</span>'
+    + (why?'<span class="qwhy">'+why+'</span>':'')
+    + '<span class="qarrow">→</span></a>';
+}
+
+// Leçons groupées par étape avec une ligne d'explication permanente.
+function reviewerRowsGrouped(tasks){
+  var html = '', lastStage = null;
+  tasks.forEach(function(l){
+    if (l.pipeline_stage !== lastStage) {
+      lastStage = l.pipeline_stage;
+      var st = STAGE[lastStage] || {};
+      html += '<div style="font-size:11px;font-weight:700;color:'+(st.color||'#94A3B8')+';margin:10px 2px 4px;display:flex;gap:6px;align-items:baseline;flex-wrap:wrap">'
+        + (st.emoji||'') + ' ' + esc(st.label||lastStage)
+        + (st.hint ? ' <span style="color:#94A3B8;font-weight:400">— '+esc(st.hint)+'</span>' : '')
+        + '</div>';
+    }
+    html += reviewerLessonRow(l);
+  });
+  return html;
+}
+
+// Replier/déplier les leçons d'une formation (état mémorisé par formation + onglet).
+function toggleRevCard(courseId){
+  var body = document.getElementById('revbody-'+courseId);
+  if (!body) return;
+  var collapsed = body.classList.toggle('collapsed');
+  localStorage.setItem('rev_open_'+tab()+'_'+courseId, collapsed ? '0' : '1');
+  var chev = document.getElementById('revchev-'+courseId);
+  if (chev) chev.textContent = collapsed ? '▸' : '▾';
+}
+window.toggleRevCard = toggleRevCard;
+
+// Une formation est "finie" si elle a >=1 leçon et que TOUTES ses leçons sont à done.
+function finishedCourses(pc){
+  return DATA.courses.filter(function(c){
+    var s = pc[c.id]; if (!s) return false;
+    var total = STAGE_ORDER.reduce(function(a,k){return a+s[k]},0) + (s.not_produced||0);
+    return total > 0 && s.done === total;
+  });
+}
+
+// ───────────────────────── Compteurs d'onglets ─────────────────────────
+
+function tabCounts(pc){
+  var c = {audio:0, video:0, prod:0, done:0, ghl:0};
+  DATA.lessons.forEach(function(l){
+    if (l.pipeline_stage in AUDIO_STAGES) c.audio++;
+    else if (l.pipeline_stage in VIDEO_STAGES) c.video++;
+    else if (l.pipeline_stage==='video_production' || l.pipeline_stage==='video_redo') c.prod++;
+  });
+  var fin = finishedCourses(pc);
+  c.done = fin.length;
+  // GHL : formations finies pas encore importées (action restante).
+  var lmsByCourse = {}; DATA.lms.forEach(function(r){ lmsByCourse[r.course_id]=r; });
+  c.ghl = fin.filter(function(co){ var r=lmsByCourse[co.id]; return !r || (r.status!=='imported' && r.status!=='live'); }).length;
+  return c;
+}
+
+// ───────────────────────── Rendu principal ─────────────────────────
+
+function render(){
+  if (!DATA) return;
+  CT = courseTitleMap(DATA.courses);
+  var pc = perCourseCounts();
+  var t = tab();
+  var counts = tabCounts(pc);
+
+  // Barre d'onglets
+  document.getElementById('tabs').innerHTML = TABS.map(function(tb){
+    var n = counts[tb.id]||0;
+    return '<button class="'+(tb.id===t?'on':'')+'" onclick="setTab(\''+tb.id+'\')">'
+      + tb.emoji+' '+esc(tb.label)
+      + '<span class="tcount'+(n?'':' zero')+'">'+n+'</span></button>';
+  }).join('');
+
+  // Nav contextuelle + sous-titre
+  document.getElementById('nav').innerHTML = (t==='prod')
+    ? '<a class="navlink" href="analytics.html">📊 Analytics</a><a class="navlink" href="exports.html">📥 Exports</a><a class="navlink" href="guide.html">📖 Guide</a>'
+    : '<a class="navlink" href="guide.html">📖 Guide</a>';
+  var SUBS = {audio:'Révision audio — écoute et flag les voix',video:'Révision vidéo — regarde et approuve les vidéos',prod:'Production — vidéos à produire et corrections (Nicolas)',done:'Formations 100% terminées',ghl:'Formations prêtes à importer dans GoHighLevel'};
+  document.getElementById('subtitle').textContent = SUBS[t]||'Pipeline de production des formations';
+
+  // Bandeau santé Nitro : seulement dans l'onglet Production.
+  document.getElementById('health').innerHTML = (t==='prod') ? healthBannerHtml() : '';
+
+  if (t==='audio')      renderReviewCards(AUDIO_STAGES, pc, 'Rien à réviser côté voix pour l\'instant.');
+  else if (t==='video') renderReviewCards(VIDEO_STAGES, pc, 'Aucune vidéo à regarder pour l\'instant.');
+  else if (t==='prod')  renderProduction(pc);
+  else if (t==='done')  renderFinies(pc);
+  else if (t==='ghl')   renderGhl(pc);
+}
+
+// Bandeau "Nitro est-il vivant ?" : rouge si la boucle de correction n'a pas battu depuis >15 min.
+function healthBannerHtml(){
+  var h = DATA && DATA.health;
+  if (!h || !h.last_heartbeat) return '';
+  var ageMin = (Date.now() - new Date(h.last_heartbeat).getTime())/60000;
+  var err = h.status === 'error';
+  if (ageMin <= 15 && !err) return '';
+  var pending = (h.next_jobs && h.next_jobs.pending) || 0;
+  var msg = err
+    ? '⚠ La boucle de correction a signalé une erreur à son dernier passage.'
+    : '⚠ La boucle de correction n\'a pas tourné depuis '+Math.round(ageMin)+' min — Nitro est peut-être éteint.';
+  var sub = pending ? ' '+pending+' correction(s) en attente.' : '';
+  var ver = h.version && h.version !== 'correction-loop' ? ' <span style="opacity:0.7;font-weight:400;font-size:11px">· worker '+h.version+'</span>' : '';
+  return '<div class="health-down">'+msg+sub+ver+'</div>';
+}
+
+// ───────────────────────── Onglets Audio / Vidéo ─────────────────────────
+
+// Cartes de formation pour une phase de révision (taskStages = AUDIO_STAGES ou VIDEO_STAGES).
+// N'affiche QUE les formations qui ont du travail dans cette phase.
+function renderReviewCards(taskStages, pc, emptyMsg){
+  var byCourse = {};
+  DATA.lessons.forEach(function(l){
+    if (!(l.pipeline_stage in taskStages)) return;
+    (byCourse[l.course_id] = byCourse[l.course_id] || []).push(l);
+  });
+
+  var courses = DATA.courses.filter(function(c){ return (byCourse[c.id]||[]).length > 0; })
+    .sort(function(a,b){ return (byCourse[b.id].length - byCourse[a.id].length) || (a.sort_order||0)-(b.sort_order||0); });
+
+  if (!courses.length){ document.getElementById('view').innerHTML = '<div class="allgood">🎉 '+esc(emptyMsg)+'</div>'; return; }
+
+  var html = courses.map(function(c){
+    var s = pc[c.id];
+    var t = STAGE_ORDER.reduce(function(a,k){return a+s[k];},0);
+    var totalLes = t + (s.not_produced||0);
+    var tasks = byCourse[c.id].slice().sort(function(a,b){
+      return taskStages[a.pipeline_stage]-taskStages[b.pipeline_stage] || (a.sort_order||0)-(b.sort_order||0);
+    });
+    var n = tasks.length;
+    var bar = STAGE_ORDER.map(function(k){
+      var p = t ? s[k]/t*100 : 0;
+      return p>0 ? '<span style="width:'+p+'%;background:'+STAGE[k].color+'" title="'+STAGE[k].label+': '+s[k]+'"></span>' : '';
+    }).join('');
+    var saved = localStorage.getItem('rev_open_'+tab()+'_'+c.id);
+    var open = saved!=null ? saved==='1' : false;
+    var chev = '<span class="revchev" id="revchev-'+c.id+'">'+(open?'▾':'▸')+'</span>';
+    return '<div class="revcard">'
+      + '<div class="revhead" onclick="toggleRevCard(\''+c.id+'\')">'
+      +   chev
+      +   '<span class="revtitle">'+esc(c.title)+'</span>'
+      +   '<span class="revbadge">'+n+' à faire</span>'
+      + '</div>'
+      + '<div class="stagebar revbar">'+bar+'</div>'
+      + '<div class="revsub">Voix <b>'+t+'/'+totalLes+'</b> · Vidéo <b>'+s.done+'/'+t+'</b></div>'
+      + '<div class="revbody'+(open?'':' collapsed')+'" id="revbody-'+c.id+'">'+reviewerRowsGrouped(tasks)+'</div>'
+      + '</div>';
+  }).join('');
+  document.getElementById('view').innerHTML = html;
+}
+
+// ───────────────────────── Onglet Production (ex « Gestion ») ─────────────────────────
+
+function renderProduction(pc){
+  var lessons = DATA.lessons;
+  var m = byStage(lessons);
+  var counts = {}; STAGE_ORDER.forEach(function(s){counts[s]=m[s].length});
+
+  var doneN = counts.done, tot = lessons.length;
+  var pctv = tot ? Math.round(doneN/tot*100) : 0;
+  var html = '<div class="sec"><h2>📈 Vue d\'ensemble</h2><div class="hint">'
+    + DATA.courses.length + ' formations · ' + tot + ' leçons · ' + doneN + ' prêtes (' + pctv + '%)</div></div>';
+
+  html += sectionList('video_production', m.video_production);
+  html += sectionList('video_redo', m.video_redo);
+
+  // Corrections EN ÉCHEC (status=error), dédupées par lesson_key + note.
+  if (DATA.failed && DATA.failed.length){
+    var failMap = {};
+    DATA.failed.forEach(function(c){
+      var k = c.lesson_key + '|' + c.correction_note;
+      if (!failMap[k]) failMap[k] = {c:c, n:0, att:0};
+      failMap[k].n++; failMap[k].att = Math.max(failMap[k].att, c.attempts||0);
+    });
+    var failRows = Object.keys(failMap).map(function(k){
+      var f = failMap[k], c = f.c;
+      var why = f.att + ' tentative'+(f.att>1?'s':'') + (f.n>1 ? ' · '+f.n+' re-soumissions' : '');
+      return '<a class="qrow" style="--c:#E74C3C" href="review.html?key='+encodeURIComponent(c.lesson_key)+'">'
+        + '<span class="qname">'+esc(c.correction_note)+'</span>'
+        + '<span class="qctx">'+esc(CT[(c.lesson_key||'').split('/')[0]]||c.lesson_key)+'</span>'
+        + '<span class="qwhy">'+esc(why)+'</span>'
+        + '<span class="qarrow">→</span></a>';
+    }).join('');
+    html += '<div class="sec"><h2>⚠ Corrections en échec <span class="count">'+Object.keys(failMap).length+'</span></h2>'
+          + '<div class="hint">Le système a abandonné après plusieurs essais. Souvent un glitch audio à refaire via « 🔁 Se répète » (pas un changement de texte).</div>'+failRows+'</div>';
+  }
+
+  // Corrections à trancher (needs_review) — les plus vieilles d'abord + pastille d'attente.
+  if (DATA.needsReview.length){
+    var nrRows = DATA.needsReview.map(function(c){
+      var ageJours = Math.floor((Date.now() - new Date(c.created_at).getTime()) / 86400000);
+      var ageBadge = '';
+      if (ageJours >= 7) ageBadge = '<span style="color:#E74C3C;font-size:10px;font-weight:700;white-space:nowrap">⏳ '+ageJours+' j</span>';
+      else if (ageJours >= 2) ageBadge = '<span style="color:#F39C12;font-size:10px;white-space:nowrap">'+ageJours+' j</span>';
+      return '<a class="qrow" style="--c:#A855F7" href="review.html?key='+encodeURIComponent(c.lesson_key)+'">'
+        + '<span class="qname">'+esc(c.correction_note)+'</span>'
+        + ageBadge
+        + '<span class="qctx">'+esc(CT[(c.lesson_key||'').split('/')[0]]||c.lesson_key)+'</span>'
+        + '<span class="qarrow">→</span></a>';
+    }).join('');
+    html += '<div class="sec"><h2>👁️ Corrections à trancher <span class="count">'+DATA.needsReview.length+'</span></h2>'
+          + '<div class="hint">Demandes de Héla qui changent le texte — à appliquer à la main dans le .md. Les plus vieilles en premier.</div>'+nrRows+'</div>';
+  }
+
+  // Textes maîtres à vérifier (md_sync_failed).
+  if (DATA.syncFailed && DATA.syncFailed.length){
+    var sfRows = DATA.syncFailed.map(function(c){
+      return '<a class="qrow" style="--c:#E67E22" href="review.html?key='+encodeURIComponent(c.lesson_key)+'">'
+        + '<span class="qname">'+esc(c.correction_note)+'</span>'
+        + '<span class="qctx">'+esc(CT[(c.lesson_key||'').split('/')[0]]||c.lesson_key)+'</span>'
+        + '<span class="qwhy">audio OK · texte à vérifier</span>'
+        + '<span class="qarrow">→</span></a>';
+    }).join('');
+    html += '<div class="sec"><h2>📝 Textes maîtres à vérifier <span class="count">'+DATA.syncFailed.length+'</span></h2>'
+          + '<div class="hint">Audio corrigé, mais le texte source (.md) n\'a pas pu être édité automatiquement — à corriger à la main dans Obsidian.</div>'+sfRows+'</div>';
+  }
+
+  // Rollup par formation.
+  html += '<div class="sec"><h2>🗂️ Par formation</h2></div>';
+  var ordered = DATA.courses.slice().sort(function(a,b){
+    return (pc[b.id].voice_review+pc[b.id].voice_recheck+pc[b.id].video_redo+pc[b.id].video_production)
+         - (pc[a.id].voice_review+pc[a.id].voice_recheck+pc[a.id].video_redo+pc[a.id].video_production);
+  });
+  html += ordered.map(function(c){
+    var s = pc[c.id];
+    var t = STAGE_ORDER.reduce(function(a,k){return a+s[k]},0);
+    if (!t) return '';
+    var voiceDone = t - s.voice_review - s.voice_recheck;
+    var totalLes = t + (s.not_produced||0);
+    var bar = STAGE_ORDER.map(function(k){
+      var p = t? s[k]/t*100 : 0;
+      return p>0 ? '<span style="width:'+p+'%;background:'+STAGE[k].color+'" title="'+STAGE[k].label+': '+s[k]+'"></span>' : '';
+    }).join('');
+    var phase, pcls;
+    if (s.done===t){ phase='✅ Prêt LMS'; pcls='ready'; }
+    else if (voiceDone===t){ phase='🎬 Phase vidéo'; pcls='video'; }
+    else { phase='🎙️ Phase voix'; pcls='voice'; }
+    var bits = [];
+    bits.push('Voix <b>'+t+'/'+totalLes+'</b>');
+    bits.push('Vidéo <b>'+s.done+'/'+t+'</b>');
+    if (s.video_redo) bits.push('<span style="color:#E67E22"><b>'+s.video_redo+'</b> à refaire</span>');
+    return '<a class="course" href="course.html?course='+encodeURIComponent(c.id)+'">'
+      + '<div class="title"><span>'+esc(c.title)+'</span><span class="phase '+pcls+'">'+phase+'</span></div>'
+      + '<div class="stagebar">'+bar+'</div>'
+      + '<div class="crow">'+bits.join('')+'</div></a>';
+  }).join('');
+
+  document.getElementById('view').innerHTML = html;
+}
+
+// ───────────────────────── Onglet Formations finies ─────────────────────────
+
+function renderFinies(pc){
+  var fin = finishedCourses(pc).sort(function(a,b){ return (a.sort_order||0)-(b.sort_order||0); });
+  if (!fin.length){ document.getElementById('view').innerHTML = '<div class="allgood">Aucune formation 100% terminée pour l\'instant.</div>'; return; }
+  var html = '<div class="sec"><div class="hint">'+fin.length+' formation'+(fin.length>1?'s':'')+' dont toutes les leçons sont approuvées (voix + vidéo).</div></div>';
+  html += fin.map(function(c){
+    var s = pc[c.id];
+    var t = STAGE_ORDER.reduce(function(a,k){return a+s[k]},0);
+    return '<a class="course" href="course.html?course='+encodeURIComponent(c.id)+'">'
+      + '<div class="title"><span>'+esc(c.title)+'</span><span class="phase ready">✅ Terminée</span></div>'
+      + '<div class="crow"><span><b>'+t+'</b> leçon'+(t>1?'s':'')+' prêtes</span><span>→ détail</span></div></a>';
+  }).join('');
+  document.getElementById('view').innerHTML = html;
+}
+
+// ───────────────────────── Onglet Import GHL ─────────────────────────
+
+function lmsMap(){ var m={}; DATA.lms.forEach(function(r){ m[r.course_id]=r; }); return m; }
+
+function gStatusOf(rec){
+  if (!rec) return {key:'pret', label:'PRÊT'};
+  if (rec.status==='live') return {key:'live', label:'EN LIGNE'};
+  if (rec.status==='imported') return {key:'imported', label:'IMPORTÉ'};
+  if (rec.status==='exported') return {key:'exported', label:'EXPORTÉ'};
+  return {key:'pret', label:'PRÊT'};
+}
+
+function renderGhl(pc){
+  var fin = finishedCourses(pc).sort(function(a,b){ return (a.sort_order||0)-(b.sort_order||0); });
+  if (!fin.length){ document.getElementById('view').innerHTML = '<div class="allgood">Aucune formation prête à importer pour l\'instant. Termine d\'abord la révision audio + vidéo.</div>'; return; }
+  var lm = lmsMap();
+  var html = '<div class="sec"><div class="hint">Formations 100% terminées. Exporte le JSON, uploade-le dans GoHighLevel Memberships, puis marque-la comme importée.</div></div>';
+  html += fin.map(function(c){
+    var rec = lm[c.id], st = gStatusOf(rec);
+    var meta = '';
+    if (rec){
+      if (rec.imported_at) meta = 'Importé le '+new Date(rec.imported_at).toLocaleDateString('fr-CA')+(rec.updated_by?' par '+esc(rec.updated_by):'');
+      else if (rec.exported_at) meta = 'Exporté le '+new Date(rec.exported_at).toLocaleDateString('fr-CA')+' — à uploader dans GHL';
+    }
+    return '<div class="ghlcard" id="ghlcard-'+c.id+'">'
+      + '<div class="ghlhead"><span class="ghltitle">'+esc(c.title)+'</span><span class="gstat '+st.key+'">'+st.label+'</span></div>'
+      + (meta?'<div class="ghlmeta">'+meta+'</div>':'')
+      + '<div class="ghlbtns">'
+      +   '<button class="ghlbtn primary" onclick="ghlExport(\''+c.id+'\')">⬇ Exporter le JSON GHL</button>'
+      +   '<button class="ghlbtn" onclick="ghlMark(\''+c.id+'\',\'imported\')">✅ Marquer importé</button>'
+      +   '<button class="ghlbtn" onclick="ghlMark(\''+c.id+'\',\'live\')">🌐 Marquer en ligne</button>'
+      + '</div>'
+      + '<div class="ghlmeta" id="ghlmsg-'+c.id+'" style="margin-top:8px"></div>'
+      + '</div>';
+  }).join('');
+  document.getElementById('view').innerHTML = html;
+}
+
+function ghlMsg(courseId, txt){ var e = document.getElementById('ghlmsg-'+courseId); if (e) e.textContent = txt; }
+
+// Upsert d'une ligne course_lms_status (merge sur course_id+target).
+function upsertCourseLms(courseId, patch){
+  var body = Object.assign({ course_id: courseId, target: 'ghl', updated_by: (localStorage.getItem('rn')||'Anonyme').trim(), updated_at: new Date().toISOString() }, patch);
+  return fetch(API + '/course_lms_status?on_conflict=course_id,target', {
+    method: 'POST',
+    headers: Object.assign({}, H, { 'Content-Type':'application/json', 'Prefer':'resolution=merge-duplicates,return=representation' }),
+    body: JSON.stringify(body)
+  }).then(function(r){ if(!r.ok) return r.text().then(function(t){throw new Error('HTTP '+r.status+' '+t.slice(0,80))}); return r.json(); });
+}
+
+// Exporter le JSON GHL d'un cours (réutilise GhlPayload) + marquer "exported".
+function ghlExport(courseId){
+  ghlMsg(courseId, 'Génération du JSON…');
+  window.GhlPayload.buildForCourse(courseId).then(function(payload){
+    window.GhlPayload.downloadAsFile(payload, courseId+'-ghl-import.json');
+    var now = new Date().toISOString();
+    return upsertCourseLms(courseId, { status:'exported', exported_at: now }).then(function(rows){
+      var rec = (rows&&rows[0]) || {course_id:courseId, status:'exported', exported_at:now};
+      // MAJ locale + re-render de la carte.
+      DATA.lms = DATA.lms.filter(function(x){return x.course_id!==courseId}); DATA.lms.push(rec);
+      render();
+      ghlMsg(courseId, 'JSON téléchargé. Uploade-le dans GHL puis clique « Marquer importé ».');
+    });
+  }).catch(function(e){ ghlMsg(courseId, 'Erreur : '+e.message); });
+}
+window.ghlExport = ghlExport;
+
+// Marquer un cours importé / en ligne.
+function ghlMark(courseId, status){
+  var patch = { status: status };
+  if (status==='imported') patch.imported_at = new Date().toISOString();
+  if (status==='live') patch.live_at = new Date().toISOString();
+  ghlMsg(courseId, 'Enregistrement…');
+  // Marque aussi les leçons comme pushed côté GHL (suivi par leçon existant).
+  var also = (status==='imported' && window.GhlPayload && window.GhlPayload.markCoursePushed)
+    ? window.GhlPayload.markCoursePushed(courseId, 'ghl').catch(function(){return null}) : Promise.resolve();
+  Promise.all([upsertCourseLms(courseId, patch), also]).then(function(res){
+    var rec = (res[0]&&res[0][0]) || Object.assign({course_id:courseId}, patch);
+    DATA.lms = DATA.lms.filter(function(x){return x.course_id!==courseId}); DATA.lms.push(rec);
+    render();
+  }).catch(function(e){ ghlMsg(courseId, 'Erreur : '+e.message); });
+}
+window.ghlMark = ghlMark;

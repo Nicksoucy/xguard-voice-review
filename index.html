@@ -13,11 +13,14 @@ a{text-decoration:none;color:inherit}
 .navlink{color:#94A3B8;font-size:12px;padding:6px 13px;border-radius:5px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1)}
 .navlink:hover{background:rgba(255,255,255,0.12);color:#fff}
 
-/* Role toggle */
-.roletoggle{display:inline-flex;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:7px;overflow:hidden;margin-bottom:14px}
-.roletoggle button{background:none;border:none;color:#94A3B8;font-family:inherit;font-size:12.5px;font-weight:600;padding:8px 16px;cursor:pointer}
-.roletoggle button.on{background:#C0392B;color:#fff}
-.roletoggle button:not(.on):hover{background:rgba(255,255,255,0.08);color:#fff}
+/* Barre d'onglets par phase du pipeline */
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.tabs button{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:#94A3B8;font-family:inherit;font-size:12.5px;font-weight:600;padding:9px 14px;cursor:pointer;border-radius:8px;display:inline-flex;align-items:center;gap:7px;transition:all .12s}
+.tabs button:hover:not(.on){background:rgba(255,255,255,0.09);color:#fff}
+.tabs button.on{background:#C0392B;color:#fff;border-color:#C0392B}
+.tabs .tcount{font-size:11px;font-weight:700;background:rgba(0,0,0,0.28);color:#fff;border-radius:9px;padding:1px 7px;min-width:18px;text-align:center}
+.tabs button:not(.on) .tcount{background:rgba(255,255,255,0.12);color:#cfd6e4}
+.tabs .tcount.zero{display:none}
 
 .info{background:rgba(255,255,255,0.04);border-left:3px solid #E74C3C;padding:10px 14px;margin-bottom:16px;border-radius:0 8px 8px 0}
 .info label{color:#94A3B8;font-size:13px;margin-right:8px}
@@ -40,7 +43,7 @@ a{text-decoration:none;color:inherit}
 .allgood{background:rgba(39,174,96,0.08);border:1px solid rgba(39,174,96,0.25);border-radius:10px;padding:22px;text-align:center;color:#B9E8CB;font-size:15px}
 .health-down{background:rgba(231,76,60,0.16);border:1px solid #E74C3C;border-left:4px solid #E74C3C;color:#F8CACE;padding:11px 15px;border-radius:8px;margin-bottom:14px;font-size:13px;font-weight:600;line-height:1.5}
 
-/* Course rollup card (manager) */
+/* Course rollup card (production) */
 .course{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:15px 18px;margin-bottom:10px;display:block}
 .course:hover{background:rgba(255,255,255,0.07);border-color:rgba(231,76,60,0.35)}
 .course .title{color:#E74C3C;font-size:15px;font-weight:600;margin-bottom:7px;display:flex;align-items:center;gap:8px;justify-content:space-between}
@@ -54,23 +57,37 @@ a{text-decoration:none;color:inherit}
 .crow b{color:#F0F0F0}
 .dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:3px;vertical-align:-1px}
 
-/* Carte formation repliable (vue Reviseuse) */
+/* Carte formation repliable (vues review audio/video) */
 .revcard{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:13px 16px;margin-bottom:10px}
 .revcard.idle{opacity:.72}
-.revcard.prod{border-left:3px solid rgba(155,89,182,0.55)}
 .revhead{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
 .revhead:hover .revtitle{color:#ff6f5f}
 .revchev{color:#94A3B8;font-size:12px;width:12px;flex:0 0 auto}
 .revtitle{color:#E74C3C;font-size:15px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .revbadge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:11px;background:rgba(230,126,34,0.18);color:#E67E22;white-space:nowrap;flex:0 0 auto}
 .revbadge.done{background:rgba(39,174,96,0.16);color:#2ECC71}
-.revbadge.prod{background:rgba(155,89,182,0.18);color:#C49BDD}
 .revbar{margin:9px 0 7px}
 .revsub{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:#94A3B8;margin-bottom:4px}
 .revsub b{color:#F0F0F0}
 .revbody{margin-top:8px}
 .revbody.collapsed{display:none}
 .revbody .qstage{font-size:13px;flex:0 0 auto;margin-right:2px}
+
+/* Onglet Import GHL */
+.ghlcard{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px 16px;margin-bottom:10px}
+.ghlhead{display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap}
+.ghltitle{color:#E74C3C;font-size:15px;font-weight:600}
+.ghlmeta{font-size:11px;color:#94A3B8;margin-top:3px}
+.ghlbtns{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.ghlbtn{font-size:12px;font-weight:600;padding:7px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#F0F0F0;cursor:pointer}
+.ghlbtn:hover{background:rgba(255,255,255,0.13)}
+.ghlbtn.primary{background:#C0392B;border-color:#C0392B;color:#fff}
+.ghlbtn:disabled{opacity:.4;cursor:default}
+.gstat{font-size:10px;font-weight:700;padding:2px 9px;border-radius:11px;letter-spacing:.3px;white-space:nowrap}
+.gstat.pret{background:rgba(243,156,18,0.18);color:#F39C12}
+.gstat.exported{background:rgba(230,126,34,0.18);color:#E67E22}
+.gstat.imported{background:rgba(39,174,96,0.18);color:#2ECC71}
+.gstat.live{background:rgba(22,160,90,0.28);color:#7CF2AE}
 
 .skeleton{background:rgba(255,255,255,0.04);height:80px;border-radius:10px;margin-bottom:10px;animation:pulse 1.5s infinite;border:1px solid rgba(255,255,255,0.06)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
@@ -84,10 +101,7 @@ a{text-decoration:none;color:inherit}
 </div>
 <p class="sub" id="subtitle">Pipeline de production des formations</p>
 
-<div class="roletoggle">
-  <button id="btn-reviewer" onclick="setRole('reviewer')">🎧 Réviseuse</button>
-  <button id="btn-manager" onclick="setRole('manager')">🎛️ Gestion</button>
-</div>
+<div class="tabs" id="tabs"></div>
 
 <div class="info"><label>Ton nom :</label><input type="text" id="name" placeholder="Ex: Héla" oninput="localStorage.setItem('rn',this.value)"></div>
 
@@ -97,354 +111,8 @@ a{text-decoration:none;color:inherit}
   <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
 </div>
 
-<script>
-var SUPA_URL = window.SUPA_URL_OVERRIDE || 'https://ctjsdpfegpsfpwjgusyi.supabase.co';
-var SUPA_KEY = window.SUPA_KEY_OVERRIDE || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN0anNkcGZlZ3BzZnB3amd1c3lpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MDU2NDQsImV4cCI6MjA4OTE4MTY0NH0.Uv2pbxbmvcbXhyDa7Y_M0HqkLuV7uJaNxl1N01q5wMo';
-var API = SUPA_URL + '/rest/v1';
-var H = {apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY};
-
-document.getElementById('name').value = localStorage.getItem('rn') || '';
-
-// Config des etapes du pipeline (cle = pipeline_stage de la vue lesson_status_full)
-// Libelles en langage Hela (audit 2026-06-10). Le ↻ est RESERVE a la
-// re-revision voix (Hela) ; la file re-production (Nicolas) passe sur 🔧.
-var STAGE = {
-  voice_recheck:    {label:'Voix corrigées — à ré-écouter', who:'hela',    emoji:'↻',  color:'#E74C3C', link:'review.html',       hint:'La voix a été refaite après tes flags. Ré-écoute les phrases en vert pour confirmer.'},
-  voice_review:     {label:'Voix à réviser',                who:'hela',    emoji:'🎙️', color:'#3B82F6', link:'review.html',       hint:'Écoute et clique sur les mots qui sonnent mal.'},
-  video_review:     {label:'Vidéos à regarder',             who:'hela',    emoji:'🎬', color:'#1ABC9C', link:'review-video.html', hint:'Regarde la vidéo au complet, puis approuve ou refuse.'},
-  video_production: {label:'Vidéos à produire',             who:'nicolas', emoji:'🎬', color:'#9B59B6', link:'review-video.html', hint:'Voix approuvée, vidéo pas encore produite.'},
-  video_redo:       {label:'Vidéos en re-production',       who:'nicolas', emoji:'🔧', color:'#E67E22', link:'review-video.html', hint:'Voix changée ou vidéo refusée — Nicolas re-produit, rien à faire côté révision.'},
-  done:             {label:'Prêt',                          who:'-',       emoji:'✅', color:'#27AE60', link:'course.html',       hint:''}
-};
-var STAGE_ORDER = ['voice_review','voice_recheck','video_production','video_redo','video_review','done'];
-
-function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
-function role(){ return localStorage.getItem('role') || (/(h[ée]la)/i.test(localStorage.getItem('rn')||'') ? 'reviewer' : 'reviewer'); }
-function setRole(r){ localStorage.setItem('role', r); render(); }
-
-// Etat charge
-var DATA = null;
-
-Promise.all([
-  fetch(API+'/courses?visible=eq.true&order=sort_order.asc',{headers:H}).then(function(r){return r.json()}),
-  fetch(API+'/lesson_status_full?select=lesson_key,course_id,module_id,module_index,lesson_index,sort_order,title,short_title,status,pipeline_stage,video_stale,video_status,video_reject_reason,video_flags_count,voiceover_version,video_version',{headers:H}).then(function(r){return r.json()}),
-  fetch(API+'/correction_requests?status=eq.needs_review&select=lesson_key,correction_note,reason,requested_by,created_at&order=created_at.asc',{headers:H}).then(function(r){return r.json()}),
-  fetch(API+'/correction_requests?md_sync_failed=eq.true&select=lesson_key,correction_note,reason,requested_by,completed_at&order=completed_at.desc',{headers:H}).then(function(r){return r.json()}),
-  // Corrections qui ont ECHOUE (worker a abandonne apres N tentatives). Invisibles avant : Hela
-  // re-soumettait en boucle sans que Nicolas les voie. On les remonte dans une file dediee.
-  fetch(API+'/correction_requests?status=eq.error&select=lesson_key,correction_note,reason,attempts,requested_by,completed_at&order=completed_at.desc',{headers:H}).then(function(r){return r.json()}).catch(function(){return []}),
-  fetch(API+'/watchdog_heartbeat?id=eq.xguard-correction&select=status,last_heartbeat,next_jobs,version',{headers:H}).then(function(r){return r.json()}).catch(function(){return []})
-]).then(function(res){
-  DATA = { courses:res[0], lessons:res[1]||[], needsReview:res[2]||[], syncFailed:res[3]||[], failed:res[4]||[], health:(res[5]&&res[5][0])||null };
-  render();
-}).catch(function(err){
-  document.getElementById('view').innerHTML = '<div class="err">Erreur de chargement: '+esc(err.message)+'</div>';
-  console.error(err);
-});
-
-function byStage(lessons){
-  var m = {}; STAGE_ORDER.forEach(function(s){m[s]=[]});
-  lessons.forEach(function(l){ if(m[l.pipeline_stage]) m[l.pipeline_stage].push(l); });
-  // tri par cours puis ordre de lecon
-  Object.keys(m).forEach(function(s){ m[s].sort(function(a,b){ return (a.course_id+'').localeCompare(b.course_id) || (a.sort_order||0)-(b.sort_order||0); }); });
-  return m;
-}
-function courseTitleMap(courses){ var t={}; courses.forEach(function(c){t[c.id]=c.title||c.id}); return t; }
-
-function lessonRow(l, link, why){
-  var name = l.short_title || l.title || l.lesson_key.split('/').pop();
-  var ctx = (CT[l.course_id]||l.course_id);
-  return '<a class="qrow" style="--c:'+(STAGE[l.pipeline_stage]?STAGE[l.pipeline_stage].color:'#3B82F6')+'" href="'+link+'?key='+encodeURIComponent(l.lesson_key)+'">'
-    + '<span class="qname">'+esc(name)+'</span>'
-    + '<span class="qctx">'+esc(ctx)+'</span>'
-    + (why?'<span class="qwhy">'+esc(why)+'</span>':'')
-    + '<span class="qarrow">→</span></a>';
-}
-
-function sectionList(stageKey, lessons){
-  var st = STAGE[stageKey];
-  if (!lessons.length) return '';
-  var rows = lessons.map(function(l){
-    var why = '';
-    if (stageKey === 'video_redo') {
-      if (l.video_status === 'rejected') {
-        why = 'rejetée'
-            + (l.video_flags_count ? ' — '+l.video_flags_count+' issue'+(l.video_flags_count>1?'s':'') : '')
-            + (l.video_reject_reason ? ' · '+l.video_reject_reason : '');
-      } else {
-        why = 'voix v'+(l.voiceover_version||'?')+' › vidéo v'+(l.video_version||'?');
-      }
-    }
-    return lessonRow(l, st.link, why);
-  }).join('');
-  return '<div class="sec"><h2>'+st.emoji+' '+st.label+' <span class="count">'+lessons.length+'</span></h2>'
-       + (st.hint?'<div class="hint">'+st.hint+'</div>':'') + rows + '</div>';
-}
-
-var CT = {};
-
-function render(){
-  if (!DATA) return;
-  CT = courseTitleMap(DATA.courses);
-  var r = role();
-  document.getElementById('btn-reviewer').className = r==='reviewer'?'on':'';
-  document.getElementById('btn-manager').className = r==='manager'?'on':'';
-  document.getElementById('nav').innerHTML = r==='manager'
-    ? '<a class="navlink" href="analytics.html">📊 Analytics</a><a class="navlink" href="exports.html">📥 Exports</a>'
-    : '<a class="navlink" href="guide.html">📖 Guide</a>';
-  document.getElementById('subtitle').textContent = r==='manager'
-    ? 'Pipeline de production — vue gestion' : 'Tes tâches de review';
-  document.getElementById('health').innerHTML = healthBannerHtml();
-  if (r==='manager') renderManager(); else renderReviewer();
-}
-
-// Bandeau "Nitro est-il vivant ?" : rouge si la boucle de correction n'a pas battu
-// depuis >15 min (elle tourne aux 5 min) ou a signale une erreur. Sinon rien.
-function healthBannerHtml(){
-  var h = DATA && DATA.health;
-  if (!h || !h.last_heartbeat) return ''; // pas de heartbeat connu -> pas d'alarme
-  var ageMin = (Date.now() - new Date(h.last_heartbeat).getTime())/60000;
-  var err = h.status === 'error';
-  if (ageMin <= 15 && !err) return '';
-  var pending = (h.next_jobs && h.next_jobs.pending) || 0;
-  var msg = err
-    ? '⚠ La boucle de correction a signalé une erreur à son dernier passage.'
-    : '⚠ La boucle de correction n\'a pas tourné depuis '+Math.round(ageMin)+' min — Nitro est peut-être éteint.';
-  var sub = pending ? ' '+pending+' correction(s) en attente.' : '';
-  // G10 (audit 2026-06-10) : version du code qui tourne sur Nitro (figee par
-  // deploy-to-nitro.ps1) — une vieille version deployee devient visible.
-  var ver = h.version && h.version !== 'correction-loop' ? ' <span style="opacity:0.7;font-weight:400;font-size:11px">· worker '+h.version+'</span>' : '';
-  return '<div class="health-down">'+msg+sub+ver+'</div>';
-}
-
-// Stades qui concernent Hela (reviseuse), avec leur priorite d'affichage.
-var REV_STAGES = { voice_recheck:0, voice_review:1, video_review:2 };
-
-// Ligne lecon dans la vue par formation : emoji stage + nom + (why) + fleche, SANS contexte cours
-// (le cours est deja l'en-tete de la carte).
-function reviewerLessonRow(l){
-  var st = STAGE[l.pipeline_stage] || {};
-  var name = l.short_title || l.title || l.lesson_key.split('/').pop();
-  var why = l.pipeline_stage === 'voice_recheck' ? 'voix corrigée' : '';
-  return '<a class="qrow" style="--c:'+(st.color||'#3B82F6')+'" href="'+(st.link||'review.html')+'?key='+encodeURIComponent(l.lesson_key)+'">'
-    + '<span class="qstage">'+(st.emoji||'')+'</span>'
-    + '<span class="qname">'+esc(name)+'</span>'
-    + (why?'<span class="qwhy">'+why+'</span>':'')
-    + '<span class="qarrow">→</span></a>';
-}
-
-// Lecons groupees par etape avec une ligne d'explication PERMANENTE (audit
-// 2026-06-10 : Hela ne survole pas les tooltips, elle lit le texte affiche).
-function reviewerRowsGrouped(tasks){
-  var html = '';
-  var lastStage = null;
-  tasks.forEach(function(l){
-    if (l.pipeline_stage !== lastStage) {
-      lastStage = l.pipeline_stage;
-      var st = STAGE[lastStage] || {};
-      html += '<div style="font-size:11px;font-weight:700;color:'+(st.color||'#94A3B8')+';margin:10px 2px 4px;display:flex;gap:6px;align-items:baseline;flex-wrap:wrap">'
-        + (st.emoji||'') + ' ' + esc(st.label||lastStage)
-        + (st.hint ? ' <span style="color:#94A3B8;font-weight:400">— '+esc(st.hint)+'</span>' : '')
-        + '</div>';
-    }
-    html += reviewerLessonRow(l);
-  });
-  return html;
-}
-
-// Replier/deplier les lecons d'une formation (etat memorise par formation).
-function toggleRevCard(courseId){
-  var body = document.getElementById('revbody-'+courseId);
-  if (!body) return;
-  var collapsed = body.classList.toggle('collapsed');
-  localStorage.setItem('rev_open_'+courseId, collapsed ? '0' : '1');
-  var chev = document.getElementById('revchev-'+courseId);
-  if (chev) chev.textContent = collapsed ? '▸' : '▾';
-}
-
-function renderReviewer(){
-  var lessons = DATA.lessons;
-  // Comptes par stage par cours (idem renderManager).
-  var perCourse = {};
-  DATA.courses.forEach(function(c){ perCourse[c.id] = {}; STAGE_ORDER.forEach(function(s){perCourse[c.id][s]=0}); });
-  lessons.forEach(function(l){ if(perCourse[l.course_id]) perCourse[l.course_id][l.pipeline_stage]++; });
-
-  // Lecons aux stades reviseuse, regroupees par cours.
-  var byCourse = {};
-  lessons.forEach(function(l){
-    if (!(l.pipeline_stage in REV_STAGES)) return;
-    (byCourse[l.course_id] = byCourse[l.course_id] || []).push(l);
-  });
-  var totalTasks = Object.keys(byCourse).reduce(function(a,k){return a+byCourse[k].length;},0);
-
-  // Vidéos encore en production (à produire / re-produire) = travail de Nicolas, pas d'Hela,
-  // mais la formation n'est PAS finie tant qu'il en reste. Sert au badge "en production".
-  function prodOf(id){ var p=perCourse[id]; return p?((p.video_production||0)+(p.video_redo||0)):0; }
-  var totalProd = DATA.courses.reduce(function(a,c){ return a+prodOf(c.id); }, 0);
-
-  // Ordre : le plus de travail reviseuse d'abord ; puis les "en production" ; les "a jour" en bas.
-  var ordered = DATA.courses.filter(function(c){ return perCourse[c.id]; }).sort(function(a,b){
-    return (byCourse[b.id]||[]).length - (byCourse[a.id]||[]).length
-        || prodOf(b.id) - prodOf(a.id)
-        || (a.sort_order||0)-(b.sort_order||0);
-  });
-
-  // Rien a reviser : message honnete selon qu'il reste ou non des videos en production.
-  var html = totalTasks !== 0 ? ''
-    : (totalProd > 0
-        ? '<div class="allgood">Rien à réviser pour l\'instant. <b>'+totalProd+'</b> vidéo'+(totalProd>1?'s':'')+' en production — elles arriveront dans ta file une fois prêtes.</div>'
-        : '<div class="allgood">🎉 Tout est à jour — rien à réviser. Merci !</div>');
-
-  html += ordered.map(function(c){
-    var s = perCourse[c.id];
-    var t = STAGE_ORDER.reduce(function(a,k){return a+s[k];},0);
-    if (!t) return ''; // formation sans aucune lecon -> ignorer
-    var tasks = (byCourse[c.id] || []).slice().sort(function(a,b){
-      return REV_STAGES[a.pipeline_stage]-REV_STAGES[b.pipeline_stage] || (a.sort_order||0)-(b.sort_order||0);
-    });
-    var n = tasks.length;
-    var voiceDone = t - s.voice_review - s.voice_recheck;
-    var totalLes = t + (s.not_produced||0);   // total lecons du cours (incl. sans voix produite)
-    var prod = (s.video_production||0) + (s.video_redo||0);   // videos encore a produire/re-produire
-    var bar = STAGE_ORDER.map(function(k){
-      var p = t ? s[k]/t*100 : 0;
-      return p>0 ? '<span style="width:'+p+'%;background:'+STAGE[k].color+'" title="'+STAGE[k].label+': '+s[k]+'"></span>' : '';
-    }).join('');
-    var saved = localStorage.getItem('rev_open_'+c.id);
-    var open = saved!=null ? saved==='1' : false;   // defaut : tout replie (clic pour ouvrir)
-    // Badge a 3 etats : "a faire" (taches reviseuse) > "en production" (videos pas encore
-    // produites, rien a faire pour Hela mais formation pas finie) > "a jour" (vraiment 100%).
-    var badge = n>0
-      ? '<span class="revbadge">'+n+' à faire</span>'
-      : (prod>0
-          ? '<span class="revbadge prod">⏳ '+prod+' vidéo'+(prod>1?'s':'')+' en production</span>'
-          : '<span class="revbadge done">✓ à jour</span>');
-    var chev = n>0 ? '<span class="revchev" id="revchev-'+c.id+'">'+(open?'▾':'▸')+'</span>' : '<span class="revchev"></span>';
-    var cardCls = n>0 ? 'revcard' : (prod>0 ? 'revcard prod' : 'revcard idle');
-    return '<div class="'+cardCls+'">'
-      + '<div class="revhead"'+(n>0?' onclick="toggleRevCard(\''+c.id+'\')"':'')+'>'
-      +   chev
-      +   '<span class="revtitle">'+esc(c.title)+'</span>'
-      +   badge
-      + '</div>'
-      + '<div class="stagebar revbar">'+bar+'</div>'
-      + '<div class="revsub">Voix <b>'+t+'/'+totalLes+'</b> · Vidéo <b>'+s.done+'/'+t+'</b></div>'
-      + (n>0 ? '<div class="revbody'+(open?'':' collapsed')+'" id="revbody-'+c.id+'">'+reviewerRowsGrouped(tasks)+'</div>' : '')
-      + '</div>';
-  }).join('');
-
-  document.getElementById('view').innerHTML = html;
-}
-
-function renderManager(){
-  var lessons = DATA.lessons;
-  var m = byStage(lessons);
-  var counts = {}; STAGE_ORDER.forEach(function(s){counts[s]=m[s].length});
-
-  // En-tete global
-  var doneN = counts.done, tot = lessons.length;
-  var pct = tot ? Math.round(doneN/tot*100) : 0;
-  var html = '<div class="sec"><h2>📈 Vue d\'ensemble</h2><div class="hint">'
-    + DATA.courses.length + ' formations · ' + tot + ' leçons · ' + doneN + ' prêtes (' + pct + '%)</div></div>';
-
-  // Files d'action (ce qui attend Nicolas)
-  html += sectionList('video_production', m.video_production);
-  html += sectionList('video_redo', m.video_redo);
-
-  // Corrections EN ECHEC (status=error) : le worker a abandonne apres N tentatives. Souvent un
-  // glitch audio a refaire via « Se repete » plutot qu'un changement de texte. On dedupe les
-  // re-soumissions (ex. « consolide » re-soumis 5 fois = 1 ligne, pas 5).
-  if (DATA.failed && DATA.failed.length){
-    var failMap = {};
-    DATA.failed.forEach(function(c){
-      var k = c.lesson_key + '|' + c.correction_note;
-      if (!failMap[k]) failMap[k] = {c:c, n:0, att:0};
-      failMap[k].n++;
-      failMap[k].att = Math.max(failMap[k].att, c.attempts||0);
-    });
-    var failRows = Object.keys(failMap).map(function(k){
-      var f = failMap[k], c = f.c;
-      var why = f.att + ' tentative'+(f.att>1?'s':'') + (f.n>1 ? ' · '+f.n+' re-soumissions' : '');
-      return '<a class="qrow" style="--c:#E74C3C" href="review.html?key='+encodeURIComponent(c.lesson_key)+'">'
-        + '<span class="qname">'+esc(c.correction_note)+'</span>'
-        + '<span class="qctx">'+esc(CT[(c.lesson_key||'').split('/')[0]]||c.lesson_key)+'</span>'
-        + '<span class="qwhy">'+esc(why)+'</span>'
-        + '<span class="qarrow">→</span></a>';
-    }).join('');
-    html += '<div class="sec"><h2>⚠ Corrections en échec <span class="count">'+Object.keys(failMap).length+'</span></h2>'
-          + '<div class="hint">Le système a abandonné après plusieurs essais. Souvent un glitch audio à refaire via « 🔁 Se répète » (pas un changement de texte). Hela re-soumet en boucle tant que ce n\'est pas réglé.</div>'+failRows+'</div>';
-  }
-
-  // Corrections a trancher (needs_review) — les plus VIEILLES d'abord (audit
-  // 2026-06-10) + pastille d'attente au-dela de 7 jours : a 187 items la pile
-  // etait illisible et rien ne montrait depuis quand ca trainait.
-  if (DATA.needsReview.length){
-    var nrRows = DATA.needsReview.map(function(c){
-      var ageJours = Math.floor((Date.now() - new Date(c.created_at).getTime()) / 86400000);
-      var ageBadge = '';
-      if (ageJours >= 7) ageBadge = '<span style="color:#E74C3C;font-size:10px;font-weight:700;white-space:nowrap">⏳ '+ageJours+' j</span>';
-      else if (ageJours >= 2) ageBadge = '<span style="color:#F39C12;font-size:10px;white-space:nowrap">'+ageJours+' j</span>';
-      return '<a class="qrow" style="--c:#A855F7" href="review.html?key='+encodeURIComponent(c.lesson_key)+'">'
-        + '<span class="qname">'+esc(c.correction_note)+'</span>'
-        + ageBadge
-        + '<span class="qctx">'+esc(CT[(c.lesson_key||'').split('/')[0]]||c.lesson_key)+'</span>'
-        + '<span class="qarrow">→</span></a>';
-    }).join('');
-    html += '<div class="sec"><h2>👁️ Corrections à trancher <span class="count">'+DATA.needsReview.length+'</span></h2>'
-          + '<div class="hint">Demandes de Hela qui changent le texte — à appliquer à la main dans le .md. Les plus vieilles en premier.</div>'+nrRows+'</div>';
-  }
-
-  // Textes maitres a verifier : audio corrige mais le .md canonique n'a pas pu etre edite
-  // automatiquement (md_sync_failed). Rendu visible pour ne plus enterrer la divergence.
-  if (DATA.syncFailed && DATA.syncFailed.length){
-    var sfRows = DATA.syncFailed.map(function(c){
-      return '<a class="qrow" style="--c:#E67E22" href="review.html?key='+encodeURIComponent(c.lesson_key)+'">'
-        + '<span class="qname">'+esc(c.correction_note)+'</span>'
-        + '<span class="qctx">'+esc(CT[(c.lesson_key||'').split('/')[0]]||c.lesson_key)+'</span>'
-        + '<span class="qwhy">audio OK · texte à vérifier</span>'
-        + '<span class="qarrow">→</span></a>';
-    }).join('');
-    html += '<div class="sec"><h2>📝 Textes maîtres à vérifier <span class="count">'+DATA.syncFailed.length+'</span></h2>'
-          + '<div class="hint">Audio corrigé, mais le texte source (.md) n\'a pas pu être édité automatiquement — à corriger à la main dans Obsidian, puis décocher.</div>'+sfRows+'</div>';
-  }
-
-  // Rollup par formation
-  html += '<div class="sec"><h2>🗂️ Par formation</h2></div>';
-  var perCourse = {};
-  DATA.courses.forEach(function(c){ perCourse[c.id] = {}; STAGE_ORDER.forEach(function(s){perCourse[c.id][s]=0}); });
-  lessons.forEach(function(l){ if(perCourse[l.course_id]) perCourse[l.course_id][l.pipeline_stage]++; });
-
-  // ordre : formations les moins avancees d'abord (plus de travail restant)
-  var ordered = DATA.courses.slice().sort(function(a,b){
-    return (perCourse[b.id].voice_review+perCourse[b.id].voice_recheck+perCourse[b.id].video_redo+perCourse[b.id].video_production)
-         - (perCourse[a.id].voice_review+perCourse[a.id].voice_recheck+perCourse[a.id].video_redo+perCourse[a.id].video_production);
-  });
-
-  html += ordered.map(function(c){
-    var s = perCourse[c.id];
-    var t = STAGE_ORDER.reduce(function(a,k){return a+s[k]},0);
-    if (!t) return '';
-    var voiceDone = t - s.voice_review - s.voice_recheck;     // voix finalisee (a atteint le stade video)
-    var totalLes = t + (s.not_produced||0);   // total lecons du cours (incl. sans voix produite)
-    var bar = STAGE_ORDER.map(function(k){
-      var p = t? s[k]/t*100 : 0;
-      return p>0 ? '<span style="width:'+p+'%;background:'+STAGE[k].color+'" title="'+STAGE[k].label+': '+s[k]+'"></span>' : '';
-    }).join('');
-    var phase, pcls;
-    if (s.done===t){ phase='✅ Prêt LMS'; pcls='ready'; }
-    else if (voiceDone===t){ phase='🎬 Phase vidéo'; pcls='video'; }
-    else { phase='🎙️ Phase voix'; pcls='voice'; }
-    var bits = [];
-    bits.push('Voix <b>'+t+'/'+totalLes+'</b>');
-    bits.push('Vidéo <b>'+s.done+'/'+t+'</b>');
-    if (s.video_redo) bits.push('<span style="color:#E67E22"><b>'+s.video_redo+'</b> à refaire</span>');
-    return '<a class="course" href="course.html?course='+encodeURIComponent(c.id)+'">'
-      + '<div class="title"><span>'+esc(c.title)+'</span><span class="phase '+pcls+'">'+phase+'</span></div>'
-      + '<div class="stagebar">'+bar+'</div>'
-      + '<div class="crow">'+bits.join('')+'</div></a>';
-  }).join('');
-
-  document.getElementById('view').innerHTML = html;
-}
-</script>
+<!-- Config Supabase partagee EN PREMIER, puis le generateur GHL, puis la logique du cockpit. -->
+<script src="lib/app-config.js?v=20260620a"></script>
+<script src="lms/ghl-payload.js?v=20260620a"></script>
+<script src="cockpit.js?v=20260620a"></script>
 </body></html>
