@@ -790,8 +790,8 @@ function buildWords(){
       // Bouton flag phrase : cliquable pour ouvrir le modal "Flag phrase"
       var flagBtn=document.createElement('span');
       flagBtn.className='sm-flag';
-      flagBtn.textContent='\u2691'; // drapeau
-      flagBtn.title='Flagger cette phrase (reformuler, regen, etc.)';
+      flagBtn.textContent='✏️'; // crayon = corriger le texte de la phrase
+      flagBtn.title='✏️ Corriger le texte de cette phrase (reformuler, regénérer, remplacer…)';
       (function(sentenceIdx){
         flagBtn.onclick=function(e){e.stopPropagation();openSentenceModal(sentenceIdx)};
       })(si);
@@ -1114,9 +1114,9 @@ function renderFlags(){
     // - rewrite : la phrase entiere est mal tournee -> phrase_patterns Supabase
     var currentCat = d.category || 'pronunciation';
     var catSelect = '<select class="rcat" onchange="flags.get('+ii+').category=this.value;scheduleAutoSave()" title="Categorie du flag">'
-      + '<option value="pronunciation"' + (currentCat==='pronunciation'?' selected':'') + '>prononciation</option>'
-      + '<option value="typo"' + (currentCat==='typo'?' selected':'') + '>faute de frappe</option>'
-      + '<option value="rewrite"' + (currentCat==='rewrite'?' selected':'') + '>phrase a reecrire</option>'
+      + '<option value="pronunciation" title="Mot bien écrit mais mal prononcé — enrichir le dictionnaire"' + (currentCat==='pronunciation'?' selected':'') + '>prononciation</option>'
+      + '<option value="typo" title="Mot mal écrit dans le script — corriger le texte source"' + (currentCat==='typo'?' selected':'') + '>faute de frappe</option>'
+      + '<option value="rewrite" title="Toute la phrase est mal tournée — utilise plutôt le crayon de la phrase"' + (currentCat==='rewrite'?' selected':'') + '>phrase a reecrire</option>'
       + '</select>';
     // Si flag groupe, marquer visuellement avec un badge "groupe (N mots)"
     var isGroup = Array.isArray(d.groupIndices) && d.groupIndices.length > 1;
@@ -1139,7 +1139,12 @@ function renderFlags(){
     }
     // Champ "Demander une correction automatique" (boucle Hela -> Nitro -> statut in-app).
     // Hela tape la correction voulue ; si pas de fleche, on prefixe avec le mot flagge.
-    var rfixBlock = '<span class="rfixwrap"><input class="rfix" id="rfix'+ii+'" placeholder="Correction voulue (ex: change \u2192 changeons)"><button class="rfixbtn" title="Demander une correction automatique" onclick="submitCorrectionRequest('+ii+')">Corriger</button><button class="rfixbtn rpt" title="La voix répète ou bégaie ce mot — refaire ce bout (sans changer le texte)" onclick="submitRepeat('+ii+')">🔁 Se répète</button><span class="rfixstatus" id="rfixstatus'+ii+'"></span></span>';
+    // Lien direct vers la reformulation de TOUTE la phrase (pour qui part d'un mot mais veut
+    // changer la phrase entiere) -> ouvre le modal de la phrase correspondante.
+    var phraseLink = (d.sentenceIndex != null)
+      ? '<button class="rfixbtn rphrase" title="Changer TOUTE la phrase (reformuler le texte source)" onclick="openSentenceModal('+d.sentenceIndex+')">✏️ corriger la phrase</button>'
+      : '';
+    var rfixBlock = '<span class="rfixwrap"><input class="rfix" id="rfix'+ii+'" placeholder="Le bon mot (ex : changeons) — la flèche est ajoutée auto"><button class="rfixbtn" title="Tu as le bon texte : envoyer la correction (régénération auto)" onclick="submitCorrectionRequest('+ii+')">Corriger</button><button class="rfixbtn rpt" title="La voix répète ou bégaie ce mot — refaire ce bout (sans changer le texte)" onclick="submitRepeat('+ii+')">🔁 Re-générer</button>'+phraseLink+'<span class="rfixstatus" id="rfixstatus'+ii+'"></span></span>';
     // Badge clair pour les flags REGLES (visibles seulement via le toggle
     // "afficher les corriges") : Hela sait quoi en penser sans deviner.
     var regleBadge = '';
@@ -1183,7 +1188,7 @@ function submitCorrectionRequest(ii){
     correction_note: note,
     requested_by: rn
   };
-  setCorrectionStatusEl(ii, 'pending', '⏳ envoi...');
+  setCorrectionStatusEl(ii, 'pending', '⏳ Envoi…');
   // Dedup (audit 2026-06-10) : si la MEME demande est deja en traitement,
   // on ne la recree pas — re-cliquer ne fait pas avancer plus vite, ca
   // creait des doublons (neglige→negligé soumis 3 fois sur 3 jours).
@@ -1232,7 +1237,7 @@ function submitRepeat(ii){
     correction_note: '[répétition]',
     requested_by: rn
   };
-  setCorrectionStatusEl(ii, 'pending', '⏳ envoi...');
+  setCorrectionStatusEl(ii, 'pending', '⏳ Envoi…');
   fetch(API+'/correction_requests', {
     method: 'POST',
     headers: Object.assign({}, H, {'Content-Type':'application/json','Prefer':'return=minimal'}),
@@ -1250,7 +1255,7 @@ function submitRepeat(ii){
 
 // Libelle + classe CSS selon le statut Supabase.
 function correctionStatusLabel(s){
-  if (s.status === 'pending')      return {t:'⏳ En attente', c:'pending'};
+  if (s.status === 'pending')      return {t:'✓ Envoyée — en traitement (Nitro)', c:'pending'};
   if (s.status === 'processing')   return {t:'⚙️ En cours…', c:'processing'};
   if (s.status === 'needs_review') return {t:'\u{1f441}️ À réviser (Nicolas)', c:'review'};
   if (s.status === 'error')        return {t:'⚠ Erreur', c:'error'};
@@ -1614,15 +1619,15 @@ function getSentenceText(si){
 function openSentenceModal(si){
   currentFlaggingSi = si;
   var text = getSentenceText(si);
-  document.getElementById('sentence-modal-title').innerHTML = '\uD83D\uDCCD Flagger phrase #' + si;
+  document.getElementById('sentence-modal-title').innerHTML = '\uD83D\uDCCD Corriger la phrase #' + si;
   document.getElementById('sentence-modal-preview').textContent = text;
   // Reset form
-  document.querySelectorAll('input[name="flagType"]').forEach(function(r){r.checked=false});
+  document.querySelectorAll('input[name="flagType"]').forEach(function(r){r.checked = (r.value==='rewrite')});
   document.getElementById('sentence-corrected').value = '';
   document.getElementById('sentence-partial-from').value = '';
   document.getElementById('sentence-partial-to').value = '';
   document.getElementById('sentence-note').value = '';
-  document.getElementById('field-corrected').style.display = 'none';
+  document.getElementById('field-corrected').style.display = 'block';
   document.getElementById('field-partial').style.display = 'none';
   document.getElementById('sentence-modal-msg').textContent = '';
   // Charger les flags existants pour cette phrase (pour voir ceux deja poses)
@@ -1687,15 +1692,15 @@ function submitSentenceFlag(){
       return;
     }
   }
-  document.getElementById('sentence-modal-msg').textContent = 'Sauvegarde...';
+  document.getElementById('sentence-modal-msg').textContent = 'Envoi…';
   fetch(API+'/sentence_flags', {
     method: 'POST',
     headers: Object.assign({}, H, {'Content-Type':'application/json','Prefer':'return=minimal'}),
     body: JSON.stringify(payload),
   }).then(function(r){
     if (r.ok) {
-      document.getElementById('sentence-modal-msg').textContent = '\u2713 Sauvegarde !';
-      setTimeout(closeSentenceModal, 800);
+      document.getElementById('sentence-modal-msg').textContent = '✓ Correction de phrase envoyée — en traitement';
+      setTimeout(closeSentenceModal, 1400);
     } else {
       r.text().then(function(t){
         document.getElementById('sentence-modal-msg').textContent = 'Erreur ' + r.status + ' : ' + t.slice(0,100);

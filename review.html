@@ -10,7 +10,7 @@
   <!-- Sentry error tracking -->
   <script src="https://js.sentry-cdn.com/ab9916085bc6c9e93779c21fad74456f.min.js" crossorigin="anonymous"></script>
   <script src="sentry-init.js?v=20260509a"></script>
-  <link rel="stylesheet" href="review.css?v=20260430b">
+  <link rel="stylesheet" href="review.css?v=20260620a">
 </head>
 <body>
 
@@ -56,11 +56,12 @@
     <span><i style="background:#27AE60"></i> Corrige</span>
     <span><i style="background:#A855F7"></i> Mal corrige (reflag)</span>
   </div>
+  <div class="panel-hint">Clique un mot qui sonne mal pour le <b>marquer</b>. Si tu connais la correction, tape-la et clique <b>Corriger</b> pour l'envoyer. Pour changer <b>toute une phrase</b>, clique le crayon ✏️ devant la phrase.</div>
   <div id="fl"><div class="empty">Clique sur les mots qui sonnent mal</div></div>
   <div class="acts">
-    <button class="btn br" onclick="saveReview(false)">Sauvegarder</button>
-    <button class="btn bApproveGreen" id="btnApproveGreens" onclick="approveAllGreens()">&#10003; Approuver les corriges</button>
-    <button class="btn bg" onclick="askApprove()">&#10003; Approuver</button>
+    <button class="btn br" onclick="saveReview(false)" title="Enregistre ta revue (les mots marqués). Les corrections envoyées via Corriger sont déjà parties.">Sauvegarder</button>
+    <button class="btn bApproveGreen" id="btnApproveGreens" onclick="approveAllGreens()" title="Valide les corrections déjà appliquées (mots en vert) après les avoir ré-écoutées">&#10003; Valider les corrections appliquées</button>
+    <button class="btn bg" onclick="askApprove()" title="Approuve toute la leçon — la voix passe en prêt">&#10003; Approuver la leçon</button>
     <button class="btn by" onclick="copyReview()">Copier texte</button>
     <button class="toggle-approved" id="toggleApproved" onclick="toggleShowApproved()" style="display:none"></button>
     <span class="msg" id="msg"></span>
@@ -82,7 +83,7 @@
 <!-- Flag phrase modal -->
 <div class="modal-bg" id="sentence-modal-bg">
   <div class="modal sentence-modal">
-    <h3 id="sentence-modal-title">&#128204; Flagger la phrase</h3>
+    <h3 id="sentence-modal-title">&#9998; Corriger la phrase</h3>
     <p class="sentence-preview" id="sentence-modal-preview"></p>
 
     <div class="sentence-type-group">
@@ -134,7 +135,7 @@
     </div>
 
     <div class="acts">
-      <button class="btn bg" onclick="submitSentenceFlag()">Sauvegarder</button>
+      <button class="btn bg" onclick="submitSentenceFlag()">Envoyer la correction</button>
       <button class="btn by" onclick="closeSentenceModal()">Annuler</button>
       <span class="msg" id="sentence-modal-msg"></span>
     </div>
@@ -144,6 +145,6 @@
 <!-- Le JS est charge en non-module : toutes les var/function top-level sont
      automatiquement sur window, donc accessibles depuis les onclick inline.
      Cache-buster ?v=DATE bumpe a chaque deploy avec changement majeur. -->
-<script src="review.js?v=20260430b"></script>
+<script src="review.js?v=20260620a"></script>
 </body>
 </html>

@@ -57,12 +57,14 @@ a{text-decoration:none;color:inherit}
 /* Carte formation repliable (vue Reviseuse) */
 .revcard{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:13px 16px;margin-bottom:10px}
 .revcard.idle{opacity:.72}
+.revcard.prod{border-left:3px solid rgba(155,89,182,0.55)}
 .revhead{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
 .revhead:hover .revtitle{color:#ff6f5f}
 .revchev{color:#94A3B8;font-size:12px;width:12px;flex:0 0 auto}
 .revtitle{color:#E74C3C;font-size:15px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .revbadge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:11px;background:rgba(230,126,34,0.18);color:#E67E22;white-space:nowrap;flex:0 0 auto}
 .revbadge.done{background:rgba(39,174,96,0.16);color:#2ECC71}
+.revbadge.prod{background:rgba(155,89,182,0.18);color:#C49BDD}
 .revbar{margin:9px 0 7px}
 .revsub{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:#94A3B8;margin-bottom:4px}
 .revsub b{color:#F0F0F0}
@@ -275,12 +277,23 @@ function renderReviewer(){
   });
   var totalTasks = Object.keys(byCourse).reduce(function(a,k){return a+byCourse[k].length;},0);
 
-  // Ordre : le plus de travail reviseuse d'abord ; les "a jour" en bas.
+  // Vidéos encore en production (à produire / re-produire) = travail de Nicolas, pas d'Hela,
+  // mais la formation n'est PAS finie tant qu'il en reste. Sert au badge "en production".
+  function prodOf(id){ var p=perCourse[id]; return p?((p.video_production||0)+(p.video_redo||0)):0; }
+  var totalProd = DATA.courses.reduce(function(a,c){ return a+prodOf(c.id); }, 0);
+
+  // Ordre : le plus de travail reviseuse d'abord ; puis les "en production" ; les "a jour" en bas.
   var ordered = DATA.courses.filter(function(c){ return perCourse[c.id]; }).sort(function(a,b){
-    return (byCourse[b.id]||[]).length - (byCourse[a.id]||[]).length || (a.sort_order||0)-(b.sort_order||0);
+    return (byCourse[b.id]||[]).length - (byCourse[a.id]||[]).length
+        || prodOf(b.id) - prodOf(a.id)
+        || (a.sort_order||0)-(b.sort_order||0);
   });
 
-  var html = totalTasks === 0 ? '<div class="allgood">🎉 Tout est à jour — rien à réviser. Merci !</div>' : '';
+  // Rien a reviser : message honnete selon qu'il reste ou non des videos en production.
+  var html = totalTasks !== 0 ? ''
+    : (totalProd > 0
+        ? '<div class="allgood">Rien à réviser pour l\'instant. <b>'+totalProd+'</b> vidéo'+(totalProd>1?'s':'')+' en production — elles arriveront dans ta file une fois prêtes.</div>'
+        : '<div class="allgood">🎉 Tout est à jour — rien à réviser. Merci !</div>');
 
   html += ordered.map(function(c){
     var s = perCourse[c.id];
@@ -292,15 +305,23 @@ function renderReviewer(){
     var n = tasks.length;
     var voiceDone = t - s.voice_review - s.voice_recheck;
     var totalLes = t + (s.not_produced||0);   // total lecons du cours (incl. sans voix produite)
+    var prod = (s.video_production||0) + (s.video_redo||0);   // videos encore a produire/re-produire
     var bar = STAGE_ORDER.map(function(k){
       var p = t ? s[k]/t*100 : 0;
       return p>0 ? '<span style="width:'+p+'%;background:'+STAGE[k].color+'" title="'+STAGE[k].label+': '+s[k]+'"></span>' : '';
     }).join('');
     var saved = localStorage.getItem('rev_open_'+c.id);
     var open = saved!=null ? saved==='1' : false;   // defaut : tout replie (clic pour ouvrir)
-    var badge = n>0 ? '<span class="revbadge">'+n+' à faire</span>' : '<span class="revbadge done">✓ à jour</span>';
+    // Badge a 3 etats : "a faire" (taches reviseuse) > "en production" (videos pas encore
+    // produites, rien a faire pour Hela mais formation pas finie) > "a jour" (vraiment 100%).
+    var badge = n>0
+      ? '<span class="revbadge">'+n+' à faire</span>'
+      : (prod>0
+          ? '<span class="revbadge prod">⏳ '+prod+' vidéo'+(prod>1?'s':'')+' en production</span>'
+          : '<span class="revbadge done">✓ à jour</span>');
     var chev = n>0 ? '<span class="revchev" id="revchev-'+c.id+'">'+(open?'▾':'▸')+'</span>' : '<span class="revchev"></span>';
-    return '<div class="revcard'+(n>0?'':' idle')+'">'
+    var cardCls = n>0 ? 'revcard' : (prod>0 ? 'revcard prod' : 'revcard idle');
+    return '<div class="'+cardCls+'">'
       + '<div class="revhead"'+(n>0?' onclick="toggleRevCard(\''+c.id+'\')"':'')+'>'
       +   chev
       +   '<span class="revtitle">'+esc(c.title)+'</span>'

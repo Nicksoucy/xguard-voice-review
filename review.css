@@ -120,6 +120,8 @@ h1{color:#E74C3C;font-size:14px}
 .ri .rfixbtn:hover{background:rgba(52,152,219,0.32);color:#fff}
 .ri .rfixbtn.rpt{background:rgba(230,126,34,0.16);border-color:rgba(230,126,34,0.45);color:#E59866}
 .ri .rfixbtn.rpt:hover{background:rgba(230,126,34,0.32);color:#fff}
+.ri .rfixbtn.rphrase{background:rgba(155,89,182,0.16);border-color:rgba(155,89,182,0.45);color:#C49BDD}
+.ri .rfixbtn.rphrase:hover{background:rgba(155,89,182,0.32);color:#fff}
 .rfixstatus{font-size:10px;font-weight:600;font-family:inherit;white-space:nowrap}
 .rfixstatus.pending{color:#E67E22}
 .rfixstatus.processing{color:#3498DB}
@@ -172,10 +174,12 @@ h1{color:#E74C3C;font-size:14px}
 .sentence-field textarea{min-height:60px}
 
 /* Legende des couleurs de flags */
+.panel-hint{font-size:11px;color:#94A3B8;line-height:1.5;margin:2px 0 9px;padding:7px 10px;background:rgba(52,152,219,0.06);border-left:2px solid rgba(52,152,219,0.35);border-radius:4px}
+.panel-hint b{color:#5DADE2}
 .flag-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:#94A3B8;margin:4px 0 8px}
 .flag-legend span{display:flex;align-items:center;gap:4px}
 .flag-legend i{display:inline-block;width:10px;height:10px;border-radius:2px}
 
 /* Bouton flag phrase dans le texte */
-.sm-flag{display:inline-block;color:#666;font-size:10px;cursor:pointer;margin:0 2px;padding:1px 3px;border-radius:2px;user-select:none}
-.sm-flag:hover{background:rgba(230,126,34,0.2);color:#E67E22}
+.sm-flag{display:inline-block;font-size:12px;cursor:pointer;margin:0 2px;padding:1px 3px;border-radius:3px;user-select:none;opacity:0.7}
+.sm-flag:hover{background:rgba(155,89,182,0.2);opacity:1}
