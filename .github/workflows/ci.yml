@@ -40,7 +40,7 @@ jobs:
       - name: Run ESLint on .js files (BLOQUANT sur erreur)
         run: |
           npx eslint --no-eslintrc --config .eslintrc.json \
-            *.js lib/*.js review/*.js lms/*.js scripts/*.mjs scripts/*.js
+            *.js lib/*.js review/*.js lms/*.js scripts/*.mjs
 
       - name: Run HTMLHint on .html files
         run: |
