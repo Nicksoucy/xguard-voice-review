@@ -44,25 +44,9 @@ function updateCounts() {
     });
 }
 
-// ============= CSV utilities =============
-function csvEscape(val) {
-  if (val === null || val === undefined) return '';
-  var s = String(val);
-  // RFC 4180 : escape if contains comma, quote, newline
-  if (/[",\n\r]/.test(s)) {
-    return '"' + s.replace(/"/g, '""') + '"';
-  }
-  return s;
-}
-
-function rowsToCSV(rows, columns) {
-  if (!rows || !rows.length) return columns.join(',') + '\n';
-  var lines = [columns.join(',')];
-  rows.forEach(function(r) {
-    lines.push(columns.map(function(c) { return csvEscape(r[c]); }).join(','));
-  });
-  return lines.join('\n');
-}
+// ============= CSV utilities (deleguees a lib/format-utils.js, testees) =============
+function csvEscape(val) { return XGFormat.csvEscape(val); }
+function rowsToCSV(rows, columns) { return XGFormat.rowsToCSV(rows, columns); }
 
 function downloadFile(content, filename, mime) {
   // BOM pour Excel UTF-8 si CSV

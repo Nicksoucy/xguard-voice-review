@@ -74,9 +74,37 @@ window.SUPA_KEY_OVERRIDE = '<staging anon key>';
 
 ### Tests
 
-Pas de tests unitaires (vanilla JS sans framework). Validation manuelle :
-- Lint : `.github/workflows/ci.yml` tourne ESLint + HTMLHint sur PR
-- Test E2E : ouvrir prod, faire un Sentry.captureMessage('test'), verifier dans dashboard
+Suite de tests SANS build (compatible GitHub Pages). Les devDependencies (`package.json`)
+ne sont jamais servies au navigateur ; elles servent uniquement aux tests/qualite.
+
+```bash
+npm install            # 1re fois
+npm test               # tests unitaires (vitest) — logique pure dans lib/*-logic.js, lib/format-utils.js
+npm run test:e2e       # tests navigateur (Playwright + Supabase simule) + audit a11y (axe)
+npm run lint           # ESLint
+npm run format         # biome (formate lib/ + tests/)
+```
+
+Architecture de test :
+- La logique metier pure est extraite dans `lib/cockpit-logic.js`, `lib/ghl-logic.js`,
+  `lib/review-logic.js`, `lib/format-utils.js` avec un export double navigateur (`window.XG*`)
+  / Node (`require`). Les pages la chargent via `<script>`, vitest l'importe directement.
+- `tests/unit/` : tests unitaires (dont la regression du bug MET sur `finishedCourses` et
+  l'invariant GHL « seulement les lecons approved »).
+- `tests/e2e/` : Playwright contre un serveur statique local, Supabase simule via `page.route`
+  (fixtures dans `tests/fixtures/`).
+- `tests/a11y/` : axe-core (zero violation serieuse/critique) + navigation clavier.
+- CI (`.github/workflows/ci.yml`) : jobs `lint` (bloquant sur erreur), `unit-tests`, `e2e-tests`
+  — tout doit passer avant un merge vers `gh-pages`.
+
+### Securite — note RLS (audit 2026-06-21)
+
+L'instance Supabase est PARTAGEE avec d'autres apps (campagnes email/SMS, kb_*, call_*).
+`get_advisors` remonte des tables sans RLS et des politiques permissives, en grande majorite
+hors du perimetre voice-review. Pour cette app, la cle `anon` (publique) a volontairement un
+acces en ecriture (reviews/corrections soumises sans login) — acceptable pour un outil interne,
+mais cela signifie que quiconque possede la cle publique peut ecrire. A durcir si l'app devient
+publique. Aucun changement de schema fait ici (hors perimetre, risque de casser d'autres apps).
 
 ## Operations
 

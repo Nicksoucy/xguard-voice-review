@@ -85,22 +85,7 @@ function submitRepeat(ii){
 }
 
 // Libelle + classe CSS selon le statut Supabase.
-function correctionStatusLabel(s){
-  if (s.status === 'pending')      return {t:'✓ Envoyée — en traitement (Nitro)', c:'pending'};
-  if (s.status === 'processing')   return {t:'⚙️ En cours…', c:'processing'};
-  if (s.status === 'needs_review') return {t:'\u{1f441}️ À réviser (Nicolas)', c:'review'};
-  if (s.status === 'error')        return {t:'⚠ Erreur', c:'error'};
-  if (s.status === 'done') {
-    var wt = '';
-    if (s.completed_at) {
-      var w = new Date(s.completed_at);
-      function p(n){ return String(n).padStart(2,'0'); }
-      wt = ' le ' + p(w.getDate()) + '/' + p(w.getMonth()+1) + ' à ' + p(w.getHours()) + 'h' + p(w.getMinutes());
-    }
-    return {t:'✅ Corrigé' + wt, c:'done'};
-  }
-  return {t:'', c:''};
-}
+function correctionStatusLabel(s){ return XGReview.correctionStatusLabel(s); }
 
 function setCorrectionStatusEl(ii, cls, text){
   var el = document.getElementById('rfixstatus'+ii);

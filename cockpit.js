@@ -17,7 +17,7 @@ var STAGE = {
   video_redo:       {label:'Vidéos en re-production',       emoji:'🔧', color:'#E67E22', link:'review-video.html', hint:'Voix changée ou vidéo refusée — Nicolas re-produit, rien à faire côté révision.'},
   done:             {label:'Prêt',                          emoji:'✅', color:'#27AE60', link:'course.html',       hint:''}
 };
-var STAGE_ORDER = ['voice_review','voice_recheck','video_production','video_redo','video_review','done'];
+var STAGE_ORDER = XGCockpit.STAGE_ORDER; // source unique dans lib/cockpit-logic.js
 
 // Stades par phase de révision (Héla). Valeur = priorité d'affichage.
 var AUDIO_STAGES = { voice_recheck:0, voice_review:1 };
@@ -59,24 +59,15 @@ Promise.all([
 
 // ───────────────────────── Helpers partagés ─────────────────────────
 
-function byStage(lessons){
-  var m = {}; STAGE_ORDER.forEach(function(s){m[s]=[]});
-  lessons.forEach(function(l){ if(m[l.pipeline_stage]) m[l.pipeline_stage].push(l); });
-  Object.keys(m).forEach(function(s){ m[s].sort(function(a,b){ return (a.course_id+'').localeCompare(b.course_id) || (a.sort_order||0)-(b.sort_order||0); }); });
-  return m;
-}
+// Logique pure deleguee a lib/cockpit-logic.js (window.XGCockpit) — testee par vitest.
+function byStage(lessons){ return XGCockpit.byStage(lessons); }
 function courseTitleMap(courses){ var t={}; courses.forEach(function(c){t[c.id]=c.title||c.id}); return t; }
 
 // Comptes par stage par cours, calculés une fois.
-function perCourseCounts(){
-  var pc = {};
-  DATA.courses.forEach(function(c){ pc[c.id] = {}; STAGE_ORDER.forEach(function(s){pc[c.id][s]=0}); pc[c.id].not_produced=0; });
-  DATA.lessons.forEach(function(l){ if(pc[l.course_id] && (l.pipeline_stage in pc[l.course_id])) pc[l.course_id][l.pipeline_stage]++; else if(pc[l.course_id]) pc[l.course_id].not_produced++; });
-  return pc;
-}
+function perCourseCounts(){ return XGCockpit.perCourseCounts(DATA.courses, DATA.lessons); }
 
 function lessonRow(l, link, why){
-  var name = l.short_title || l.title || l.lesson_key.split('/').pop();
+  var name = XGCockpit.lessonName(l);
   var ctx = (CT[l.course_id]||l.course_id);
   return '<a class="qrow" style="--c:'+(STAGE[l.pipeline_stage]?STAGE[l.pipeline_stage].color:'#3B82F6')+'" href="'+link+'?key='+encodeURIComponent(l.lesson_key)+'">'
     + '<span class="qname">'+esc(name)+'</span>'
@@ -108,7 +99,7 @@ function sectionList(stageKey, lessons){
 // Ligne leçon dans une carte de formation : emoji stade + nom + (why) + flèche.
 function reviewerLessonRow(l){
   var st = STAGE[l.pipeline_stage] || {};
-  var name = l.short_title || l.title || l.lesson_key.split('/').pop();
+  var name = XGCockpit.lessonName(l);
   var why = l.pipeline_stage === 'voice_recheck' ? 'voix corrigée' : '';
   return '<a class="qrow" style="--c:'+(st.color||'#3B82F6')+'" href="'+(st.link||'review.html')+'?key='+encodeURIComponent(l.lesson_key)+'">'
     + '<span class="qstage">'+(st.emoji||'')+'</span>'
@@ -142,36 +133,19 @@ function toggleRevCard(courseId){
   localStorage.setItem('rev_open_'+tab()+'_'+courseId, collapsed ? '0' : '1');
   var chev = document.getElementById('revchev-'+courseId);
   if (chev) chev.textContent = collapsed ? '▸' : '▾';
+  var head = document.getElementById('revhead-'+courseId);
+  if (head) head.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
 }
 window.toggleRevCard = toggleRevCard;
 
-// Une formation est "finie" si elle a >=1 leçon produite et que TOUTES ses leçons produites sont à done.
-function finishedCourses(pc){
-  return DATA.courses.filter(function(c){
-    var s = pc[c.id]; if (!s) return false;
-    // Total = leçons réellement produites (on ignore les conteneurs vides sans voix,
-    // comme le badge « Prêt LMS » et le rollup de course.html). Évite qu'une formation comme MET
-    // (125 vraies leçons finies + 28 conteneurs vides) soit exclue à tort.
-    var total = STAGE_ORDER.reduce(function(a,k){return a+s[k]},0);
-    return total > 0 && s.done === total;
-  });
-}
+// Une formation est "finie" si toutes ses leçons produites sont à done (conteneurs vides ignorés).
+// Logique pure + testée dans lib/cockpit-logic.js (test de régression MET inclus).
+function finishedCourses(pc){ return XGCockpit.finishedCourses(DATA.courses, pc); }
 
 // ───────────────────────── Compteurs d'onglets ─────────────────────────
 
 function tabCounts(pc){
-  var c = {audio:0, video:0, prod:0, done:0, ghl:0};
-  DATA.lessons.forEach(function(l){
-    if (l.pipeline_stage in AUDIO_STAGES) c.audio++;
-    else if (l.pipeline_stage in VIDEO_STAGES) c.video++;
-    else if (l.pipeline_stage==='video_production' || l.pipeline_stage==='video_redo') c.prod++;
-  });
-  var fin = finishedCourses(pc);
-  c.done = fin.length;
-  // GHL : formations finies pas encore importées (action restante).
-  var lmsByCourse = {}; DATA.lms.forEach(function(r){ lmsByCourse[r.course_id]=r; });
-  c.ghl = fin.filter(function(co){ var r=lmsByCourse[co.id]; return !r || (r.status!=='imported' && r.status!=='live'); }).length;
-  return c;
+  return XGCockpit.tabCounts(DATA.courses, DATA.lessons, DATA.lms, pc, AUDIO_STAGES, VIDEO_STAGES);
 }
 
 // ───────────────────────── Rendu principal ─────────────────────────
@@ -210,17 +184,13 @@ function render(){
 
 // Bandeau "Nitro est-il vivant ?" : rouge si la boucle de correction n'a pas battu depuis >15 min.
 function healthBannerHtml(){
-  var h = DATA && DATA.health;
-  if (!h || !h.last_heartbeat) return '';
-  var ageMin = (Date.now() - new Date(h.last_heartbeat).getTime())/60000;
-  var err = h.status === 'error';
-  if (ageMin <= 15 && !err) return '';
-  var pending = (h.next_jobs && h.next_jobs.pending) || 0;
-  var msg = err
+  var st = XGCockpit.healthState(DATA && DATA.health, Date.now());
+  if (!st.show) return '';
+  var msg = st.error
     ? '⚠ La boucle de correction a signalé une erreur à son dernier passage.'
-    : '⚠ La boucle de correction n\'a pas tourné depuis '+Math.round(ageMin)+' min — Nitro est peut-être éteint.';
-  var sub = pending ? ' '+pending+' correction(s) en attente.' : '';
-  var ver = h.version && h.version !== 'correction-loop' ? ' <span style="opacity:0.7;font-weight:400;font-size:11px">· worker '+h.version+'</span>' : '';
+    : '⚠ La boucle de correction n\'a pas tourné depuis '+Math.round(st.ageMin)+' min — Nitro est peut-être éteint.';
+  var sub = st.pending ? ' '+st.pending+' correction(s) en attente.' : '';
+  var ver = st.version && st.version !== 'correction-loop' ? ' <span style="opacity:0.7;font-weight:400;font-size:11px">· worker '+st.version+'</span>' : '';
   return '<div class="health-down">'+msg+sub+ver+'</div>';
 }
 
@@ -255,7 +225,10 @@ function renderReviewCards(taskStages, pc, emptyMsg){
     var open = saved!=null ? saved==='1' : false;
     var chev = '<span class="revchev" id="revchev-'+c.id+'">'+(open?'▾':'▸')+'</span>';
     return '<div class="revcard">'
-      + '<div class="revhead" onclick="toggleRevCard(\''+c.id+'\')">'
+      + '<div class="revhead" id="revhead-'+c.id+'" role="button" tabindex="0"'
+      +   ' aria-expanded="'+(open?'true':'false')+'" aria-controls="revbody-'+c.id+'"'
+      +   ' onclick="toggleRevCard(\''+c.id+'\')"'
+      +   ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();toggleRevCard(\''+c.id+'\')}">'
       +   chev
       +   '<span class="revtitle">'+esc(c.title)+'</span>'
       +   '<span class="revbadge">'+n+' à faire</span>'
@@ -344,15 +317,11 @@ function renderProduction(pc){
     var s = pc[c.id];
     var t = STAGE_ORDER.reduce(function(a,k){return a+s[k]},0);
     if (!t) return '';
-    var voiceDone = t - s.voice_review - s.voice_recheck;
     var bar = STAGE_ORDER.map(function(k){
       var p = t? s[k]/t*100 : 0;
       return p>0 ? '<span style="width:'+p+'%;background:'+STAGE[k].color+'" title="'+STAGE[k].label+': '+s[k]+'"></span>' : '';
     }).join('');
-    var phase, pcls;
-    if (s.done===t){ phase='✅ Prêt LMS'; pcls='ready'; }
-    else if (voiceDone===t){ phase='🎬 Phase vidéo'; pcls='video'; }
-    else { phase='🎙️ Phase voix'; pcls='voice'; }
+    var ph = XGCockpit.coursePhase(s), phase = ph.label, pcls = ph.cls;
     var bits = [];
     bits.push('Voix <b>'+t+'/'+t+'</b>');
     bits.push('Vidéo <b>'+s.done+'/'+t+'</b>');
@@ -386,13 +355,7 @@ function renderFinies(pc){
 
 function lmsMap(){ var m={}; DATA.lms.forEach(function(r){ m[r.course_id]=r; }); return m; }
 
-function gStatusOf(rec){
-  if (!rec) return {key:'pret', label:'PRÊT'};
-  if (rec.status==='live') return {key:'live', label:'EN LIGNE'};
-  if (rec.status==='imported') return {key:'imported', label:'IMPORTÉ'};
-  if (rec.status==='exported') return {key:'exported', label:'EXPORTÉ'};
-  return {key:'pret', label:'PRÊT'};
-}
+function gStatusOf(rec){ return XGCockpit.gStatusOf(rec); }
 
 function renderGhl(pc){
   var fin = finishedCourses(pc).sort(function(a,b){ return (a.sort_order||0)-(b.sort_order||0); });

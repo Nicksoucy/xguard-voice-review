@@ -1,0 +1,23 @@
+{
+  "name": "xguard-voice-review",
+  "version": "1.0.0",
+  "description": "Cockpit + app de revision XGuard (vanilla JS, sans build). Les devDependencies servent UNIQUEMENT aux tests/qualite — rien n'est servi au navigateur.",
+  "private": true,
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:a11y": "playwright test --project=a11y",
+    "lint": "eslint --no-eslintrc --config .eslintrc.json *.js lib/*.js review/*.js lms/*.js scripts/*.mjs",
+    "format": "biome format --write .",
+    "format:check": "biome format ."
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.1",
+    "@biomejs/biome": "^1.9.4",
+    "@playwright/test": "^1.59.1",
+    "eslint": "^8.57.1",
+    "htmlhint": "^1.6.3",
+    "vitest": "^3.0.0"
+  }
+}

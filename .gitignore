@@ -8,6 +8,13 @@ node_modules/
 .DS_Store
 Thumbs.db
 
+# Tests (artefacts generes — voir package.json scripts)
+test-results/
+playwright-report/
+blob-report/
+coverage/
+.last-run.json
+
 # IDE
 .vscode/
 .idea/

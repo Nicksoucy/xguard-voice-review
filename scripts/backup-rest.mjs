@@ -29,7 +29,8 @@ import zlib from 'node:zlib';
 
 const SUPA_URL = 'https://ctjsdpfegpsfpwjgusyi.supabase.co';
 // Anon key — deja publique dans review.js, pas un secret
-const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN0anNkcGZlZ3BzZnB3amd1c3lpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MDU2NDQsImV4cCI6MjA4OTE4MTY0NH0.Uv2pbxbmvcbXhyDa7Y_M0HqkLuV7uJaNxl1N01q5wMo';
+const SUPA_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN0anNkcGZlZ3BzZnB3amd1c3lpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MDU2NDQsImV4cCI6MjA4OTE4MTY0NH0.Uv2pbxbmvcbXhyDa7Y_M0HqkLuV7uJaNxl1N01q5wMo';
 const API = SUPA_URL + '/rest/v1';
 const HEADERS = { apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}` };
 
@@ -43,11 +44,11 @@ const TABLES = [
   'video_metadata',
   'video_reviews',
   'video_review_history',
-  'courses',  // si existe
+  'courses', // si existe
 ];
 
 const PAGE_SIZE = 1000;
-const date = new Date().toISOString().split('T')[0];  // YYYY-MM-DD
+const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 const outDir = path.join(process.cwd(), 'backups');
 fs.mkdirSync(outDir, { recursive: true });
 
@@ -97,13 +98,17 @@ for (const table of TABLES) {
     }
 
     // Compresse en gzip pour reduire la taille
-    const json = JSON.stringify({
-      table,
-      backup_date: date,
-      backup_at: new Date().toISOString(),
-      row_count: allRows.length,
-      data: allRows,
-    }, null, 2);
+    const json = JSON.stringify(
+      {
+        table,
+        backup_date: date,
+        backup_at: new Date().toISOString(),
+        row_count: allRows.length,
+        data: allRows,
+      },
+      null,
+      2,
+    );
 
     const gz = zlib.gzipSync(json);
     fs.writeFileSync(filePath, gz);
@@ -131,7 +136,10 @@ const manifest = {
   tables: TABLES,
   errors: errorCount,
 };
-fs.writeFileSync(path.join(outDir, `MANIFEST-${date}.json.gz`), zlib.gzipSync(JSON.stringify(manifest, null, 2)));
+fs.writeFileSync(
+  path.join(outDir, `MANIFEST-${date}.json.gz`),
+  zlib.gzipSync(JSON.stringify(manifest, null, 2)),
+);
 
 if (errorCount > 0) {
   console.error(`\n[backup-rest] FAILED: ${errorCount} tables had errors`);

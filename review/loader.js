@@ -66,6 +66,12 @@ function loadExistingReview(){
       if (Array.isArray(rev.glitches)) glitches = rev.glitches.slice();
       renderFlags();
       renderGlitches();
+    })
+    .catch(function(e){
+      // Echec reseau/JSON : on degrade proprement (les mots sont deja affiches, la page reste
+      // utilisable) au lieu de laisser une promesse rejetee non geree.
+      if (typeof captureWithContext === 'function') captureWithContext(e, {action:'loadExistingReview', lesson_key: L && L.lesson_key});
+      else if (typeof console !== 'undefined') console.error('loadExistingReview failed', e);
     });
 }
 
@@ -259,26 +265,10 @@ function pickBestTimestamps(candidates){
   // Les anciens timestamps ElevenLabs sur path final sont ignores.
   // Note : si l'audio est au chemin final (ElevenLabs), loadStatus() corrigera
   // un eventuel mismatch en rechargeant les timestamps depuis le bon chemin.
-  var best = null;
-  var bestIdx = -1;
-  for (var i = 0; i < candidates.length; i++) {
-    var c = candidates[i];
-    if (!Array.isArray(c) || !c.length) continue;
-    var hasStart = c.some(function(w){return w.sentenceIndex === 0});
-    if (!hasStart) continue;  // fichier corrompu, ignore
-    best = c;
-    bestIdx = i;
-    break;  // premier valide gagne (ordre de priorite)
-  }
-  // Indices 0-1 = preview/, 2-3 = chemin final
-  W_source = (bestIdx >= 0 && bestIdx <= 1) ? 'preview' : 'final';
-  // Si aucun fichier n'a sentenceIndex 0, on fallback sur celui qui a le plus de mots
-  if (!best) {
-    candidates.forEach(function(c){
-      if (!Array.isArray(c) || !c.length) return;
-      if (!best || c.length > best.length) best = c;
-    });
-  }
+  // Selection (logique pure testee dans lib/review-logic.js) : meilleur jeu de timestamps + source.
+  var sel = XGReview.pickBestTimestamps(candidates);
+  W_source = sel.source;
+  var best = sel.words;
   if (!best) {
     // Pas de timestamps trouves. Deux cas tres differents a distinguer :
     //  (a) lecon-conteneur SANS voiceover (brouillon, jamais produite) -> etat propre.
@@ -353,21 +343,7 @@ function checkCourseArchived(){
 
 // Calcule le range temporel de chaque phrase (start du premier mot, end du dernier mot)
 // pour pouvoir sauter d'une phrase a l'autre en mode filtre.
-function computeSentenceRanges(){
-  sentenceRanges = {};
-  for (var i = 0; i < W.length; i++) {
-    var w = W[i];
-    var si = w.sentenceIndex;
-    if (si === null || si === undefined) continue;
-    if (!sentenceRanges[si]) {
-      sentenceRanges[si] = {start: w.start, end: (w.end != null ? w.end : w.start)};
-    } else {
-      if (w.start < sentenceRanges[si].start) sentenceRanges[si].start = w.start;
-      var we = (w.end != null ? w.end : w.start);
-      if (we > sentenceRanges[si].end) sentenceRanges[si].end = we;
-    }
-  }
-}
+function computeSentenceRanges(){ sentenceRanges = XGReview.computeSentenceRanges(W); }
 
 // Charger la liste des phrases regenerees depuis voiceover_metadata.
 // Si la lecon a ete regeneree recemment via regen-from-reviews.mjs, cette colonne

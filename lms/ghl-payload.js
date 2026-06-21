@@ -28,14 +28,7 @@
   // Global location ID GHL (XGuard Academy production)
   var GHL_LOCATION_ID = 'dfkLurZY2ADWAUZl4zYc';
 
-  // Public Supabase Storage URL
-  function videoStorageUrl(SUPA_URL, videoPath) {
-    if (!videoPath) return '';
-    // video_path peut etre absolute (https://...) ou relative (videos/...)
-    if (videoPath.indexOf('http') === 0) return videoPath;
-    var clean = videoPath.replace(/^videos\//, '');
-    return SUPA_URL + '/storage/v1/object/public/videos/' + clean;
-  }
+  // videoStorageUrl + formatModuleTitle vivent maintenant dans lib/ghl-logic.js (window.XGGhl).
 
   // Fetch helper avec gestion erreur
   function api(path, opts) {
@@ -72,77 +65,12 @@
       '&order=sort_order.asc'
     );
 
-    // Filter : seulement les lecons APPROVED voice (minimum) + has_video pour le contenu
-    var ready = lessons.filter(function(l) {
-      // Au minimum voice approved. Si has_video, on prend la video. Sinon audio.
-      return l.status === 'approved';
+    // Construction du payload deleguee a la logique pure testee (lib/ghl-logic.js).
+    // Le filtre "status === 'approved'" + le groupage par module + la validation y vivent.
+    return window.XGGhl.buildCoursePayload(course, lessons, SUPA_URL, {
+      generated_at: new Date().toISOString(),
+      generated_by: localStorage.getItem('rn') || 'Anonyme'
     });
-
-    if (!ready.length) {
-      throw new Error('Aucune lecon approved pour ce cours');
-    }
-
-    // Group by module
-    var byModule = {};
-    ready.forEach(function(l) {
-      var key = l.module_id;
-      if (!byModule[key]) byModule[key] = { module_id: key, module_index: l.module_index, lessons: [] };
-      byModule[key].lessons.push(l);
-    });
-
-    var modules = Object.values(byModule).sort(function(a, b) {
-      return a.module_index - b.module_index;
-    });
-
-    // Build categories (= modules) + posts (= lecons)
-    var categories = modules.map(function(mod, modIdx) {
-      var moduleTitle = formatModuleTitle(mod);
-
-      var posts = mod.lessons.map(function(l, lessonIdx) {
-        var videoUrl = videoStorageUrl(SUPA_URL, l.video_path);
-
-        return {
-          title: l.title || l.short_title || l.lesson_key,
-          contentType: 'video',
-          videoUrl: videoUrl,
-          posterImageUrl: '',
-          description: l.short_title || '',
-          bucketLocation: '',
-          sequenceNo: lessonIdx + 1,
-          // Metadata XGuard pour traceability
-          _xguard_lesson_key: l.lesson_key,
-          _xguard_lesson_index: l.lesson_index,
-          _xguard_duration_seconds: l.duration_seconds,
-          _xguard_voice_approved_at: l.latest_review_at
-        };
-      });
-
-      return {
-        title: moduleTitle,
-        sequenceNo: modIdx + 1,
-        visibility: 'published',
-        posts: posts
-      };
-    });
-
-    return {
-      locationId: GHL_LOCATION_ID,
-      products: [{
-        title: course.title,
-        description: course.subtitle || '',
-        imageUrl: '',
-        categories: categories
-      }],
-      // Metadata XGuard
-      _xguard_metadata: {
-        course_id: courseId,
-        generated_at: new Date().toISOString(),
-        generated_by: localStorage.getItem('rn') || 'Anonyme',
-        total_lessons: ready.length,
-        total_modules: modules.length,
-        lessons_with_video: ready.filter(function(l){ return !!l.video_path; }).length
-      }
-    };
   }
 
   /**
@@ -164,7 +92,7 @@
     var course = courseRows[0] || { title: l.course_id, subtitle: '' };
 
     var SUPA_URL = window.SUPA_URL_OVERRIDE || 'https://ctjsdpfegpsfpwjgusyi.supabase.co';
-    var videoUrl = videoStorageUrl(SUPA_URL, l.video_path);
+    var videoUrl = window.XGGhl.videoStorageUrl(SUPA_URL, l.video_path);
 
     return {
       locationId: GHL_LOCATION_ID,
@@ -278,22 +206,6 @@
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }
-
-  /**
-   * Format module title : "Module 5 - Escorte et surveillance"
-   */
-  function formatModuleTitle(mod) {
-    if (!mod.lessons.length) return 'Module ' + (mod.module_index || '?');
-    var firstLesson = mod.lessons[0];
-    // Si on a un short_title type "M5 / X.X — Title" on l'utilise pour deviner
-    if (firstLesson.short_title && firstLesson.short_title.indexOf(' / ') !== -1) {
-      var parts = firstLesson.short_title.split(' / ');
-      // "M5 / 1.1 — Title" → on cherche un titre stable au niveau module
-      // Fallback : juste "Module N"
-      return 'Module ' + mod.module_index;
-    }
-    return 'Module ' + mod.module_index;
   }
 
   // Expose API publique

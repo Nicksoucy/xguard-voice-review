@@ -161,22 +161,15 @@ function initVideoPlayer() {
   });
   vid.addEventListener('error', function() {
     document.getElementById('video-wrapper').innerHTML =
-      '<div style="color:#E74C3C;padding:40px;text-align:center;font-size:13px">Impossible de charger la video.<br><small>' + (videoUrl) + '</small></div>';
+      '<div style="color:#E74C3C;padding:40px;text-align:center;font-size:13px">Impossible de charger la video.<br><small>' + escapeHtml(videoUrl) + '</small></div>';
   });
 }
 
 function renderInfoBar() {
   var bar = document.getElementById('info-bar');
-  var parts = [];
-  var v = VM.version || 1;
-  // Version en evidence (ambre si re-production) : Hela confondait v2 et v3
-  // parce que la version etait noyee dans du gris 11px (audit 2026-06-10).
-  parts.push('<strong style="' + (v > 1 ? 'color:#F39C12;font-size:14px' : 'font-size:14px') + '">Version ' + v + '</strong>');
-  if (VM.produced_at) parts.push('Produite : <strong>' + fmtDate(VM.produced_at) + '</strong>');
-  if (VM.duration_seconds) parts.push('Duree : <strong>' + fmtTime(VM.duration_seconds) + '</strong>');
-  if (VM.produced_by) parts.push('Source : <strong>' + VM.produced_by + '</strong>');
-  parts.push('Voix : <strong style="color:#27AE60">✓ approuvee</strong>');
-  bar.innerHTML = parts.join('<span class="sep">·</span>');
+  // Construction deleguee a XGReview.buildInfoBar qui ECHAPPE produced_by / produced_at
+  // (donnees Supabase) avant injection dans innerHTML — sinon risque XSS. Teste par vitest.
+  bar.innerHTML = XGReview.buildInfoBar(VM, escapeHtml, fmtDate, fmtTime);
   bar.style.display = 'flex';
 }
 

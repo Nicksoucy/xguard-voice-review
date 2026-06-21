@@ -103,7 +103,7 @@ a{text-decoration:none;color:inherit}
 
 <div class="tabs" id="tabs"></div>
 
-<div class="info"><label>Ton nom :</label><input type="text" id="name" placeholder="Ex: Héla" oninput="localStorage.setItem('rn',this.value)"></div>
+<div class="info"><label for="name">Ton nom :</label><input type="text" id="name" placeholder="Ex: Héla" oninput="localStorage.setItem('rn',this.value)"></div>
 
 <div id="health"></div>
 
@@ -112,7 +112,9 @@ a{text-decoration:none;color:inherit}
 </div>
 
 <!-- Config Supabase partagee EN PREMIER, puis le generateur GHL, puis la logique du cockpit. -->
-<script src="lib/app-config.js?v=20260621a"></script>
-<script src="lms/ghl-payload.js?v=20260621a"></script>
-<script src="cockpit.js?v=20260621a"></script>
+<script src="lib/app-config.js?v=20260621b"></script>
+<script src="lib/cockpit-logic.js?v=20260621b"></script>
+<script src="lib/ghl-logic.js?v=20260621b"></script>
+<script src="lms/ghl-payload.js?v=20260621b"></script>
+<script src="cockpit.js?v=20260621b"></script>
 </body></html>

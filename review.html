@@ -145,11 +145,14 @@
 <!-- Le JS est charge en non-module : toutes les var/function top-level sont
      automatiquement sur window, donc accessibles depuis les onclick inline.
      Cache-buster ?v=DATE bumpe a chaque deploy avec changement majeur. -->
-<script src="review/flags.js?v=20260620b"></script>
-<script src="review/loader.js?v=20260620b"></script>
-<script src="review/dom-builder.js?v=20260620b"></script>
-<script src="review/corrections.js?v=20260620b"></script>
-<script src="review/player.js?v=20260620b"></script>
-<script src="review.js?v=20260620b"></script>
+<!-- Logique pure partagee (testee par vitest) — DOIT charger avant flags.js/loader.js/corrections.js -->
+<script src="lib/format-utils.js?v=20260621b"></script>
+<script src="lib/review-logic.js?v=20260621b"></script>
+<script src="review/flags.js?v=20260621b"></script>
+<script src="review/loader.js?v=20260621b"></script>
+<script src="review/dom-builder.js?v=20260621b"></script>
+<script src="review/corrections.js?v=20260621b"></script>
+<script src="review/player.js?v=20260621b"></script>
+<script src="review.js?v=20260621b"></script>
 </body>
 </html>

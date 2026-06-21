@@ -4,8 +4,9 @@
 <!-- Sentry error tracking -->
 <script src="https://js.sentry-cdn.com/ab9916085bc6c9e93779c21fad74456f.min.js" crossorigin="anonymous"></script>
 <script src="sentry-init.js?v=20260509a"></script>
-<!-- LMS GHL payload generator (Phase 3) -->
-<script src="lms/ghl-payload.js?v=20260510a"></script>
+<!-- LMS GHL payload generator (Phase 3) — ghl-logic.js (logique pure) doit charger avant -->
+<script src="lib/ghl-logic.js?v=20260621b"></script>
+<script src="lms/ghl-payload.js?v=20260621b"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#0A0E1A;color:#F0F0F0;padding:20px 24px;min-height:100vh;max-width:860px;margin:0 auto}
