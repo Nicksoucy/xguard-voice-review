@@ -48,9 +48,12 @@ Promise.all([
   window.XG.api('correction_requests?md_sync_failed=eq.true&select=lesson_key,correction_note,reason,requested_by,completed_at&order=completed_at.desc'),
   window.XG.api('correction_requests?status=eq.error&select=lesson_key,correction_note,reason,attempts,requested_by,completed_at&order=completed_at.desc').catch(function(){return []}),
   window.XG.api('watchdog_heartbeat?id=eq.xguard-correction&select=status,last_heartbeat,next_jobs,version').catch(function(){return []}),
-  window.XG.api('course_lms_status?target=eq.ghl&select=course_id,status,exported_at,imported_at,live_at,updated_by').catch(function(){return []})
+  window.XG.api('course_lms_status?target=eq.ghl&select=course_id,status,exported_at,imported_at,live_at,updated_by').catch(function(){return []}),
+  // Corrections actuellement en attente (auto-traitees par la boucle) — sert au bandeau « Nitro »
+  // intelligent : on n'alarme que si du travail est coince, pas juste parce que le Mac dort.
+  window.XG.api('correction_requests?status=eq.pending&select=lesson_key').catch(function(){return []})
 ]).then(function(res){
-  DATA = { courses:res[0], lessons:res[1]||[], needsReview:res[2]||[], syncFailed:res[3]||[], failed:res[4]||[], health:(res[5]&&res[5][0])||null, lms:res[6]||[] };
+  DATA = { courses:res[0], lessons:res[1]||[], needsReview:res[2]||[], syncFailed:res[3]||[], failed:res[4]||[], health:(res[5]&&res[5][0])||null, lms:res[6]||[], pending:(res[7]||[]).length };
   render();
 }).catch(function(err){
   document.getElementById('view').innerHTML = '<div class="err">Erreur de chargement: '+esc(err.message)+'</div>';
@@ -182,16 +185,19 @@ function render(){
   else if (t==='ghl')   renderGhl(pc);
 }
 
-// Bandeau "Nitro est-il vivant ?" : rouge si la boucle de correction n'a pas battu depuis >15 min.
+// Bandeau "Nitro est-il vivant ?" intelligent : rouge SEULEMENT si une vraie erreur OU des
+// corrections sont coincées en attente sans worker. Mac endormi + file vide = note grise discrète.
 function healthBannerHtml(){
-  var st = XGCockpit.healthState(DATA && DATA.health, Date.now());
+  var st = XGCockpit.healthState(DATA && DATA.health, Date.now(), DATA && DATA.pending);
   if (!st.show) return '';
-  var msg = st.error
+  var ver = st.version && st.version !== 'correction-loop' ? ' <span style="opacity:0.7;font-weight:400;font-size:11px">· worker '+esc(st.version)+'</span>' : '';
+  if (st.level === 'idle') {
+    return '<div class="health-idle">💤 Boucle de correction au repos — rien en attente.'+ver+'</div>';
+  }
+  var msg = st.level === 'error'
     ? '⚠ La boucle de correction a signalé une erreur à son dernier passage.'
-    : '⚠ La boucle de correction n\'a pas tourné depuis '+Math.round(st.ageMin)+' min — Nitro est peut-être éteint.';
-  var sub = st.pending ? ' '+st.pending+' correction(s) en attente.' : '';
-  var ver = st.version && st.version !== 'correction-loop' ? ' <span style="opacity:0.7;font-weight:400;font-size:11px">· worker '+st.version+'</span>' : '';
-  return '<div class="health-down">'+msg+sub+ver+'</div>';
+    : '⚠ '+st.pending+' correction'+(st.pending>1?'s':'')+' en attente et la boucle ne tourne plus depuis '+Math.round(st.ageMin)+' min — réveille le Mac (ou relance la boucle).';
+  return '<div class="health-down">'+msg+ver+'</div>';
 }
 
 // ───────────────────────── Onglets Audio / Vidéo ─────────────────────────

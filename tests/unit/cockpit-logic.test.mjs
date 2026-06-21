@@ -122,27 +122,45 @@ describe('lessonName (anti-crash null lesson_key)', () => {
 
 describe('healthState', () => {
   const base = new Date('2026-06-21T12:00:00Z').getTime();
+  const ago = (min) => new Date(base - min * 60000).toISOString();
 
   it('cache le bandeau si battement recent', () => {
-    const h = { last_heartbeat: new Date(base - 5 * 60000).toISOString(), status: 'ok' };
-    expect(healthState(h, base).show).toBe(false);
+    expect(healthState({ last_heartbeat: ago(5), status: 'alive' }, base, 0).show).toBe(false);
   });
-  it('affiche le bandeau si > 15 min sans battement', () => {
-    const h = {
-      last_heartbeat: new Date(base - 30 * 60000).toISOString(),
-      status: 'ok',
-      next_jobs: { pending: 3 },
-    };
-    const st = healthState(h, base);
+  it('idle (gris) si > 15 min sans battement mais rien en attente', () => {
+    const st = healthState(
+      { last_heartbeat: ago(30), status: 'alive', next_jobs: { pending: 0 } },
+      base,
+      0,
+    );
     expect(st.show).toBe(true);
+    expect(st.level).toBe('idle');
+  });
+  it('alert (rouge) si > 15 min ET corrections en attente (fetch frais)', () => {
+    const st = healthState(
+      { last_heartbeat: ago(30), status: 'alive', next_jobs: { pending: 0 } },
+      base,
+      2,
+    );
+    expect(st.level).toBe('alert');
+    expect(st.pending).toBe(2);
+  });
+  it('alert si le dernier run du worker comptait du pending (max des deux)', () => {
+    const st = healthState(
+      { last_heartbeat: ago(30), status: 'alive', next_jobs: { pending: 3 } },
+      base,
+      0,
+    );
+    expect(st.level).toBe('alert');
     expect(st.pending).toBe(3);
   });
-  it('affiche le bandeau si statut error meme avec battement recent', () => {
-    const h = { last_heartbeat: new Date(base - 1 * 60000).toISOString(), status: 'error' };
-    expect(healthState(h, base).show).toBe(true);
+  it('error (rouge) si statut error meme avec battement recent', () => {
+    const st = healthState({ last_heartbeat: ago(1), status: 'error' }, base, 0);
+    expect(st.show).toBe(true);
+    expect(st.level).toBe('error');
   });
   it('cache si pas de heartbeat du tout', () => {
-    expect(healthState(null, base).show).toBe(false);
-    expect(healthState({}, base).show).toBe(false);
+    expect(healthState(null, base, 0).show).toBe(false);
+    expect(healthState({}, base, 0).show).toBe(false);
   });
 });
