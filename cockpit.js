@@ -145,11 +145,14 @@ function toggleRevCard(courseId){
 }
 window.toggleRevCard = toggleRevCard;
 
-// Une formation est "finie" si elle a >=1 leçon et que TOUTES ses leçons sont à done.
+// Une formation est "finie" si elle a >=1 leçon produite et que TOUTES ses leçons produites sont à done.
 function finishedCourses(pc){
   return DATA.courses.filter(function(c){
     var s = pc[c.id]; if (!s) return false;
-    var total = STAGE_ORDER.reduce(function(a,k){return a+s[k]},0) + (s.not_produced||0);
+    // Total = leçons réellement produites (on ignore les conteneurs vides sans voix,
+    // comme le badge « Prêt LMS » et le rollup de course.html). Évite qu'une formation comme MET
+    // (125 vraies leçons finies + 28 conteneurs vides) soit exclue à tort.
+    var total = STAGE_ORDER.reduce(function(a,k){return a+s[k]},0);
     return total > 0 && s.done === total;
   });
 }
@@ -240,7 +243,6 @@ function renderReviewCards(taskStages, pc, emptyMsg){
   var html = courses.map(function(c){
     var s = pc[c.id];
     var t = STAGE_ORDER.reduce(function(a,k){return a+s[k];},0);
-    var totalLes = t + (s.not_produced||0);
     var tasks = byCourse[c.id].slice().sort(function(a,b){
       return taskStages[a.pipeline_stage]-taskStages[b.pipeline_stage] || (a.sort_order||0)-(b.sort_order||0);
     });
@@ -259,7 +261,7 @@ function renderReviewCards(taskStages, pc, emptyMsg){
       +   '<span class="revbadge">'+n+' à faire</span>'
       + '</div>'
       + '<div class="stagebar revbar">'+bar+'</div>'
-      + '<div class="revsub">Voix <b>'+t+'/'+totalLes+'</b> · Vidéo <b>'+s.done+'/'+t+'</b></div>'
+      + '<div class="revsub">Voix <b>'+t+'/'+t+'</b> · Vidéo <b>'+s.done+'/'+t+'</b></div>'
       + '<div class="revbody'+(open?'':' collapsed')+'" id="revbody-'+c.id+'">'+reviewerRowsGrouped(tasks)+'</div>'
       + '</div>';
   }).join('');
@@ -343,7 +345,6 @@ function renderProduction(pc){
     var t = STAGE_ORDER.reduce(function(a,k){return a+s[k]},0);
     if (!t) return '';
     var voiceDone = t - s.voice_review - s.voice_recheck;
-    var totalLes = t + (s.not_produced||0);
     var bar = STAGE_ORDER.map(function(k){
       var p = t? s[k]/t*100 : 0;
       return p>0 ? '<span style="width:'+p+'%;background:'+STAGE[k].color+'" title="'+STAGE[k].label+': '+s[k]+'"></span>' : '';
@@ -353,7 +354,7 @@ function renderProduction(pc){
     else if (voiceDone===t){ phase='🎬 Phase vidéo'; pcls='video'; }
     else { phase='🎙️ Phase voix'; pcls='voice'; }
     var bits = [];
-    bits.push('Voix <b>'+t+'/'+totalLes+'</b>');
+    bits.push('Voix <b>'+t+'/'+t+'</b>');
     bits.push('Vidéo <b>'+s.done+'/'+t+'</b>');
     if (s.video_redo) bits.push('<span style="color:#E67E22"><b>'+s.video_redo+'</b> à refaire</span>');
     return '<a class="course" href="course.html?course='+encodeURIComponent(c.id)+'">'
