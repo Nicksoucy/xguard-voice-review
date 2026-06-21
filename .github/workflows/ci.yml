@@ -1,13 +1,14 @@
-# CI : lint JS + HTML sur PR vers gh-pages
+# CI : lint JS + HTML + tests unitaires (vitest) sur PR vers gh-pages
 #
-# Bloque le merge si syntax error ou problemes critiques.
-# Ne fait PAS de tests unitaires (vanilla JS, pas de framework dispo).
+# Bloque le merge si syntax error, problemes critiques, ou tests rouges.
+# La logique metier pure vit dans lib/*-logic.js (export double navigateur/Node) et est
+# couverte par vitest (tests/unit/). Voir README section « Tests ».
 #
 # Triggers :
-# - PR vers gh-pages → run lint, bloque merge si fail
-# - Push direct sur gh-pages → run lint en mode info (non-bloquant)
+# - PR vers gh-pages → run lint + tests, bloque merge si fail
+# - Push direct sur gh-pages / feature/** → idem
 
-name: CI - Lint JS + HTML
+name: CI - Lint + Tests
 
 on:
   pull_request:
@@ -36,11 +37,10 @@ jobs:
             eslint@8 \
             htmlhint@1
 
-      - name: Run ESLint on .js files
+      - name: Run ESLint on .js files (BLOQUANT sur erreur)
         run: |
           npx eslint --no-eslintrc --config .eslintrc.json \
-            *.js scripts/*.mjs scripts/*.js 2>/dev/null || true
-          # Pour bloquer la PR si erreur, retirer "|| true" ci-dessus
+            *.js lib/*.js review/*.js lms/*.js scripts/*.mjs scripts/*.js
 
       - name: Run HTMLHint on .html files
         run: |
@@ -61,3 +61,42 @@ jobs:
         run: |
           node --check scripts/backup-rest.mjs
           echo "✓ backup-rest.mjs syntax OK"
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Run unit tests (vitest) — BLOQUANT
+        run: npm test
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Install Playwright (Chromium)
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E + a11y tests (Supabase simule) — BLOQUANT
+        run: npm run test:e2e
