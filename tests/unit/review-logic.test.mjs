@@ -10,6 +10,7 @@ const {
   getCtx,
   getGroupCtx,
   buildCorrection,
+  rerollAllowed,
   findGroupLeader,
   findClosestFlag,
   correctionStatusLabel,
@@ -190,5 +191,35 @@ describe('buildCorrection (intention explicite)', () => {
   it('respecte une flèche déjà tapée', () => {
     const r = buildCorrection({ category: 'typo', word: 'a', value: 'a → à' });
     expect(r.correctionNote).toBe('a → à');
+  });
+});
+
+describe('rerollAllowed (le re-roll n’avale pas une correction tapée)', () => {
+  it('autorisé si rien de tapé', () => {
+    expect(rerollAllowed({ value: '', note: '' })).toBe(true);
+    expect(rerollAllowed({})).toBe(true);
+  });
+  it('BLOQUÉ si un remplacement est tapé (bug molette)', () => {
+    expect(rerollAllowed({ value: 'manette', note: '' })).toBe(false);
+  });
+  it('BLOQUÉ si une note est saisie', () => {
+    expect(rerollAllowed({ value: '', note: 'comme le verbe' })).toBe(false);
+  });
+});
+
+// Régression nommée : les deux cas qui ont piégé Nicolas ne doivent plus jamais se reproduire.
+describe('RÉGRESSION molette/est (capture de l’intention)', () => {
+  it('molette voulu manette = faute de frappe -> change le MOT (jamais un re-roll)', () => {
+    const c = buildCorrection({ category: 'typo', word: 'molette', value: 'manette' });
+    expect(c.intent).toBe('word');
+    expect(c.correctionNote).toBe('molette → manette');
+    // et le bouton re-roll refuserait, car du texte est saisi :
+    expect(rerollAllowed({ value: 'manette' })).toBe(false);
+  });
+  it('est mal prononcé sans cible -> prononciation (humain tranche, pas d’invention type "este")', () => {
+    const c = buildCorrection({ category: 'pronunciation', word: 'est', value: '', note: 'le verbe' });
+    expect(c.intent).toBe('pronunciation');
+    expect(c.correctionNote).toBe('[prononciation] est');
+    expect(c.reviewerNote).toBe('le verbe');
   });
 });

@@ -68,7 +68,7 @@ function submitRepeat(ii){
   // c'est une vraie correction -> ne pas l'avaler dans un re-roll aveugle (bug molette).
   var input = document.getElementById('rfix'+ii);
   var val = (input && input.value || '').trim();
-  if (val || (d.note || '').trim()) {
+  if (!XGReview.rerollAllowed({ value: val, note: d.note })) {
     setCorrectionStatusEl(ii, 'local', 'Tu as tapé une correction — clique « Corriger ». Le 🔁 ne sert que si la voix bégaie, sans texte.');
     return;
   }
