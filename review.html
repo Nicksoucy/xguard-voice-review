@@ -56,7 +56,7 @@
     <span><i style="background:#27AE60"></i> Corrige</span>
     <span><i style="background:#A855F7"></i> Mal corrige (reflag)</span>
   </div>
-  <div class="panel-hint">Clique un mot qui sonne mal pour le <b>marquer</b>. Si tu connais la correction, tape-la et clique <b>Corriger</b> pour l'envoyer. Pour changer <b>toute une phrase</b>, clique le crayon ✏️ devant la phrase.</div>
+  <div class="panel-hint">Clique un mot qui sonne mal pour le <b>marquer</b>. Choisis ensuite ce qui cloche : <b>faute de frappe</b> (tape le bon mot, ex « manette ») ou <b>prononciation</b> (le mot est bon mais mal dit — note comment ça doit sonner), puis clique <b>Corriger</b>. Le bouton <b>🔁</b> ne sert que si la voix <b>bégaie/répète</b> (sans rien taper). Pour changer <b>toute une phrase</b>, clique le crayon ✏️.</div>
   <div id="fl"><div class="empty">Clique sur les mots qui sonnent mal</div></div>
   <div class="acts">
     <button class="btn br" onclick="saveReview(false)" title="Enregistre ta revue (les mots marqués). Les corrections envoyées via Corriger sont déjà parties.">Sauvegarder</button>
@@ -146,13 +146,13 @@
      automatiquement sur window, donc accessibles depuis les onclick inline.
      Cache-buster ?v=DATE bumpe a chaque deploy avec changement majeur. -->
 <!-- Logique pure partagee (testee par vitest) — DOIT charger avant flags.js/loader.js/corrections.js -->
-<script src="lib/format-utils.js?v=20260621b"></script>
-<script src="lib/review-logic.js?v=20260621b"></script>
-<script src="review/flags.js?v=20260621b"></script>
-<script src="review/loader.js?v=20260621b"></script>
-<script src="review/dom-builder.js?v=20260621b"></script>
-<script src="review/corrections.js?v=20260621b"></script>
-<script src="review/player.js?v=20260621b"></script>
-<script src="review.js?v=20260621b"></script>
+<script src="lib/format-utils.js?v=20260621c"></script>
+<script src="lib/review-logic.js?v=20260621c"></script>
+<script src="review/flags.js?v=20260621c"></script>
+<script src="review/loader.js?v=20260621c"></script>
+<script src="review/dom-builder.js?v=20260621c"></script>
+<script src="review/corrections.js?v=20260621c"></script>
+<script src="review/player.js?v=20260621c"></script>
+<script src="review.js?v=20260621c"></script>
 </body>
 </html>

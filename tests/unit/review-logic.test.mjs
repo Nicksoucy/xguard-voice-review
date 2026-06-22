@@ -9,6 +9,7 @@ const {
   isHidden,
   getCtx,
   getGroupCtx,
+  buildCorrection,
   findGroupLeader,
   findClosestFlag,
   correctionStatusLabel,
@@ -159,5 +160,35 @@ describe('computeSentenceRanges', () => {
     const r = computeSentenceRanges(W);
     expect(r[0]).toEqual({ start: 0, end: 3 });
     expect(r[2]).toEqual({ start: 30, end: 31 });
+  });
+});
+
+describe('buildCorrection (intention explicite)', () => {
+  it('faute de frappe : remplacement obligatoire -> intent word', () => {
+    const r = buildCorrection({ category: 'typo', word: 'molette', value: 'manette' });
+    expect(r).toMatchObject({ ok: true, intent: 'word', correctionNote: 'molette → manette' });
+  });
+  it('faute de frappe sans remplacement -> erreur, pas d’envoi', () => {
+    const r = buildCorrection({ category: 'typo', word: 'molette', value: '' });
+    expect(r.ok).toBe(false);
+    expect(r.error).toBeTruthy();
+  });
+  it('prononciation : note seule suffit -> intent pronunciation', () => {
+    const r = buildCorrection({ category: 'pronunciation', word: 'est', value: '', note: 'comme le verbe' });
+    expect(r).toMatchObject({ ok: true, intent: 'pronunciation', correctionNote: '[prononciation] est', reviewerNote: 'comme le verbe' });
+  });
+  it('prononciation : indice tapé -> mot → indice', () => {
+    const r = buildCorrection({ category: 'pronunciation', word: 'CNESST', value: 'C-N-E-S-S-T' });
+    expect(r).toMatchObject({ ok: true, intent: 'pronunciation', correctionNote: 'CNESST → C-N-E-S-S-T' });
+  });
+  it('prononciation sans indice ni note -> erreur', () => {
+    expect(buildCorrection({ category: 'pronunciation', word: 'est', value: '', note: '' }).ok).toBe(false);
+  });
+  it('phrase à réécrire -> redirige vers le modal de phrase', () => {
+    expect(buildCorrection({ category: 'rewrite', word: 'x' })).toMatchObject({ ok: false, redirect: 'sentence' });
+  });
+  it('respecte une flèche déjà tapée', () => {
+    const r = buildCorrection({ category: 'typo', word: 'a', value: 'a → à' });
+    expect(r.correctionNote).toBe('a → à');
   });
 });

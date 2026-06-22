@@ -7,16 +7,21 @@ function submitCorrectionRequest(ii){
   if (!d) return;
   var input = document.getElementById('rfix'+ii);
   var val = (input && input.value || '').trim();
-  if (!val) { setCorrectionStatusEl(ii, 'local', 'Tape la correction voulue d\'abord'); return; }
+  // L'INTENTION vient de la categorie du flag (prononciation / faute de frappe / phrase) + de la
+  // note libre. Centralise et teste dans XGReview.buildCorrection.
+  var built = XGReview.buildCorrection({ category: d.category || 'pronunciation', word: d.word, value: val, note: d.note });
+  if (built.redirect === 'sentence') { if (d.sentenceIndex != null) openSentenceModal(d.sentenceIndex); return; }
+  if (!built.ok) { setCorrectionStatusEl(ii, 'local', built.error); return; }
   var rn = (localStorage.getItem('rn') || 'Anonyme').trim();
-  // Si Hela n'a pas mis de fleche, on prefixe avec le mot flagge -> "mot → correction".
-  var note = /(?:->|=>|→|➜)/.test(val) ? val : ((d.word||'') + ' → ' + val);
+  var note = built.correctionNote;
   var payload = {
     lesson_key: L.lesson_key,
     phrase_index: ii,
     sentence_index: (d.sentenceIndex != null ? d.sentenceIndex : null),
     phrase_text: d.context || null,
     correction_note: note,
+    intent: built.intent,            // 'word' | 'pronunciation' — Nitro route dessus au lieu de deviner
+    reviewer_note: built.reviewerNote, // la note libre voyage enfin avec la correction
     requested_by: rn
   };
   setCorrectionStatusEl(ii, 'pending', '⏳ Envoi…');
@@ -59,6 +64,14 @@ function submitRepeat(ii){
   if (!L) return;
   var d = flags.get(ii);
   if (!d) return;
+  // Garde-fou : le re-roll IGNORE tout texte. Si Hela a tapé un remplacement ou une note,
+  // c'est une vraie correction -> ne pas l'avaler dans un re-roll aveugle (bug molette).
+  var input = document.getElementById('rfix'+ii);
+  var val = (input && input.value || '').trim();
+  if (val || (d.note || '').trim()) {
+    setCorrectionStatusEl(ii, 'local', 'Tu as tapé une correction — clique « Corriger ». Le 🔁 ne sert que si la voix bégaie, sans texte.');
+    return;
+  }
   var rn = (localStorage.getItem('rn') || 'Anonyme').trim();
   var payload = {
     lesson_key: L.lesson_key,
@@ -66,6 +79,7 @@ function submitRepeat(ii){
     sentence_index: (d.sentenceIndex != null ? d.sentenceIndex : null),
     phrase_text: d.context || null,
     correction_note: '[répétition]',
+    intent: 'glitch',
     requested_by: rn
   };
   setCorrectionStatusEl(ii, 'pending', '⏳ Envoi…');
