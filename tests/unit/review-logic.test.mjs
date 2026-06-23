@@ -174,9 +174,12 @@ describe('buildCorrection (intention explicite)', () => {
     expect(r.ok).toBe(false);
     expect(r.error).toBeTruthy();
   });
-  it('prononciation : note seule suffit -> intent pronunciation', () => {
+  it('prononciation : note seule suffit -> intent pronunciation, note = mot seul (jamais de placeholder injectable)', () => {
     const r = buildCorrection({ category: 'pronunciation', word: 'est', value: '', note: 'comme le verbe' });
-    expect(r).toMatchObject({ ok: true, intent: 'pronunciation', correctionNote: '[prononciation] est', reviewerNote: 'comme le verbe' });
+    expect(r).toMatchObject({ ok: true, intent: 'pronunciation', correctionNote: 'est', reviewerNote: 'comme le verbe' });
+    // Régression bug Hela 2026-06-23 : le correction_note ne doit JAMAIS contenir "[prononciation]"
+    // (un worker pourrait l'injecter à voix haute). Le mot seul + l'intention suffisent.
+    expect(r.correctionNote).not.toContain('[');
   });
   it('prononciation : indice tapé -> mot → indice', () => {
     const r = buildCorrection({ category: 'pronunciation', word: 'CNESST', value: 'C-N-E-S-S-T' });
@@ -219,7 +222,7 @@ describe('RÉGRESSION molette/est (capture de l’intention)', () => {
   it('est mal prononcé sans cible -> prononciation (humain tranche, pas d’invention type "este")', () => {
     const c = buildCorrection({ category: 'pronunciation', word: 'est', value: '', note: 'le verbe' });
     expect(c.intent).toBe('pronunciation');
-    expect(c.correctionNote).toBe('[prononciation] est');
+    expect(c.correctionNote).toBe('est'); // mot seul, jamais "[prononciation] est" (non injectable)
     expect(c.reviewerNote).toBe('le verbe');
   });
 });
