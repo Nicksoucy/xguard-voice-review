@@ -48,7 +48,7 @@ Promise.all([
   window.XG.api('correction_requests?md_sync_failed=eq.true&select=lesson_key,correction_note,reason,requested_by,completed_at&order=completed_at.desc'),
   window.XG.api('correction_requests?status=eq.error&select=lesson_key,correction_note,reason,attempts,requested_by,completed_at&order=completed_at.desc').catch(function(){return []}),
   window.XG.api('watchdog_heartbeat?id=eq.xguard-correction&select=status,last_heartbeat,next_jobs,version').catch(function(){return []}),
-  window.XG.api('course_lms_status?target=eq.ghl&select=course_id,status,exported_at,imported_at,live_at,updated_by').catch(function(){return []}),
+  window.XG.api('course_lms_status?target=eq.ghl&select=course_id,status,exported_at,imported_at,live_at,updated_by,folder').catch(function(){return []}),
   // Corrections actuellement en attente (auto-traitees par la boucle) — sert au bandeau « Nitro »
   // intelligent : on n'alarme que si du travail est coince, pas juste parce que le Mac dort.
   window.XG.api('correction_requests?status=eq.pending&select=lesson_key').catch(function(){return []})
@@ -367,14 +367,28 @@ function renderGhl(pc){
   var fin = finishedCourses(pc).sort(function(a,b){ return (a.sort_order||0)-(b.sort_order||0); });
   if (!fin.length){ document.getElementById('view').innerHTML = '<div class="allgood">Aucune formation prête à importer pour l\'instant. Termine d\'abord la révision audio + vidéo.</div>'; return; }
   var lm = lmsMap();
-  var html = '<div class="sec"><div class="hint">Formations 100% terminées. Exporte le JSON, uploade-le dans GoHighLevel Memberships, puis marque-la comme importée.</div></div>';
-  html += fin.map(function(c){
+  var folderOf = function(c){ var r=lm[c.id]; return (r && r.folder) ? r.folder : ''; };
+
+  // Liste des dossiers existants -> autocomplétion (pas besoin de les pré-créer).
+  var allFolders = [];
+  fin.forEach(function(c){ var f=folderOf(c); if (f && allFolders.indexOf(f)===-1) allFolders.push(f); });
+  allFolders.sort(function(a,b){ return a.localeCompare(b,'fr'); });
+  var datalist = '<datalist id="ghl-folders">' + allFolders.map(function(f){ return '<option value="'+esc(f)+'">'; }).join('') + '</datalist>';
+
+  // Grouper par dossier : dossiers alpha d'abord, « Sans dossier » en dernier.
+  var groups = {};
+  fin.forEach(function(c){ (groups[folderOf(c)] = groups[folderOf(c)]||[]).push(c); });
+  var folderKeys = Object.keys(groups).filter(function(f){return f;}).sort(function(a,b){ return a.localeCompare(b,'fr'); });
+  if (groups['']) folderKeys.push('');
+
+  function cardHtml(c){
     var rec = lm[c.id], st = gStatusOf(rec);
     var meta = '';
     if (rec){
       if (rec.imported_at) meta = 'Importé le '+new Date(rec.imported_at).toLocaleDateString('fr-CA')+(rec.updated_by?' par '+esc(rec.updated_by):'');
       else if (rec.exported_at) meta = 'Exporté le '+new Date(rec.exported_at).toLocaleDateString('fr-CA')+' — à uploader dans GHL';
     }
+    var curFolder = (rec && rec.folder) ? rec.folder : '';
     return '<div class="ghlcard" id="ghlcard-'+c.id+'">'
       + '<div class="ghlhead"><span class="ghltitle">'+esc(c.title)+'</span><span class="gstat '+st.key+'">'+st.label+'</span></div>'
       + (meta?'<div class="ghlmeta">'+meta+'</div>':'')
@@ -383,9 +397,22 @@ function renderGhl(pc){
       +   '<button class="ghlbtn" onclick="ghlMark(\''+c.id+'\',\'imported\')">✅ Marquer importé</button>'
       +   '<button class="ghlbtn" onclick="ghlMark(\''+c.id+'\',\'live\')">🌐 Marquer en ligne</button>'
       + '</div>'
+      + '<div class="ghlmeta" style="margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+      +   '<span>📁 Dossier :</span>'
+      +   '<input class="ghlfolder" list="ghl-folders" value="'+esc(curFolder)+'" placeholder="aucun"'
+      +     ' onchange="setGhlFolder(\''+c.id+'\', this.value)"'
+      +     ' style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);color:#F0F0F0;border-radius:6px;padding:4px 8px;font-family:inherit;font-size:12px;max-width:220px">'
+      + '</div>'
       + '<div class="ghlmeta" id="ghlmsg-'+c.id+'" style="margin-top:8px"></div>'
       + '</div>';
-  }).join('');
+  }
+
+  var html = datalist + '<div class="sec"><div class="hint">Formations 100% terminées, rangées par dossier. Exporte le JSON, uploade-le dans GoHighLevel Memberships, puis marque-la comme importée. Tape un dossier sur une formation pour la regrouper (l\'autocomplétion propose les dossiers existants).</div></div>';
+  folderKeys.forEach(function(f){
+    var label = f ? '📁 '+esc(f) : '📂 Sans dossier';
+    html += '<div class="ghlfolderhead" style="margin:18px 0 9px;font-size:13px;font-weight:700;color:#CBD5E1;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:5px">'+label+' <span style="color:#7681a0;font-weight:500">('+groups[f].length+')</span></div>';
+    html += groups[f].map(cardHtml).join('');
+  });
   document.getElementById('view').innerHTML = html;
 }
 
@@ -434,3 +461,15 @@ function ghlMark(courseId, status){
   }).catch(function(e){ ghlMsg(courseId, 'Erreur : '+e.message); });
 }
 window.ghlMark = ghlMark;
+
+// Assigner / changer le dossier d'une formation (course_lms_status.folder). Saisie libre, vide = aucun.
+function setGhlFolder(courseId, value){
+  var folder = (value||'').trim() || null;
+  ghlMsg(courseId, 'Enregistrement du dossier…');
+  upsertCourseLms(courseId, { folder: folder }).then(function(rows){
+    var rec = (rows&&rows[0]) || Object.assign({course_id:courseId, target:'ghl', folder:folder});
+    DATA.lms = DATA.lms.filter(function(x){return x.course_id!==courseId}); DATA.lms.push(rec);
+    render();
+  }).catch(function(e){ ghlMsg(courseId, 'Erreur dossier : '+e.message); });
+}
+window.setGhlFolder = setGhlFolder;
