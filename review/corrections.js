@@ -126,17 +126,37 @@ function pollCorrectionStatus(){
     .then(function(r){ return r.json(); })
     .then(function(rows){
       if (!Array.isArray(rows)) return;
-      var seen = {}, anyActive = false;
+      var seen = {}, anyActive = false, justDone = false;
       rows.forEach(function(row){
         if (row.phrase_index == null || seen[row.phrase_index]) return;
         seen[row.phrase_index] = 1; // rows triees desc -> on garde la plus recente
+        var prev = correctionStatuses[row.phrase_index];
+        // Transition d'un etat ACTIF -> 'done' = une correction vient d'aboutir : l'audio a
+        // (peut-etre) ete refait. On declenche un rechargement cible pour que Hela entende la
+        // version FRAICHE (avant : elle re-ecoutait l'ancienne voix et croyait que c'etait mal
+        // corrige — reponses Hela 2026-06-24).
+        if (row.status === 'done' && prev && (prev.status === 'pending' || prev.status === 'processing')) justDone = true;
         correctionStatuses[row.phrase_index] = {status:row.status, completed_at:row.completed_at, reason:row.reason};
         if (row.status === 'pending' || row.status === 'processing') anyActive = true;
       });
       applyCorrectionStatuses();
+      if (justDone) refreshAfterRegen();
       if (anyActive) startCorrectionPolling();
       else if (correctionPollTimer) { clearInterval(correctionPollTimer); correctionPollTimer = null; }
     }).catch(function(){});
+}
+
+// Une correction vient d'aboutir : recharger l'audio frais + les phrases regenerees SANS recharger
+// la page. On reutilise les loaders existants, idempotents :
+//  - loadStatus() ne re-swappe au.src que si voiceover_uploaded_at a change (garde ?v=), en
+//    preservant la position de lecture et l'etat play/pause. Si l'audio n'a pas change (ex. worker
+//    qui n'a pas re-uploade), il ne se passe rien -> on n'annonce pas a tort "reecoute".
+//  - loadRegenIndices() repasse la phrase corrigee au vert + active le filtre "a revoir".
+// Toast non bloquant pour prevenir Hela que la voix a change.
+function refreshAfterRegen(){
+  try { if (typeof loadStatus === 'function') loadStatus(); } catch (e) {}
+  try { if (typeof loadRegenIndices === 'function') loadRegenIndices(); } catch (e) {}
+  try { if (typeof showMsg === 'function') showMsg('🔄 Une phrase vient d’être refaite — ré-écoute-la', 'saving'); } catch (e) {}
 }
 
 function startCorrectionPolling(){

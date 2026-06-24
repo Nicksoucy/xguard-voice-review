@@ -188,6 +188,19 @@ describe('buildCorrection (intention explicite)', () => {
   it('prononciation sans indice ni note -> erreur', () => {
     expect(buildCorrection({ category: 'pronunciation', word: 'est', value: '', note: '' }).ok).toBe(false);
   });
+  it('prononciation : respelling identique au mot -> erreur (bug Hela "grand → grand")', () => {
+    // Hela retape "grand" pour "grand" : aucun son fourni -> on refuse au lieu de produire "grand → grand".
+    const r = buildCorrection({ category: 'pronunciation', word: 'grand', value: 'grand' });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/SON/);
+  });
+  it('prononciation : identité insensible casse/accents/ponctuation -> erreur', () => {
+    expect(buildCorrection({ category: 'pronunciation', word: 'Grand', value: 'grand,' }).ok).toBe(false);
+  });
+  it('prononciation : vrai respelling différent -> passe normalement', () => {
+    const r = buildCorrection({ category: 'pronunciation', word: 'grand', value: 'grann' });
+    expect(r).toMatchObject({ ok: true, intent: 'pronunciation', correctionNote: 'grand → grann' });
+  });
   it('phrase à réécrire -> redirige vers le modal de phrase', () => {
     expect(buildCorrection({ category: 'rewrite', word: 'x' })).toMatchObject({ ok: false, redirect: 'sentence' });
   });

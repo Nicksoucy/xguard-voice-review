@@ -413,7 +413,7 @@ function renderFlags(){
     // - typo : le scriptwriter a ecrit un mot qui n'existe pas -> corriger le .md, NE PAS enrichir dict
     // - rewrite : la phrase entiere est mal tournee -> phrase_patterns Supabase
     var currentCat = d.category || 'pronunciation';
-    var catSelect = '<select class="rcat" onchange="flags.get('+ii+').category=this.value;scheduleAutoSave()" title="Categorie du flag">'
+    var catSelect = '<select class="rcat" onchange="flags.get('+ii+').category=this.value;updateRfixPlaceholder('+ii+',this.value);scheduleAutoSave()" title="Categorie du flag">'
       + '<option value="pronunciation" title="Mot bien écrit mais mal prononcé — enrichir le dictionnaire"' + (currentCat==='pronunciation'?' selected':'') + '>prononciation</option>'
       + '<option value="typo" title="Mot mal écrit dans le script — corriger le texte source"' + (currentCat==='typo'?' selected':'') + '>faute de frappe</option>'
       + '<option value="rewrite" title="Toute la phrase est mal tournée — utilise plutôt le crayon de la phrase"' + (currentCat==='rewrite'?' selected':'') + '>phrase a reecrire</option>'
@@ -444,7 +444,7 @@ function renderFlags(){
     var phraseLink = (d.sentenceIndex != null)
       ? '<button class="rfixbtn rphrase" title="Changer TOUTE la phrase (reformuler le texte source)" onclick="openSentenceModal('+d.sentenceIndex+')">✏️ corriger la phrase</button>'
       : '';
-    var rfixBlock = '<span class="rfixwrap"><input class="rfix" id="rfix'+ii+'" placeholder="Le bon mot (ex : changeons) — la flèche est ajoutée auto"><button class="rfixbtn" title="Tu as le bon texte : envoyer la correction (régénération auto)" onclick="submitCorrectionRequest('+ii+')">Corriger</button><button class="rfixbtn rpt" title="La voix répète ou bégaie ce mot — refaire ce bout (sans changer le texte)" onclick="submitRepeat('+ii+')">🔁 Re-générer</button>'+phraseLink+'<span class="rfixstatus" id="rfixstatus'+ii+'"></span></span>';
+    var rfixBlock = '<span class="rfixwrap"><input class="rfix" id="rfix'+ii+'" placeholder="'+rfixPlaceholder(currentCat)+'"><button class="rfixbtn" title="Tu as le bon texte : envoyer la correction (régénération auto)" onclick="submitCorrectionRequest('+ii+')">Corriger</button><button class="rfixbtn rpt" title="La voix répète ou bégaie ce mot — refaire ce bout (sans changer le texte)" onclick="submitRepeat('+ii+')">🔁 Re-générer</button>'+phraseLink+'<span class="rfixstatus" id="rfixstatus'+ii+'"></span></span>';
     // Badge clair pour les flags REGLES (visibles seulement via le toggle
     // "afficher les corriges") : Hela sait quoi en penser sans deviner.
     var regleBadge = '';
@@ -458,6 +458,20 @@ function renderFlags(){
   // Re-applique les statuts de correction connus (renderFlags efface le DOM a chaque appel).
   applyCorrectionStatuses();
   if (!window._corrInit) { window._corrInit = true; pollCorrectionStatus(); }
+}
+
+// Placeholder du champ de correction selon la categorie : prononciation -> le SON (ex "grann"),
+// faute de frappe -> le bon MOT. Evite que Hela retape le mot pour la prononciation, ce qui
+// donnait "grand -> grand" inutile (bug 2026-06-23). updateRfixPlaceholder rafraichit a la volee
+// quand elle change la categorie dans le menu deroulant.
+function rfixPlaceholder(cat){
+  return cat === 'pronunciation'
+    ? 'Ecris le SON voulu (ex : grann) — pas le mot tel quel'
+    : 'Le bon mot (ex : changeons) — la fleche est ajoutee auto';
+}
+function updateRfixPlaceholder(ii, cat){
+  var rf = document.getElementById('rfix'+ii);
+  if (rf) rf.placeholder = rfixPlaceholder(cat);
 }
 
 // ============================================================
