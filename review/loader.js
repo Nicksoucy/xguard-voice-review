@@ -289,6 +289,7 @@ function pickBestTimestamps(candidates){
   loadExistingReview();
   loadStatus();
   loadHistory();
+  try { if (typeof loadCorrectionsLog === 'function') loadCorrectionsLog(); } catch (e) {}
   loadRegenIndices();
   checkCourseArchived();
 }

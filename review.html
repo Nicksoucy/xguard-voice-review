@@ -32,6 +32,14 @@
   <div class="history-list" id="history-list"></div>
 </div>
 
+<div class="history-panel hidden" id="corrlog-panel">
+  <div class="history-header" onclick="document.getElementById('corrlog-panel').classList.toggle('open')">
+    <span id="corrlog-title">Corrections faites</span>
+    <span class="history-arrow">&#9660;</span>
+  </div>
+  <div class="history-list" id="corrlog-list"></div>
+</div>
+
 <div class="player">
   <button class="pb" id="bp" onclick="tg()">&#9654;</button>
   <div class="pbar" id="pbar" onmousedown="seek(event)"><div class="pfill" id="pfill"></div></div>
@@ -149,9 +157,9 @@
 <script src="lib/format-utils.js?v=20260621d"></script>
 <script src="lib/review-logic.js?v=20260624a"></script>
 <script src="review/flags.js?v=20260621d"></script>
-<script src="review/loader.js?v=20260621d"></script>
+<script src="review/loader.js?v=20260624b"></script>
 <script src="review/dom-builder.js?v=20260624a"></script>
-<script src="review/corrections.js?v=20260624a"></script>
+<script src="review/corrections.js?v=20260624b"></script>
 <script src="review/player.js?v=20260621d"></script>
 <script src="review.js?v=20260621d"></script>
 </body>

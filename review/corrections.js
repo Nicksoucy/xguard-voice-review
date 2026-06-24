@@ -140,6 +140,7 @@ function pollCorrectionStatus(){
         if (row.status === 'pending' || row.status === 'processing') anyActive = true;
       });
       applyCorrectionStatuses();
+      loadCorrectionsLog();
       if (justDone) refreshAfterRegen();
       if (anyActive) startCorrectionPolling();
       else if (correctionPollTimer) { clearInterval(correctionPollTimer); correctionPollTimer = null; }
@@ -157,6 +158,41 @@ function refreshAfterRegen(){
   try { if (typeof loadStatus === 'function') loadStatus(); } catch (e) {}
   try { if (typeof loadRegenIndices === 'function') loadRegenIndices(); } catch (e) {}
   try { if (typeof showMsg === 'function') showMsg('🔄 Une phrase vient d’être refaite — ré-écoute-la', 'saving'); } catch (e) {}
+}
+
+// Journal LISIBLE des corrections de cette lecon : quoi a ete flagge/corrige, le resultat, le
+// mecanisme, qui et quand. Repond au besoin de visibilite « voir ce qui a ete fait » (Nicolas
+// 2026-06-24). Lit correction_requests (toutes les infos y sont deja) et l'affiche dans un panneau
+// repliable, comme l'Historique des revisions.
+function corrlogEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+function loadCorrectionsLog(){
+  if (!L) return;
+  fetch(API+'/correction_requests?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=correction_note,intent,status,applied_mode,completed_at,created_at,requested_by,sentence_index&order=created_at.desc&limit=60', {headers:H})
+    .then(function(r){ return r.json(); })
+    .then(function(rows){
+      var panel = document.getElementById('corrlog-panel');
+      var list = document.getElementById('corrlog-list');
+      if (!panel || !list) return;
+      if (!Array.isArray(rows) || !rows.length) { panel.classList.add('hidden'); return; }
+      document.getElementById('corrlog-title').textContent = 'Corrections faites (' + rows.length + ')';
+      var STAT = { done:'✅ corrigé', pending:'⏳ en file', processing:'⚙️ en cours', needs_review:'👁️ à trancher (Nicolas)', error:'⚠️ erreur' };
+      var MODE = { 'dict-global':'dico (partout)', 'contextual':'cette phrase', 'accent-unique':'accent', glitch:'re-génération' };
+      list.innerHTML = rows.map(function(r){
+        var raw = r.correction_note || '';
+        var what;
+        if (/^\s*\[\s*r[ée]p[ée]t/i.test(raw)) what = '🔁 bégaiement refait';
+        else if (r.intent === 'pronunciation') what = '🗣️ prononciation : ' + corrlogEsc(raw);
+        else if (r.intent === 'word') what = '✏️ mot : ' + corrlogEsc(raw);
+        else what = corrlogEsc(raw) || '—';
+        var st = STAT[r.status] || corrlogEsc(r.status);
+        var mode = MODE[r.applied_mode] ? ' <span style="color:#7681a0">('+MODE[r.applied_mode]+')</span>' : '';
+        var phr = (r.sentence_index!=null) ? ('<span style="color:#7681a0">phrase #'+r.sentence_index+'</span> · ') : '';
+        var when = r.completed_at || r.created_at;
+        return '<div class="history-row">'+phr+'<strong>'+what+'</strong> — '+st+mode
+          + '<br><span style="color:#7681a0;font-size:11px">'+(when?fmtDate(when):'')+' · '+corrlogEsc(r.requested_by||'?')+'</span></div>';
+      }).join('');
+      panel.classList.remove('hidden');
+    }).catch(function(){});
 }
 
 function startCorrectionPolling(){
