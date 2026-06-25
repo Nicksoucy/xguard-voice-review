@@ -267,13 +267,23 @@ function approveAllGreens(){
   }
 }
 
-// Écouter la phrase corrigée : joue depuis le début de la phrase du flag (modele Nicolas).
+// Écouter SEULEMENT la phrase corrigée : joue de son début à sa fin, puis s'arrête (ne continue PAS
+// dans la suite — demande Nicolas). Un seul segment à la fois.
 function listenSentence(si){
   if (si == null || typeof sentenceRanges === 'undefined' || !sentenceRanges[si]) {
     if (typeof showMsg === 'function') showMsg('Phrase introuvable (timestamps pas prêts ?)', '');
     return;
   }
-  if (typeof jmp === 'function') jmp(sentenceRanges[si].start);
+  if (typeof au === 'undefined' || !au) return;
+  var r = sentenceRanges[si];
+  // Retirer un arrêt de segment précédent (si on clique une autre phrase).
+  if (window._segStop) { try { au.removeEventListener('timeupdate', window._segStop); } catch (e) {} window._segStop = null; }
+  au.currentTime = Math.max(0, r.start);
+  window._segStop = function(){
+    if (au.currentTime >= r.end - 0.02) { au.pause(); au.removeEventListener('timeupdate', window._segStop); window._segStop = null; }
+  };
+  au.addEventListener('timeupdate', window._segStop);
+  if (au.paused) au.play();
 }
 
 // Approuver UNE correction (version ciblée d'approveAllGreens) : valide la phrase corrigée du flag ii.
