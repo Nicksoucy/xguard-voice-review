@@ -2,6 +2,8 @@ function jmp(t){if(!au)return;au.currentTime=Math.max(0,t-0.5);if(au.paused)au.p
 
 // Auto-save (D4) : debounce de 2s apres la derniere modification
 function scheduleAutoSave(){
+  // Mode lecture (on regarde la review d'un autre reviseur) : ne rien enregistrer sous notre nom.
+  if (window.viewingOtherReview) return;
   dirty = true;
   if (saveTimer) clearTimeout(saveTimer);
   showMsg('●', 'saving');
@@ -12,6 +14,11 @@ function scheduleAutoSave(){
 
 function saveReview(approved, isAuto){
   if (!L) return;
+  // Lecture seule : on affiche la review d'un AUTRE reviseur -> on ne l'ecrase pas sous notre nom.
+  if (window.viewingOtherReview) {
+    if (!isAuto) showMsg('\u{1F441}️ Lecture seule — c\'est la review de ' + window.viewingOtherReview, '');
+    return;
+  }
   var rn = (localStorage.getItem('rn') || 'Anonyme').trim();
   var lessonId = L.lesson_key.split('/').slice(1).join('/');
   if (isAuto) showMsg('Sauvegarde...', 'saving');

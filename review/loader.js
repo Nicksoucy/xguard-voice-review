@@ -22,11 +22,26 @@ function resolveLesson(cb){
 
 function loadExistingReview(){
   var rn = (localStorage.getItem('rn') || 'Anonyme').trim();
-  fetch(API+'/voice_reviews?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&reviewer_name=eq.'+encodeURIComponent(rn)+'&select=*',{headers:H})
+  // Charger TOUTES les reviews de la lecon (plus seulement la sienne). On prefere la sienne si elle
+  // existe ; sinon on AFFICHE celle d'un autre reviseur (ex. Hela) pour que Nicolas voie son travail.
+  // (Avant : filtre reviewer_name=eq.moi -> on ne voyait jamais les flags des autres.)
+  fetch(API+'/voice_reviews?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=*&order=updated_at.desc',{headers:H})
     .then(function(r){return r.json()})
     .then(function(rows){
-      if (!rows.length) return;
-      var rev = rows[0];
+      if (!Array.isArray(rows) || !rows.length) { window.viewingOtherReview = null; return; }
+      var mine = null, other = null;
+      for (var i = 0; i < rows.length; i++) {
+        if (rows[i].reviewer_name === rn) { if (!mine) mine = rows[i]; }
+        else if (!other && Array.isArray(rows[i].flags) && rows[i].flags.length) other = rows[i];
+      }
+      var rev = mine || other || rows[0];
+      // Mode LECTURE si on affiche la review d'un AUTRE reviseur : on ne sauvegarde pas sous son nom.
+      if (rev && rev.reviewer_name !== rn) {
+        window.viewingOtherReview = rev.reviewer_name;
+        if (typeof showViewingBanner === 'function') showViewingBanner(rev.reviewer_name);
+      } else {
+        window.viewingOtherReview = null;
+      }
       if (Array.isArray(rev.flags)) {
         rev.flags.forEach(function(f){
           // Rafraichir le contexte depuis les timestamps actuels — MAIS seulement si le
@@ -66,6 +81,7 @@ function loadExistingReview(){
       if (Array.isArray(rev.glitches)) glitches = rev.glitches.slice();
       renderFlags();
       renderGlitches();
+      if (typeof applyCorrectionStatuses === 'function') applyCorrectionStatuses();
     })
     .catch(function(e){
       // Echec reseau/JSON : on degrade proprement (les mots sont deja affiches, la page reste
@@ -73,6 +89,18 @@ function loadExistingReview(){
       if (typeof captureWithContext === 'function') captureWithContext(e, {action:'loadExistingReview', lesson_key: L && L.lesson_key});
       else if (typeof console !== 'undefined') console.error('loadExistingReview failed', e);
     });
+}
+
+// Bandeau « tu regardes la review d'un autre reviseur » (ex. Nicolas qui supervise Hela).
+// Mode LECTURE : on voit ses flags + le panneau « Corrections faites », mais rien ne s'enregistre
+// sous le nom de l'observateur (pas d'ecrasement du travail d'Hela).
+function showViewingBanner(name){
+  var el = document.getElementById('viewing-banner');
+  if (!el) return;
+  el.innerHTML = '<strong>\u{1F441}️ Tu regardes la review de ' + (name || '?') + '</strong><br>'
+    + 'Lecture seule : tu vois ses mots flaggés et, dans « Corrections faites », ce qui a été corrigé. '
+    + 'Tes clics ne sont pas enregistrés (pour ne pas écraser son travail).';
+  el.classList.remove('hidden');
 }
 
 function loadStatus(){
