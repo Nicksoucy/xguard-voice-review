@@ -267,6 +267,31 @@ function approveAllGreens(){
   }
 }
 
+// Écouter la phrase corrigée : joue depuis le début de la phrase du flag (modele Nicolas).
+function listenSentence(si){
+  if (si == null || typeof sentenceRanges === 'undefined' || !sentenceRanges[si]) {
+    if (typeof showMsg === 'function') showMsg('Phrase introuvable (timestamps pas prêts ?)', '');
+    return;
+  }
+  if (typeof jmp === 'function') jmp(sentenceRanges[si].start);
+}
+
+// Approuver UNE correction (version ciblée d'approveAllGreens) : valide la phrase corrigée du flag ii.
+function approveOneFlag(ii){
+  if (window.viewingOtherReview) { if (typeof showMsg === 'function') showMsg('Lecture seule — review de ' + window.viewingOtherReview, ''); return; }
+  var f = flags.get(ii);
+  if (!f) return;
+  f.approved_after_regen = true;
+  f.approved_at = new Date().toISOString();
+  flags.set(ii, f);
+  var idxs = (Array.isArray(f.groupIndices) && f.groupIndices.length > 1) ? f.groupIndices : [ii];
+  idxs.forEach(function(g){ if (els[g]) { els[g].classList.remove('flagged','resolved','reflagged'); els[g].classList.add('approved'); } });
+  buildWords();
+  renderFlags();
+  scheduleAutoSave();
+  if (typeof showMsg === 'function') showMsg('✅ Phrase approuvée', '');
+}
+
 // Toggle affichage des flags approuves
 function toggleShowApproved(){
   showApproved = !showApproved;

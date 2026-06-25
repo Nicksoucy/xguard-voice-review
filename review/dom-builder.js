@@ -444,7 +444,16 @@ function renderFlags(){
     var phraseLink = (d.sentenceIndex != null)
       ? '<button class="rfixbtn rphrase" title="Changer TOUTE la phrase (reformuler le texte source)" onclick="openSentenceModal('+d.sentenceIndex+')">✏️ corriger la phrase</button>'
       : '';
-    var rfixBlock = '<span class="rfixwrap"><input class="rfix" id="rfix'+ii+'" placeholder="'+rfixPlaceholder(currentCat)+'"><button class="rfixbtn" title="Tu as le bon texte : envoyer la correction (régénération auto)" onclick="submitCorrectionRequest('+ii+')">Corriger</button><button class="rfixbtn rpt" title="La voix répète ou bégaie ce mot — refaire ce bout (sans changer le texte)" onclick="submitRepeat('+ii+')">🔁 Re-générer</button>'+phraseLink+'<span class="rfixstatus" id="rfixstatus'+ii+'"></span></span>';
+    // Bouton « écouter la phrase corrigée » : joue depuis le début de la phrase du flag (toujours
+    // dispo). Bouton « approuver » : visible quand la correction est appliquee (vert) et pas encore
+    // approuvee — valide CETTE phrase (modele Nicolas : ecouter -> approuver dans le bloc).
+    var listenBtn = (d.sentenceIndex != null)
+      ? '<button class="rfixbtn rlisten" title="Écouter la phrase corrigée" onclick="listenSentence('+d.sentenceIndex+')">🔊 Écouter la phrase</button>'
+      : '';
+    var approveBtn = (resolved && !approved && !autoResolved && !reflagged)
+      ? '<button class="rfixbtn rapprove" style="background:#1E8449;border-color:#1E8449;color:#fff" title="La correction est bonne — approuver cette phrase" onclick="approveOneFlag('+ii+')">✅ Approuver</button>'
+      : '';
+    var rfixBlock = '<span class="rfixwrap"><input class="rfix" id="rfix'+ii+'" placeholder="'+rfixPlaceholder(currentCat)+'"><button class="rfixbtn" title="Tu as le bon texte : envoyer la correction (régénération auto)" onclick="submitCorrectionRequest('+ii+')">Corriger</button><button class="rfixbtn rpt" title="La voix répète ou bégaie ce mot — refaire ce bout (sans changer le texte)" onclick="submitRepeat('+ii+')">🔁 Re-générer</button>'+phraseLink+listenBtn+approveBtn+'<span class="rfixstatus" id="rfixstatus'+ii+'"></span></span>';
     // Badge clair pour les flags REGLES (visibles seulement via le toggle
     // "afficher les corriges") : Hela sait quoi en penser sans deviner.
     var regleBadge = '';
