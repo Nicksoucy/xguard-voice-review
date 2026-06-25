@@ -450,8 +450,8 @@ function renderFlags(){
     var listenBtn = (d.sentenceIndex != null)
       ? '<button class="rfixbtn rlisten" title="Écouter la phrase corrigée" onclick="listenSentence('+d.sentenceIndex+')">🔊 Écouter la phrase</button>'
       : '';
-    var approveBtn = (resolved && !approved && !autoResolved && !reflagged)
-      ? '<button class="rfixbtn rapprove" style="background:#1E8449;border-color:#1E8449;color:#fff" title="La correction est bonne — approuver cette phrase" onclick="approveOneFlag('+ii+')">✅ Approuver</button>'
+    var approveBtn = (!approved && !autoResolved)
+      ? '<button class="rfixbtn rapprove" style="background:#1E8449;border-color:#1E8449;color:#fff" title="Écoute la phrase, puis approuve si elle est bonne" onclick="approveOneFlag('+ii+')">✅ Approuver</button>'
       : '';
     var rfixBlock = '<span class="rfixwrap"><input class="rfix" id="rfix'+ii+'" placeholder="'+rfixPlaceholder(currentCat)+'"><button class="rfixbtn" title="Tu as le bon texte : envoyer la correction (régénération auto)" onclick="submitCorrectionRequest('+ii+')">Corriger</button><button class="rfixbtn rpt" title="La voix répète ou bégaie ce mot — refaire ce bout (sans changer le texte)" onclick="submitRepeat('+ii+')">🔁 Re-générer</button>'+phraseLink+listenBtn+approveBtn+'<span class="rfixstatus" id="rfixstatus'+ii+'"></span></span>';
     // Badge clair pour les flags REGLES (visibles seulement via le toggle
