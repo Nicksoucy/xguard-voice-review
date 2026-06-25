@@ -12,10 +12,13 @@ function scheduleAutoSave(){
   }, 2000);
 }
 
-function saveReview(approved, isAuto){
+function saveReview(approved, isAuto, force){
   if (!L) return;
   // Lecture seule : on affiche la review d'un AUTRE reviseur -> on ne l'ecrase pas sous notre nom.
-  if (window.viewingOtherReview) {
+  // EXCEPTION (force) : une APPROBATION explicite ecrit NOTRE propre enregistrement (reviewer_name = nous,
+  // on_conflict lesson_key+reviewer_name) -> elle n'ecrase JAMAIS le travail de l'autre reviseur. Donc
+  // Nicolas peut approuver une lecon meme en regardant la review d'Hela (bug : avant, ca ne faisait rien).
+  if (window.viewingOtherReview && !force) {
     if (!isAuto) showMsg('\u{1F441}️ Lecture seule — c\'est la review de ' + window.viewingOtherReview, '');
     return;
   }
@@ -77,7 +80,9 @@ function closeModal(){
 }
 function confirmApprove(){
   closeModal();
-  saveReview(true);
+  // force=true : approuver fonctionne meme en mode lecture seule (ecrit notre propre enregistrement).
+  saveReview(true, false, true);
+  window.viewingOtherReview = null; // on vient d'ecrire NOTRE review approuvee -> on n'est plus en lecture seule
 }
 
 function copyReview(){var t='Lecon: '+(L.short_title||L.title)+'\n';

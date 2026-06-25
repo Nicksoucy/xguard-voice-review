@@ -82,6 +82,10 @@ function loadExistingReview(){
       renderFlags();
       renderGlitches();
       if (typeof applyCorrectionStatuses === 'function') applyCorrectionStatuses();
+      // Le rafraichissement du contexte ci-dessus (apres une regen) a pu mettre dirty=true, mais ce
+      // n'est PAS une edition de l'utilisateur -> une lecon fraichement chargee doit etre "propre".
+      // Sinon le garde-fou beforeunload affiche « Leave site? » a CHAQUE navigation (bug signale).
+      dirty = false;
     })
     .catch(function(e){
       // Echec reseau/JSON : on degrade proprement (les mots sont deja affiches, la page reste

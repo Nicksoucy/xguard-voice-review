@@ -128,9 +128,10 @@ document.addEventListener('keydown', function(e){
   }
 });
 
-// Warn avant de quitter si dirty
+// Warn avant de quitter si dirty — SAUF en mode lecture seule (review d'un autre reviseur :
+// rien n'est sauvegarde sous notre nom, donc aucun changement a perdre -> pas de nag).
 window.addEventListener('beforeunload', function(e){
-  if (dirty) {
+  if (dirty && !window.viewingOtherReview) {
     e.preventDefault();
     e.returnValue = 'Tu as des changements non sauvegardes. Quitter quand meme ?';
   }
