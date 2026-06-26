@@ -56,6 +56,9 @@ function saveReview(approved, isAuto, force){
     if (!isAuto) showMsg('\u{1F441}\u{FE0F} Lecture seule — c\'est la review de ' + window.viewingOtherReview, '');
     return;
   }
+  // Approbation EXPLICITE (confirmApprove passe approved=true) -> sticky. Les autosaves
+  // (approved=false) NE remettent PAS la lecon en non-approuvee : on renvoie lessonApproved.
+  lessonApproved = XGReview.approvedToPersist(approved, lessonApproved);
   var rn = (localStorage.getItem('rn') || 'Anonyme').trim();
   var lessonId = L.lesson_key.split('/').slice(1).join('/');
   if (isAuto) showMsg('Sauvegarde...', 'saving');
@@ -70,7 +73,7 @@ function saveReview(approved, isAuto, force){
       reviewer_name: rn,
       flags: Array.from(flags.values()),
       glitches: glitches,
-      approved: !!approved,
+      approved: lessonApproved,
       updated_at: new Date().toISOString()
     })
   }).then(function(r){

@@ -215,6 +215,7 @@ function buildWords(){
         }
         // Cas 1 : mot "resolved" (vert). Clic = "ce mot est encore pas bon" -> repasse violet (reflagged)
         else if(sp.classList.contains('resolved')){
+          lessonApproved = false; // re-flag d'une phrase corrigee -> dés-approuve la lecon
           sp.classList.remove('resolved');
           sp.classList.add('flagged','reflagged');
           var existing = flags.get(ii) || {index:ii,word:W[ii].word,context:getCtx(ii),time:fmt(W[ii].start),sentenceIndex:gsi(ii),note:''};
@@ -254,6 +255,7 @@ function buildWords(){
         }
         // Cas 3 : mot normal. Clic = ajoute un flag (rouge, sauf si phrase deja regeneree -> vert)
         else {
+          lessonApproved = false; // nouveau probleme flagge -> dés-approuve la lecon
           var nf = {index:ii,word:W[ii].word,context:getCtx(ii),time:fmt(W[ii].start),sentenceIndex:gsi(ii),note:''};
           flags.set(ii, nf);
           if (isResolved(nf)) sp.classList.add('resolved');

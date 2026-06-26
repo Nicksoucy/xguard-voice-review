@@ -204,6 +204,7 @@ function startCorrectionPolling(){
 // Le flag repasse en etat actif pour etre retraite a la prochaine regen.
 function markReflag(ii){
   if (roGuard()) return;   // lecture seule : ne pas modifier la review d'un autre reviseur
+  lessonApproved = false;  // re-ouverture : un mot mal corrige dés-approuve la lecon
   var f = flags.get(ii);
   if (!f) return;
   f.reflagged = true;

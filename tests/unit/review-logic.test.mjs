@@ -257,6 +257,12 @@ describe('gardes lecture-seule / approbation (robustesse 2026-06-25)', () => {
     expect(review.shouldWarnBeforeUnload(true, 'Hela')).toBe(false);
     expect(review.shouldWarnBeforeUnload(false, null)).toBe(false);
   });
+  it('approvedToPersist : approbation sticky (une autosave ne dés-approuve PAS)', () => {
+    expect(review.approvedToPersist(true, false)).toBe(true); // approbation explicite
+    expect(review.approvedToPersist(false, true)).toBe(true); // autosave APRES approbation -> reste approuve
+    expect(review.approvedToPersist(false, false)).toBe(false); // jamais approuve
+    expect(review.approvedToPersist(true, true)).toBe(true);
+  });
 });
 
 describe('ecoute d’une phrase (segment)', () => {

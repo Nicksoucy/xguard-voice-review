@@ -35,6 +35,8 @@ function loadExistingReview(){
         else if (!other && Array.isArray(rows[i].flags) && rows[i].flags.length) other = rows[i];
       }
       var rev = mine || other || rows[0];
+      // Etat d'approbation persistant : seule MA propre review compte (pas celle d'un autre).
+      lessonApproved = !!(mine && mine.approved);
       // Mode LECTURE si on affiche la review d'un AUTRE reviseur : on ne sauvegarde pas sous son nom.
       if (rev && rev.reviewer_name !== rn) {
         window.viewingOtherReview = rev.reviewer_name;

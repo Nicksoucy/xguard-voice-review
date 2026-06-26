@@ -19,6 +19,10 @@ var prevIdx = -1;
 var au = null;
 var saveTimer = null;
 var dirty = false;
+// Etat d'approbation de la lecon (persistant). Une autosave NE DOIT PAS le remettre a false
+// (sinon approuver puis toucher quoi que ce soit dés-approuve la lecon — bug 2026-06-26).
+// Mis a true par confirmApprove ; remis a false seulement quand on RE-OUVRE (nouveau flag/reflag/stutter).
+var lessonApproved = false;
 // Mode filtre : quand actif, n'affiche que les phrases regenerees (regenIndices)
 var regenIndices = null; // null = pas de filtre disponible pour cette lecon
 var filterModeActive = false;
