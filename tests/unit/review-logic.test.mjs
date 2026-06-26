@@ -239,3 +239,79 @@ describe('RÉGRESSION molette/est (capture de l’intention)', () => {
     expect(c.reviewerNote).toBe('le verbe');
   });
 });
+
+describe('gardes lecture-seule / approbation (robustesse 2026-06-25)', () => {
+  it('canEditReview : faux seulement quand on regarde un autre reviseur', () => {
+    expect(review.canEditReview(null)).toBe(true);
+    expect(review.canEditReview('')).toBe(true);
+    expect(review.canEditReview('Hela')).toBe(false);
+  });
+  it('shouldWriteReview : ecrit si PAS lecture seule OU approbation forcee (le bug d’approbation)', () => {
+    expect(review.shouldWriteReview(null, false)).toBe(true);
+    expect(review.shouldWriteReview(null, true)).toBe(true);
+    expect(review.shouldWriteReview('Hela', false)).toBe(false); // autosave bloque en supervision
+    expect(review.shouldWriteReview('Hela', true)).toBe(true); // approuver ecrit NOTRE propre record
+  });
+  it('shouldWarnBeforeUnload : seulement si dirty ET pas en lecture seule', () => {
+    expect(review.shouldWarnBeforeUnload(true, null)).toBe(true);
+    expect(review.shouldWarnBeforeUnload(true, 'Hela')).toBe(false);
+    expect(review.shouldWarnBeforeUnload(false, null)).toBe(false);
+  });
+});
+
+describe('ecoute d’une phrase (segment)', () => {
+  it('segmentShouldStop : vrai a la fin de la plage (marge 0.02)', () => {
+    expect(review.segmentShouldStop(5.0, { start: 2, end: 5 })).toBe(true);
+    expect(review.segmentShouldStop(4.9, { start: 2, end: 5 })).toBe(false);
+    expect(review.segmentShouldStop(10, null)).toBe(false);
+  });
+  it('nextSegmentStop : seekTo clampe a 0, stopAt = fin', () => {
+    expect(review.nextSegmentStop({ start: -0.3, end: 5 })).toEqual({ seekTo: 0, stopAt: 5 });
+    expect(review.nextSegmentStop({ start: 2, end: 5 })).toEqual({ seekTo: 2, stopAt: 5 });
+    expect(review.nextSegmentStop(null)).toBe(null);
+  });
+});
+
+describe('filtre / lecture (logique extraite de player.js)', () => {
+  const W = buildWords();
+  it('currentSentenceAt : sentenceIndex du mot joue, -1 avant le debut', () => {
+    expect(review.currentSentenceAt(W, -1)).toBe(-1);
+    expect(review.currentSentenceAt(W, 0.5)).toBe(0);
+    expect(review.currentSentenceAt(W, 3.5)).toBe(1);
+    expect(review.currentSentenceAt(W, 30.5)).toBe(2);
+    expect(review.currentSentenceAt([], 5)).toBe(-1);
+  });
+  it('nextRegenStart : debut de la prochaine phrase a revoir >= t', () => {
+    const ranges = computeSentenceRanges(W);
+    expect(review.nextRegenStart([1, 2], ranges, 0)).toBe(3); // phrase 1 commence a 3
+    expect(review.nextRegenStart([2], ranges, 0)).toBe(30); // phrase 2 commence a 30
+    expect(review.nextRegenStart([1], ranges, 100)).toBe(null); // aucune apres 100
+    expect(review.nextRegenStart(null, ranges, 0)).toBe(null);
+  });
+  it('countPhrasesToReview : phrases regenerees a flag actif, dedupe, exclut cachees', () => {
+    expect(review.countPhrasesToReview([{ sentenceIndex: 1 }], [1])).toBe(1);
+    expect(review.countPhrasesToReview([{ sentenceIndex: 1 }, { sentenceIndex: 1 }], [1])).toBe(1);
+    expect(review.countPhrasesToReview([{ sentenceIndex: 1, approved_after_regen: true }], [1])).toBe(0);
+    expect(review.countPhrasesToReview([{ sentenceIndex: 9 }], [1])).toBe(0);
+    expect(review.countPhrasesToReview([{ sentenceIndex: 1 }], null)).toBe(0);
+  });
+});
+
+describe('backup local (anti-perte)', () => {
+  it('buildBackupKey : cle par lecon ET par reviseur', () => {
+    expect(review.buildBackupKey('cours/m1/l1', 'Hela')).toBe('vrbak:cours/m1/l1:Hela');
+    expect(review.buildBackupKey('cours/m1/l1', 'Nicolas')).not.toBe(
+      review.buildBackupKey('cours/m1/l1', 'Hela'),
+    );
+    expect(review.buildBackupKey(null, null)).toBe('vrbak:?:Anonyme');
+  });
+  it('shouldRestoreBackup : restaure si backup strictement plus recent (marge 2s)', () => {
+    const server = '2026-06-25T14:00:00Z';
+    const serverMs = Date.parse(server);
+    expect(review.shouldRestoreBackup(serverMs + 5000, server)).toBe(true);
+    expect(review.shouldRestoreBackup(serverMs + 1000, server)).toBe(false); // dans la marge -> serveur
+    expect(review.shouldRestoreBackup(serverMs - 10000, server)).toBe(false);
+    expect(review.shouldRestoreBackup(serverMs + 5000, null)).toBe(true); // pas de serveur -> restaure
+    expect(review.shouldRestoreBackup(0, server)).toBe(false); // pas de backup
+  });
+});

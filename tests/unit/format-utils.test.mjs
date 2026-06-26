@@ -47,3 +47,17 @@ describe('rowsToCSV', () => {
     expect(rowsToCSV([], ['a', 'b'])).toBe('a,b\n');
   });
 });
+
+describe('fmtDate (date lisible fr-CA, tolerante)', () => {
+  it('formate une date ISO valide', () => {
+    const s = fmt.fmtDate('2026-06-25T14:30:00Z');
+    expect(typeof s).toBe('string');
+    expect(s).toContain('2026');
+  });
+  it('ne lance JAMAIS sur entree invalide / null / undefined (retourne une string)', () => {
+    expect(() => fmt.fmtDate('pas-une-date')).not.toThrow();
+    expect(() => fmt.fmtDate(null)).not.toThrow();
+    expect(() => fmt.fmtDate(undefined)).not.toThrow();
+    expect(typeof fmt.fmtDate('pas-une-date')).toBe('string');
+  });
+});

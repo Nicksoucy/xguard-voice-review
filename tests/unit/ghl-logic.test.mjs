@@ -147,3 +147,13 @@ describe('validateGhlPayload', () => {
     expect(validateGhlPayload(bad).ok).toBe(false);
   });
 });
+
+describe('formatModuleTitle', () => {
+  it('utilise module_index quand il y a des lecons', () => {
+    expect(ghl.formatModuleTitle({ module_index: 3, lessons: [{}] })).toBe('Module 3');
+  });
+  it('module vide : Module <index> ou Module ? si index manquant', () => {
+    expect(ghl.formatModuleTitle({ module_index: 5, lessons: [] })).toBe('Module 5');
+    expect(ghl.formatModuleTitle({ lessons: [] })).toBe('Module ?');
+  });
+});

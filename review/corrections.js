@@ -203,6 +203,7 @@ function startCorrectionPolling(){
 // L'employeur signale qu'une correction n'est toujours pas bonne -> reflag (violet).
 // Le flag repasse en etat actif pour etre retraite a la prochaine regen.
 function markReflag(ii){
+  if (roGuard()) return;   // lecture seule : ne pas modifier la review d'un autre reviseur
   var f = flags.get(ii);
   if (!f) return;
   f.reflagged = true;
@@ -219,11 +220,12 @@ function markReflag(ii){
     }
   });
   renderFlags();
-  scheduleAutoSave();
+  flushAutoSave();   // decision importante -> persister tout de suite (pas d'attente du debounce)
 }
 
 // Annule un reflag -> le flag revient a son etat corrige (vert).
 function undoReflag(ii){
+  if (roGuard()) return;
   var f = flags.get(ii);
   if (!f) return;
   delete f.reflagged;
@@ -241,11 +243,12 @@ function undoReflag(ii){
     }
   });
   renderFlags();
-  scheduleAutoSave();
+  flushAutoSave();
 }
 
 // Approuve tous les flags verts (resolved) d'un coup
 function approveAllGreens(){
+  if (roGuard()) return;   // lecture seule : ne pas approuver/ecraser la review d'un autre reviseur
   var changed = 0;
   flags.forEach(function(f,ii){
     if (isResolved(f) && !isApproved(f)) {
@@ -263,7 +266,7 @@ function approveAllGreens(){
     // Re-render des mots pour cacher le surlignage vert des phrases approuvees
     buildWords();
     renderFlags();
-    scheduleAutoSave();
+    flushAutoSave();
   }
 }
 
@@ -280,7 +283,8 @@ function listenSentence(si){
   if (window._segStop) { try { au.removeEventListener('timeupdate', window._segStop); } catch (e) {} window._segStop = null; }
   au.currentTime = Math.max(0, r.start);
   window._segStop = function(){
-    if (au.currentTime >= r.end - 0.02) { au.pause(); au.removeEventListener('timeupdate', window._segStop); window._segStop = null; }
+    if (!au) return;   // l'audio a pu etre remplace (reload) entre deux timeupdate
+    if (XGReview.segmentShouldStop(au.currentTime, r)) { au.pause(); au.removeEventListener('timeupdate', window._segStop); window._segStop = null; }
   };
   au.addEventListener('timeupdate', window._segStop);
   if (au.paused) au.play();
@@ -288,7 +292,7 @@ function listenSentence(si){
 
 // Approuver UNE correction (version ciblée d'approveAllGreens) : valide la phrase corrigée du flag ii.
 function approveOneFlag(ii){
-  if (window.viewingOtherReview) { if (typeof showMsg === 'function') showMsg('Lecture seule — review de ' + window.viewingOtherReview, ''); return; }
+  if (roGuard()) return;
   var f = flags.get(ii);
   if (!f) return;
   f.approved_after_regen = true;
@@ -298,7 +302,7 @@ function approveOneFlag(ii){
   idxs.forEach(function(g){ if (els[g]) { els[g].classList.remove('flagged','resolved','reflagged'); els[g].classList.add('approved'); } });
   buildWords();
   renderFlags();
-  scheduleAutoSave();
+  flushAutoSave();
   if (typeof showMsg === 'function') showMsg('✅ Phrase approuvée', '');
 }
 

@@ -128,6 +128,7 @@ function buildWords(){
     }
     (function(ii,sp){
       sp.onclick=function(e){
+        if (roGuard()) return;   // lecture seule : ne pas modifier les flags d'un autre reviseur
         // ── CTRL+CLICK : grouper avec un flag existant ───────────────
         // Ctrl+click sur un mot ajoute ce mot au DERNIER flag actif (rouge)
         // pour creer un flag groupe (ex: "cent vingt metres" = 1 seul flag).
@@ -261,7 +262,7 @@ function buildWords(){
         renderFlags();
         scheduleAutoSave();
       };
-      sp.ondblclick=function(){au.currentTime=Math.max(0,W[ii].start-0.15);if(au.paused)au.play()};
+      sp.ondblclick=function(){if(!au)return;au.currentTime=Math.max(0,W[ii].start-0.15);if(au.paused)au.play()};
     })(i,s);
     c.appendChild(s);c.appendChild(document.createTextNode(' '));els.push(s);
   }
@@ -280,6 +281,7 @@ function toggleFilterMode(){
 
 function flagStutter(){
   if (!au) return;
+  if (roGuard()) return;   // lecture seule : ne pas ajouter de glitch a la review d'un autre reviseur
   var t=au.currentTime;var i=0;for(var j=0;j<W.length;j++){if(W[j].start<=t)i=j}
   glitches.unshift({time:fmt(t),timeSec:t,context:getCtx(i),sentenceIndex:gsi(i),note:''});
   var b=document.getElementById('stb');b.classList.add('flash');b.textContent='\u2713';
@@ -355,7 +357,7 @@ function renderGlitches(){
       var d=document.createElement('div');
       d.className='ri g' + (g.auto_resolved ? ' ok' : '');
       if (g.auto_resolved) d.style.opacity = '0.55';
-      d.innerHTML='<span class="rt" onclick="jmp('+g.timeSec+')">'+g.time+'</span><span class="rs">#'+g.sentenceIndex+'</span><span class="rc">'+hl(g.context)+'</span><input placeholder="Note" value="'+(g.note||'').replace(/"/g,'&quot;')+'" oninput="glitches['+ii+'].note=this.value;scheduleAutoSave()"><button class="rm" onclick="glitches.splice('+ii+',1);renderGlitches();scheduleAutoSave()">\u2715</button>';
+      d.innerHTML='<span class="rt" onclick="jmp('+g.timeSec+')">'+g.time+'</span><span class="rs">#'+g.sentenceIndex+'</span><span class="rc">'+hl(g.context)+'</span><input placeholder="Note" value="'+(g.note||'').replace(/"/g,'&quot;')+'" oninput="if(window.viewingOtherReview)return;glitches['+ii+'].note=this.value;scheduleAutoSave()"><button class="rm" onclick="if(window.viewingOtherReview)return;glitches.splice('+ii+',1);renderGlitches();scheduleAutoSave()">\u2715</button>';
       l.appendChild(d);
     })(g,gi);
   }
@@ -413,7 +415,7 @@ function renderFlags(){
     // - typo : le scriptwriter a ecrit un mot qui n'existe pas -> corriger le .md, NE PAS enrichir dict
     // - rewrite : la phrase entiere est mal tournee -> phrase_patterns Supabase
     var currentCat = d.category || 'pronunciation';
-    var catSelect = '<select class="rcat" onchange="flags.get('+ii+').category=this.value;updateRfixPlaceholder('+ii+',this.value);scheduleAutoSave()" title="Categorie du flag">'
+    var catSelect = '<select class="rcat" onchange="if(window.viewingOtherReview)return;flags.get('+ii+').category=this.value;updateRfixPlaceholder('+ii+',this.value);scheduleAutoSave()" title="Categorie du flag">'
       + '<option value="pronunciation" title="Mot bien écrit mais mal prononcé — enrichir le dictionnaire"' + (currentCat==='pronunciation'?' selected':'') + '>prononciation</option>'
       + '<option value="typo" title="Mot mal écrit dans le script — corriger le texte source"' + (currentCat==='typo'?' selected':'') + '>faute de frappe</option>'
       + '<option value="rewrite" title="Toute la phrase est mal tournée — utilise plutôt le crayon de la phrase"' + (currentCat==='rewrite'?' selected':'') + '>phrase a reecrire</option>'
@@ -462,7 +464,7 @@ function renderFlags(){
         + (autoResolved ? 'Le mot a ete corrige automatiquement (il a disparu ou ete remplace dans le texte)' : 'Tu as approuve cette correction apres re-ecoute')
         + '">\u2713 ' + (autoResolved ? 'corrige automatiquement' : 'corrige et approuve') + '</span>';
     }
-    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span>'+regleBadge+groupBadge+catSelect+'<span class="rc">'+hlFlag(d.context, d.word)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="flags.get('+ii+').note=this.value;scheduleAutoSave()">'+reflagBtn+rfixBlock+'<button class="rm" onclick="flags.delete('+ii+');'+groupIndicesStr+'.forEach(function(g){if(els[g]){els[g].classList.remove(\'flagged\',\'resolved\',\'approved\',\'grouped\',\'reflagged\')}});renderFlags();scheduleAutoSave()">\u2715</button>';
+    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span>'+regleBadge+groupBadge+catSelect+'<span class="rc">'+hlFlag(d.context, d.word)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="if(window.viewingOtherReview)return;flags.get('+ii+').note=this.value;scheduleAutoSave()">'+reflagBtn+rfixBlock+'<button class="rm" onclick="if(window.viewingOtherReview)return;flags.delete('+ii+');'+groupIndicesStr+'.forEach(function(g){if(els[g]){els[g].classList.remove(\'flagged\',\'resolved\',\'approved\',\'grouped\',\'reflagged\')}});renderFlags();scheduleAutoSave()">\u2715</button>';
     l.appendChild(el)})(sorted[k][0],sorted[k][1])}
   // Re-applique les statuts de correction connus (renderFlags efface le DOM a chaque appel).
   applyCorrectionStatuses();

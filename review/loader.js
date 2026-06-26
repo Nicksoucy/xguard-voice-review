@@ -28,7 +28,7 @@ function loadExistingReview(){
   fetch(API+'/voice_reviews?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=*&order=updated_at.desc',{headers:H})
     .then(function(r){return r.json()})
     .then(function(rows){
-      if (!Array.isArray(rows) || !rows.length) { window.viewingOtherReview = null; return; }
+      if (!Array.isArray(rows) || !rows.length) { window.viewingOtherReview = null; maybeOfferLocalRestore(null); return; }
       var mine = null, other = null;
       for (var i = 0; i < rows.length; i++) {
         if (rows[i].reviewer_name === rn) { if (!mine) mine = rows[i]; }
@@ -86,6 +86,9 @@ function loadExistingReview(){
       // n'est PAS une edition de l'utilisateur -> une lecon fraichement chargee doit etre "propre".
       // Sinon le garde-fou beforeunload affiche « Leave site? » a CHAQUE navigation (bug signale).
       dirty = false;
+      // Filet anti-perte : si un backup local plus recent que le serveur existe (crash/fermeture),
+      // proposer de le restaurer. Jamais en lecture seule (rev est NOTRE review ici).
+      if (!window.viewingOtherReview) maybeOfferLocalRestore(rev);
     })
     .catch(function(e){
       // Echec reseau/JSON : on degrade proprement (les mots sont deja affiches, la page reste
@@ -105,6 +108,31 @@ function showViewingBanner(name){
     + 'Lecture seule : tu vois ses mots flaggés et, dans « Corrections faites », ce qui a été corrigé. '
     + 'Tes clics ne sont pas enregistrés (pour ne pas écraser son travail).';
   el.classList.remove('hidden');
+}
+
+// Restauration du backup local (anti-perte). Appelee apres le chargement de la review serveur.
+// Ne restaure QUE si le backup local est strictement plus recent que le serveur (crash avant flush).
+// rev = la review serveur choisie (NOTRE review, car appelee seulement si !viewingOtherReview) ou null.
+function maybeOfferLocalRestore(rev){
+  if (window.viewingOtherReview) return;          // jamais par-dessus le travail d'un autre reviseur
+  if (typeof backupKey !== 'function') return;    // player.js charge -> dispo au runtime
+  var raw; try { raw = localStorage.getItem(backupKey()); } catch (e) { return; }
+  if (!raw) return;
+  var bak; try { bak = JSON.parse(raw); } catch (e) { clearLocalBackup(); return; }
+  if (!bak || bak.lesson_key !== (L && L.lesson_key)) return;
+  if (!XGReview.shouldRestoreBackup(bak.ts, rev && rev.updated_at)) { clearLocalBackup(); return; }
+  var n = (bak.flags ? bak.flags.length : 0) + (bak.glitches ? bak.glitches.length : 0);
+  if (!n) { clearLocalBackup(); return; }
+  var ok = window.confirm('Recuperation : ' + n + ' element(s) non sauvegardes ont ete retrouves sur cet ordinateur (plus recents que la version serveur). Les restaurer ?');
+  if (!ok) { clearLocalBackup(); return; }
+  flags.clear();
+  (bak.flags || []).forEach(function(f){ if (f && f.index != null) flags.set(f.index, f); });
+  glitches = (bak.glitches || []).slice();
+  if (typeof refreshFlagClasses === 'function') refreshFlagClasses();
+  renderFlags();
+  renderGlitches();
+  dirty = true;
+  scheduleAutoSave();   // re-sync immediat au serveur + re-ecrit le backup proprement
 }
 
 function loadStatus(){

@@ -90,3 +90,16 @@ function findLastActiveFlag() {
 // d'avoir un contexte enorme englobant tous les mots intermediaires.
 function getGroupCtx(groupIndices) { return XGReview.getGroupCtx(W, groupIndices); }
 
+// ── GARDE LECTURE-SEULE ──────────────────────────────────────────
+// Renvoie true (et affiche un message) si on regarde la review d'un AUTRE reviseur.
+// A appeler en TETE de toute fonction qui MODIFIE la review affichee (flags/glitches).
+// NE PAS l'utiliser pour soumettre sa propre demande (correction_requests/sentence_flags) :
+// soumettre sous son propre nom est permis meme en lecture seule (ca n'ecrase la review de personne).
+function roGuard() {
+  if (!XGReview.canEditReview(window.viewingOtherReview)) {
+    if (typeof showMsg === 'function') showMsg('\u{1F441}\u{FE0F} Lecture seule — review de ' + window.viewingOtherReview, '');
+    return true;
+  }
+  return false;
+}
+

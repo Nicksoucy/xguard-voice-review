@@ -98,6 +98,8 @@ function submitSentenceFlag(){
     } else {
       r.text().then(function(t){
         document.getElementById('sentence-modal-msg').textContent = 'Erreur ' + r.status + ' : ' + t.slice(0,100);
+      }).catch(function(){
+        document.getElementById('sentence-modal-msg').textContent = 'Erreur ' + r.status;
       });
       if (window.captureWithContext) {
         captureWithContext(new Error('Sentence flag save HTTP ' + r.status), {
@@ -131,7 +133,7 @@ document.addEventListener('keydown', function(e){
 // Warn avant de quitter si dirty — SAUF en mode lecture seule (review d'un autre reviseur :
 // rien n'est sauvegarde sous notre nom, donc aucun changement a perdre -> pas de nag).
 window.addEventListener('beforeunload', function(e){
-  if (dirty && !window.viewingOtherReview) {
+  if (XGReview.shouldWarnBeforeUnload(dirty, window.viewingOtherReview)) {
     e.preventDefault();
     e.returnValue = 'Tu as des changements non sauvegardes. Quitter quand meme ?';
   }

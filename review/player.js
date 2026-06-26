@@ -5,11 +5,42 @@ function scheduleAutoSave(){
   // Mode lecture (on regarde la review d'un autre reviseur) : ne rien enregistrer sous notre nom.
   if (window.viewingOtherReview) return;
   dirty = true;
+  saveLocalBackup();        // snapshot local SYNCHRONE immediat (filet anti-crash, independant du debounce 2s)
   if (saveTimer) clearTimeout(saveTimer);
   showMsg('●', 'saving');
   saveTimer = setTimeout(function(){
     saveReview(false, true);
   }, 2000);
+}
+
+// Flush : sauvegarde serveur IMMEDIATE (annule le debounce). A appeler sur les actions
+// importantes (approbations, reflag) pour ne pas dependre des 2s si Hela ferme l'onglet juste apres.
+function flushAutoSave(){
+  if (window.viewingOtherReview) return;
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+  if (dirty) saveReview(false, true);
+}
+
+// ── Backup local (anti-perte de travail) ─────────────────────────
+// Stocke un snapshot des flags/glitches dans localStorage a chaque modif. Cle unique par
+// lecon ET par reviseur. Restaure au chargement si plus recent que le serveur (loader.js).
+function backupKey(){
+  return XGReview.buildBackupKey(L ? L.lesson_key : '?', (localStorage.getItem('rn') || 'Anonyme'));
+}
+function saveLocalBackup(){
+  if (!L || window.viewingOtherReview) return;
+  try {
+    localStorage.setItem(backupKey(), JSON.stringify({
+      lesson_key: L.lesson_key,
+      reviewer: (localStorage.getItem('rn') || 'Anonyme').trim(),
+      flags: Array.from(flags.values()),
+      glitches: glitches,
+      ts: Date.now()
+    }));
+  } catch (e) { /* quota plein / navigation privee : on degrade, le serveur reste la source */ }
+}
+function clearLocalBackup(){
+  try { localStorage.removeItem(backupKey()); } catch (e) {}
 }
 
 function saveReview(approved, isAuto, force){
@@ -18,8 +49,8 @@ function saveReview(approved, isAuto, force){
   // EXCEPTION (force) : une APPROBATION explicite ecrit NOTRE propre enregistrement (reviewer_name = nous,
   // on_conflict lesson_key+reviewer_name) -> elle n'ecrase JAMAIS le travail de l'autre reviseur. Donc
   // Nicolas peut approuver une lecon meme en regardant la review d'Hela (bug : avant, ca ne faisait rien).
-  if (window.viewingOtherReview && !force) {
-    if (!isAuto) showMsg('\u{1F441}️ Lecture seule — c\'est la review de ' + window.viewingOtherReview, '');
+  if (!XGReview.shouldWriteReview(window.viewingOtherReview, force)) {
+    if (!isAuto) showMsg('\u{1F441}\u{FE0F} Lecture seule — c\'est la review de ' + window.viewingOtherReview, '');
     return;
   }
   var rn = (localStorage.getItem('rn') || 'Anonyme').trim();
@@ -42,6 +73,7 @@ function saveReview(approved, isAuto, force){
   }).then(function(r){
     if (r.ok) {
       dirty = false;
+      clearLocalBackup();   // le serveur a la version -> le backup local n'est plus necessaire
       showMsg(approved ? '\u2713 Approuve!' : (isAuto ? '\u2713 Auto-sauvegarde' : '\u2713 Sauvegarde!'));
     } else {
       showMsg('Erreur '+r.status+' \u2014 Nicolas a ete notifie');
@@ -85,7 +117,7 @@ function confirmApprove(){
   window.viewingOtherReview = null; // on vient d'ecrire NOTRE review approuvee -> on n'est plus en lecture seule
 }
 
-function copyReview(){var t='Lecon: '+(L.short_title||L.title)+'\n';
+function copyReview(){if(!L)return;var t='Lecon: '+(L.short_title||L.title)+'\n';
   if(glitches.length){t+='\nStutters:\n';for(var i=0;i<glitches.length;i++){var g=glitches[i];t+='- ['+g.time+'] #'+g.sentenceIndex+' "'+((g.context||'').replace(/\*\*/g,''))+'"';if(g.note)t+=' \u2192 '+g.note;t+='\n'}}
   var sf=Array.from(flags.values()).sort(function(a,b){return a.index-b.index});
   if(sf.length){t+='\nMots:\n';for(var j=0;j<sf.length;j++){var f=sf[j];t+='- ['+f.time+'] #'+f.sentenceIndex+' "'+((f.context||'').replace(/\*\*/g,''))+'"';if(f.note)t+=' \u2192 '+f.note;t+='\n'}}
@@ -94,16 +126,9 @@ function copyReview(){var t='Lecon: '+(L.short_title||L.title)+'\n';
 function showMsg(t, cls){var m=document.getElementById('msg');m.textContent=t;m.className='msg'+(cls?' '+cls:'');if(!cls)setTimeout(function(){m.textContent=''},2500)}
 
 // Cherche le debut de la prochaine phrase regeneree (>=t). Retourne null si aucune.
+// Logique pure deleguee a lib/review-logic.js (testee par vitest).
 function nextRegenStart(t){
-  if (!regenIndices || !regenIndices.length) return null;
-  var best = null;
-  for (var i = 0; i < regenIndices.length; i++) {
-    var si = regenIndices[i];
-    var r = sentenceRanges[si];
-    if (!r) continue;
-    if (r.start >= t - 0.05 && (best === null || r.start < best)) best = r.start;
-  }
-  return best;
+  return XGReview.nextRegenStart(regenIndices, sentenceRanges, t);
 }
 
 // Verifie si le temps t tombe dans une phrase qu'on doit skipper en mode filtre.
@@ -111,12 +136,7 @@ function nextRegenStart(t){
 function maybeSkipUnregen(){
   if (!filterModeActive || !regenIndices || !au) return false;
   var t = au.currentTime;
-  // Chercher dans quelle phrase on se trouve actuellement
-  var currentSi = -1;
-  for (var i = 0; i < W.length; i++) {
-    if (W[i].start > t) break;
-    if (W[i].sentenceIndex != null) currentSi = W[i].sentenceIndex;
-  }
+  var currentSi = XGReview.currentSentenceAt(W, t);
   if (currentSi < 0) return false;
   // Si la phrase courante est dans regenIndices -> on laisse jouer
   if (regenIndices.indexOf(currentSi) !== -1) return false;
@@ -137,7 +157,7 @@ function maybeSkipUnregen(){
 // Si un mot a un word.end, on retire le "now" des que t > end pour eviter qu'un mot
 // termine reste allume pendant les pauses.
 var LEAD_TIME = 0.08;
-function sync(){var t=au.currentTime + LEAD_TIME;
+function sync(){if(!au)return;var t=au.currentTime + LEAD_TIME;
   // Auto-skip en mode filtre : saute les phrases non a revoir pendant la lecture
   if (maybeSkipUnregen()) { if(!au.paused) requestAnimationFrame(sync); return; }
   // Recherche binaire : dernier mot dont start <= t
@@ -170,8 +190,7 @@ function tg(){
     // Si mode filtre actif et qu'on est sur une phrase non-a-revoir, sauter direct au bon endroit
     if (filterModeActive && regenIndices) {
       var t = au.currentTime;
-      var currentSi = -1;
-      for (var i=0;i<W.length;i++){ if(W[i].start>t)break; if(W[i].sentenceIndex!=null) currentSi = W[i].sentenceIndex; }
+      var currentSi = XGReview.currentSentenceAt(W, t);
       if (currentSi < 0 || regenIndices.indexOf(currentSi) === -1) {
         var jumpTo = nextRegenStart(t);
         if (jumpTo !== null) au.currentTime = jumpTo;
@@ -218,6 +237,13 @@ document.addEventListener('keydown', function(e){
   }
   // Escape : fermer le modal
   if (e.key === 'Escape') closeModal();
+});
+
+// Filet anti-perte : quand l'onglet passe en arriere-plan / se ferme, on garantit un
+// snapshot local (un fetch synchrone serait peu fiable ici). Le backup sera propose a la
+// reouverture s'il est plus recent que le serveur (loader.js maybeOfferLocalRestore).
+document.addEventListener('visibilitychange', function(){
+  if (document.visibilityState === 'hidden') saveLocalBackup();
 });
 
 // ═══════════════════════════════════════════════════════════════
