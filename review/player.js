@@ -28,7 +28,10 @@ function backupKey(){
   return XGReview.buildBackupKey(L ? L.lesson_key : '?', (localStorage.getItem('rn') || 'Anonyme'));
 }
 function saveLocalBackup(){
-  if (!L || window.viewingOtherReview) return;
+  // Ne sauvegarder QUE s'il y a du travail non flushe (dirty). Sinon, un simple rafraichissement
+  // de page (visibilitychange -> hidden) creerait un backup au timestamp courant qui paraitrait
+  // « plus recent que le serveur » et declencherait un faux prompt de restauration (bug 2026-06-26).
+  if (!XGReview.shouldWriteBackup(dirty, L, window.viewingOtherReview)) return;
   try {
     localStorage.setItem(backupKey(), JSON.stringify({
       lesson_key: L.lesson_key,

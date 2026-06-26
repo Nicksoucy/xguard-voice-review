@@ -298,6 +298,12 @@ describe('filtre / lecture (logique extraite de player.js)', () => {
 });
 
 describe('backup local (anti-perte)', () => {
+  it('shouldWriteBackup : seulement si dirty + lecon + pas lecture seule (anti faux-prompt)', () => {
+    expect(review.shouldWriteBackup(true, { lesson_key: 'x' }, null)).toBe(true);
+    expect(review.shouldWriteBackup(false, { lesson_key: 'x' }, null)).toBe(false); // rien de non sauvegarde
+    expect(review.shouldWriteBackup(true, null, null)).toBe(false); // pas de lecon
+    expect(review.shouldWriteBackup(true, { lesson_key: 'x' }, 'Hela')).toBe(false); // lecture seule
+  });
   it('buildBackupKey : cle par lecon ET par reviseur', () => {
     expect(review.buildBackupKey('cours/m1/l1', 'Hela')).toBe('vrbak:cours/m1/l1:Hela');
     expect(review.buildBackupKey('cours/m1/l1', 'Nicolas')).not.toBe(
