@@ -170,8 +170,8 @@ function render(){
 
   // Nav contextuelle + sous-titre
   document.getElementById('nav').innerHTML = (t==='prod')
-    ? '<a class="navlink" href="analytics.html">📊 Analytics</a><a class="navlink" href="exports.html">📥 Exports</a><a class="navlink" href="guide.html">📖 Guide</a>'
-    : '<a class="navlink" href="guide.html">📖 Guide</a>';
+    ? '<a class="navlink" href="studio.html">🎛️ Atelier du son</a><a class="navlink" href="analytics.html">📊 Analytics</a><a class="navlink" href="exports.html">📥 Exports</a><a class="navlink" href="guide.html">📖 Guide</a>'
+    : '<a class="navlink" href="studio.html">🎛️ Atelier du son</a><a class="navlink" href="guide.html">📖 Guide</a>';
   var SUBS = {audio:'Révision audio — écoute et flag les voix',video:'Révision vidéo — regarde et approuve les vidéos',prod:'Production — vidéos à produire et corrections (Nicolas)',done:'Formations 100% terminées',ghl:'Formations prêtes à importer dans GoHighLevel'};
   document.getElementById('subtitle').textContent = SUBS[t]||'Pipeline de production des formations';
 
