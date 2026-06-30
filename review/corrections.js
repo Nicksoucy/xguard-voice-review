@@ -313,3 +313,10 @@ function toggleShowApproved(){
   renderFlags();
 }
 
+
+// Ouvre l'atelier du son (studio.html) avec le mot flagge + sa phrase pre-remplis.
+function openAtelier(ii){
+  var d = (typeof flags!=='undefined') ? flags.get(ii) : null; if(!d) return;
+  var url = 'studio.html?word=' + encodeURIComponent(d.word||'') + '&phrase=' + encodeURIComponent(d.context||'');
+  window.open(url, '_blank');
+}

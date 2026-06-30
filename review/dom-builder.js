@@ -457,7 +457,7 @@ function renderFlags(){
     var approveBtn = (!approved && !autoResolved)
       ? '<button class="rfixbtn rapprove" style="background:#1E8449;border-color:#1E8449;color:#fff" title="Écoute la phrase, puis approuve si elle est bonne" onclick="approveOneFlag('+ii+')">✅ Approuver</button>'
       : '';
-    var rfixBlock = '<span class="rfixwrap"><input class="rfix" id="rfix'+ii+'" placeholder="'+rfixPlaceholder(currentCat)+'"><button class="rfixbtn" title="Tu as le bon texte : envoyer la correction (régénération auto)" onclick="submitCorrectionRequest('+ii+')">Corriger</button><button class="rfixbtn rpt" title="La voix répète ou bégaie ce mot — refaire ce bout (sans changer le texte)" onclick="submitRepeat('+ii+')">🔁 Re-générer</button>'+phraseLink+listenBtn+approveBtn+'<span class="rfixstatus" id="rfixstatus'+ii+'"></span></span>';
+    var rfixBlock = '<span class="rfixwrap"><input class="rfix" id="rfix'+ii+'" placeholder="'+rfixPlaceholder(currentCat)+'"><button class="rfixbtn" title="Tu as le bon texte : envoyer la correction (régénération auto)" onclick="submitCorrectionRequest('+ii+')">Corriger</button><button class="rfixbtn rpt" title="La voix répète ou bégaie ce mot — refaire ce bout (sans changer le texte)" onclick="submitRepeat('+ii+')">🔁 Re-générer</button><button class="rfixbtn" title="Atelier du son — tester la prononciation de ce mot" onclick="openAtelier('+ii+')">🎵 Atelier</button>'+phraseLink+listenBtn+approveBtn+'<span class="rfixstatus" id="rfixstatus'+ii+'"></span></span>';
     // Badge clair pour les flags REGLES (visibles seulement via le toggle
     // "afficher les corriges") : Hela sait quoi en penser sans deviner.
     var regleBadge = '';

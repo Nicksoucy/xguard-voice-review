@@ -215,6 +215,8 @@ function setStatus(msg, cls){ var el=$('status'); el.className = 'status '+(cls|
   var q = new URLSearchParams(location.search).get('word');
   var w0 = q || '';
   $('word').value = w0;
+  var ph0 = new URLSearchParams(location.search).get('phrase') || '';
+  if (ph0 && $('phrase')) $('phrase').value = ph0;
   $('word').addEventListener('input', function(){ renderScopeBanner(this.value); });
   $('go').addEventListener('click', go);
   $('addGraphie').addEventListener('click', function(){ addGraphieRow('', 'Sylvie'); });

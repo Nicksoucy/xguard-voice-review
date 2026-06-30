@@ -212,7 +212,7 @@ resolveCourseId(function(courseId){
     // Switch vers lesson_status_full : ajoute colonnes video (has_video, video_status, etc.)
     fetch(API+'/lesson_status_full?course_id=eq.'+encodeURIComponent(courseId)+'&order=sort_order.asc',{headers:H}).then(function(r){return r.json()}),
     fetch(API+'/voiceover_metadata?lesson_key=like.'+encodeURIComponent(courseId+'/%')+'&select=lesson_key,regenerated_sentence_indices,voiceover_uploaded_at',{headers:H}).then(function(r){return r.json()}),
-    fetch(API+'/voice_reviews?lesson_key=like.'+encodeURIComponent(courseId+'/%')+'&select=lesson_key,flags,updated_at&order=updated_at.desc',{headers:H}).then(function(r){return r.json()})
+    fetch(API+'/voice_reviews?lesson_key=like.'+encodeURIComponent(courseId+'/%')+'&select=lesson_key,flags,approved,updated_at&order=updated_at.desc',{headers:H}).then(function(r){return r.json()})
   ]).then(function(results){
     var courseRows = results[0];
     var lessonStatuses = results[1];
