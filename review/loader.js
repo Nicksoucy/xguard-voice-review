@@ -356,6 +356,11 @@ function pickBestTimestamps(candidates){
   loadHistory();
   try { if (typeof loadCorrectionsLog === 'function') loadCorrectionsLog(); } catch (e) {}
   loadRegenIndices();
+  // Declencheur FIABLE du statut des corrections : avant, pollCorrectionStatus n'etait
+  // appele que depuis renderFlags (apres un return anticipe si aucun flag visible) -> souvent
+  // jamais lance -> correctionStatuses vide -> ni "Corrigé", ni verdissement (bug Hela). On le
+  // lance ici, dans la sequence de chargement, quoi qu'il arrive.
+  try { window._corrInit = true; if (typeof pollCorrectionStatus === 'function') pollCorrectionStatus(); } catch (e) {}
   checkCourseArchived();
 }
 
