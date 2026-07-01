@@ -320,6 +320,8 @@ function approveAllGreens(){
     }
   });
   if (changed > 0) {
+    dirty = true; // SANS ca, flushAutoSave (qui teste dirty) ne persiste RIEN -> l'approbation
+                  // ne tenait pas au rechargement (bug « approuver marche pas », Hela 2026-07-01).
     // Re-render des mots pour cacher le surlignage vert des phrases approuvees
     buildWords();
     renderFlags();
@@ -357,6 +359,7 @@ function approveOneFlag(ii){
   flags.set(ii, f);
   var idxs = (Array.isArray(f.groupIndices) && f.groupIndices.length > 1) ? f.groupIndices : [ii];
   idxs.forEach(function(g){ if (els[g]) { els[g].classList.remove('flagged','resolved','reflagged'); els[g].classList.add('approved'); } });
+  dirty = true; // sinon flushAutoSave ne sauvegarde pas (il teste dirty) -> approbation perdue.
   buildWords();
   renderFlags();
   flushAutoSave();

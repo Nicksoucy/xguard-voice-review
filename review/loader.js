@@ -29,12 +29,23 @@ function loadExistingReview(){
     .then(function(r){return r.json()})
     .then(function(rows){
       if (!Array.isArray(rows) || !rows.length) { window.viewingOtherReview = null; maybeOfferLocalRestore(null); return; }
+      var rnN = rn.toLowerCase();
       var mine = null, other = null;
       for (var i = 0; i < rows.length; i++) {
-        if (rows[i].reviewer_name === rn) { if (!mine) mine = rows[i]; }
+        var rname = (rows[i].reviewer_name || '').trim();
+        // Match INSENSIBLE a la casse/aux espaces : "Héla" / "héla" / "hela " = la meme personne.
+        // Avant, une simple difference de casse bloquait Hela en LECTURE SEULE sur sa PROPRE review
+        // (« je ne peux pas approuver », 2026-07-01).
+        if (rname.toLowerCase() === rnN) { if (!mine) mine = rows[i]; }
         else if (!other && Array.isArray(rows[i].flags) && rows[i].flags.length) other = rows[i];
       }
       var rev = mine || other || rows[0];
+      // Si on a retrouve NOTRE review malgre une casse differente, aligner le nom local sur celui
+      // enregistre -> on edite/sauvegarde la BONNE ligne (pas de doublon) et on n'est pas en lecture seule.
+      if (mine && mine.reviewer_name && mine.reviewer_name !== rn) {
+        try { localStorage.setItem('rn', mine.reviewer_name); } catch (e) {}
+        rn = mine.reviewer_name;
+      }
       // Etat d'approbation persistant : seule MA propre review compte (pas celle d'un autre).
       lessonApproved = !!(mine && mine.approved);
       // Mode LECTURE si on affiche la review d'un AUTRE reviseur : on ne sauvegarde pas sous son nom.
