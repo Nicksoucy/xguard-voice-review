@@ -119,10 +119,48 @@ function applyCorrectionStatuses(){
   });
 }
 
+// Marque un flag comme "resolu" (vert) quand sa correction est DONE **et reellement
+// appliquee** — sans dependre de regenerated_sentence_indices (souvent vide pour les
+// fixes par dico + regen complete). Verdict par intention :
+//  - mot/typo : corrige si l'ancien mot flagge (f.word) n'apparait plus dans sa phrase
+//    (ex "regle" devenu "règle" -> vert ; "cote" encore "cote" -> reste rouge).
+//  - prononciation : le texte affiche ne change pas ; on se fie a une regen posterieure
+//    a la correction (lessonRegenAt >= completed_at) pour confirmer que la voix est fraiche.
+// Corrige la plainte Hela 2026-06-30 (« corrige mais reste rouge / rien corrige a partir du M3 »).
+function augmentResolvedFromCorrections(){
+  if (typeof flags === 'undefined' || !flags || !flags.size) return;
+  if (typeof W === 'undefined' || !W || !W.length) return;
+  var regenAt = lessonRegenAt ? new Date(lessonRegenAt).getTime() : 0;
+  var changed = false;
+  flags.forEach(function(f, idx){
+    if (!f || f.correction_applied || f.reflagged) return;
+    var cs = correctionStatuses[idx];
+    if (!cs || cs.status !== 'done') return;
+    var ok = false;
+    if (cs.intent === 'pronunciation') {
+      if (regenAt && cs.completed_at && regenAt >= new Date(cs.completed_at).getTime()) ok = true;
+    } else {
+      var si = f.sentenceIndex;
+      if (si !== null && si !== undefined && si !== '?') {
+        var stillThere = false;
+        for (var i = 0; i < W.length; i++) {
+          if (W[i].sentenceIndex === si && W[i].word === f.word) { stillThere = true; break; }
+        }
+        ok = !stillThere; // l'ancienne graphie a disparu => la correction est visible
+      }
+    }
+    if (ok) { f.correction_applied = true; changed = true; }
+  });
+  if (changed) {
+    try { if (typeof refreshFlagClasses === 'function') refreshFlagClasses(); } catch (e) {}
+    try { if (typeof renderFlags === 'function') renderFlags(); } catch (e) {}
+  }
+}
+
 // Lit les correction_requests de la lecon et met a jour les badges.
 function pollCorrectionStatus(){
   if (!L) return;
-  fetch(API+'/correction_requests?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=phrase_index,status,completed_at,reason&order=created_at.desc', {headers:H})
+  fetch(API+'/correction_requests?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=phrase_index,status,completed_at,reason,intent&order=created_at.desc', {headers:H})
     .then(function(r){ return r.json(); })
     .then(function(rows){
       if (!Array.isArray(rows)) return;
@@ -136,10 +174,11 @@ function pollCorrectionStatus(){
         // version FRAICHE (avant : elle re-ecoutait l'ancienne voix et croyait que c'etait mal
         // corrige — reponses Hela 2026-06-24).
         if (row.status === 'done' && prev && (prev.status === 'pending' || prev.status === 'processing')) justDone = true;
-        correctionStatuses[row.phrase_index] = {status:row.status, completed_at:row.completed_at, reason:row.reason};
+        correctionStatuses[row.phrase_index] = {status:row.status, completed_at:row.completed_at, reason:row.reason, intent:row.intent};
         if (row.status === 'pending' || row.status === 'processing') anyActive = true;
       });
       applyCorrectionStatuses();
+      augmentResolvedFromCorrections();
       loadCorrectionsLog();
       if (justDone) refreshAfterRegen();
       if (anyActive) startCorrectionPolling();

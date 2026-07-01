@@ -26,6 +26,9 @@ var lessonApproved = false;
 // Mode filtre : quand actif, n'affiche que les phrases regenerees (regenIndices)
 var regenIndices = null; // null = pas de filtre disponible pour cette lecon
 var filterModeActive = false;
+// Date d'upload du voiceover courant (voiceover_metadata) — sert a decider si une
+// correction "done" (surtout prononciation) a bien ete integree dans l'audio actuel.
+var lessonRegenAt = null;
 // Source des timestamps charges : 'preview' ou 'final'
 // Utilise par loadStatus() pour detecter un mismatch avec le chemin audio.
 var W_source = 'final'; // par defaut "final" avant que pickBestTimestamps confirme
@@ -49,7 +52,12 @@ function fmt(s){return Math.floor(s/60)+':'+('0'+Math.floor(s%60)).slice(-2)}
 // Si le reviewer re-clique sur le mot apres regen, le flag repasse en "unresolved"
 // (= c'est un nouveau probleme sur la phrase deja regeneree).
 // Predicats de flag deleguees a lib/review-logic.js (regenIndices passe en parametre pour isResolved).
-function isResolved(flag){ return XGReview.isResolved(flag, regenIndices); }
+// Resolu = phrase regeneree (regenIndices) OU correction confirmee appliquee
+// (flag.correction_applied, pose par augmentResolvedFromCorrections quand la
+// correction_request est "done" ET visible dans le texte / la voix). Corrige le
+// bug "l'app montre rouge alors que c'est corrige" (Hela 2026-06-30) : les fixes
+// par dico + regen complete ne remplissaient pas regenerated_sentence_indices.
+function isResolved(flag){ return XGReview.isResolved(flag, regenIndices) || !!(flag && flag.correction_applied); }
 function isApproved(flag){ return XGReview.isApproved(flag); }
 function isAutoResolved(flag){ return XGReview.isAutoResolved(flag); }
 function isHidden(flag){ return XGReview.isHidden(flag); }

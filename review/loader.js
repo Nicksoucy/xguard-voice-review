@@ -391,6 +391,8 @@ function reloadWords(){
         buildWords();
         try { if (typeof refreshFlagClasses === 'function') refreshFlagClasses(); } catch (e) {}
         try { if (typeof applyCorrectionStatuses === 'function') applyCorrectionStatuses(); } catch (e) {}
+        // Le texte vient de changer -> re-verifier quelles corrections sont visibles.
+        try { if (typeof augmentResolvedFromCorrections === 'function') augmentResolvedFromCorrections(); } catch (e) {}
       });
   });
 }
@@ -462,11 +464,15 @@ function computeSentenceRanges(){ sentenceRanges = XGReview.computeSentenceRange
 // loadExistingReview tourne en parallele et peut ne pas avoir fini au moment
 // ou on verifie l'existence de flags.
 function loadRegenIndices(){
-  fetch(API+'/voiceover_metadata?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=regenerated_sentence_indices',{headers:H})
+  fetch(API+'/voiceover_metadata?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=regenerated_sentence_indices,voiceover_uploaded_at',{headers:H})
     .then(function(r){return r.json()})
     .then(function(rows){
       if (!rows.length) return;
+      lessonRegenAt = rows[0].voiceover_uploaded_at || null;
       var indices = rows[0].regenerated_sentence_indices;
+      // Meme sans phrases regenerees "une a une", des corrections done peuvent etre
+      // visibles (fixes par dico + regen complete) -> verdir les flags concernes.
+      try { augmentResolvedFromCorrections(); } catch (e) {}
       if (!Array.isArray(indices) || indices.length === 0) return;
       regenIndices = indices;
       // CRITICAL: refresh des classes des mots dans le texte des que regenIndices arrive,
