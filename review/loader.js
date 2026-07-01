@@ -356,6 +356,45 @@ function pickBestTimestamps(candidates){
   checkCourseArchived();
 }
 
+// Recharge UNIQUEMENT les timestamps (W) apres une regeneration, puis reconstruit le
+// TEXTE affiche — SANS recharger la review (les flags en cours d'Hela sont preserves).
+// Corrige le bug "la correction approuvee n'apparait pas dans le texte de la lecon"
+// (Hela 2026-06-30) : avant, le texte du haut restait fige sur l'ancien W tant qu'on
+// ne rechargeait pas la page (et meme un refresh ne suffisait pas si le storage etait
+// deja frais mais W en memoire perime). On reutilise le meme choix de timestamps que
+// le chargement initial (XGReview.pickBestTimestamps), puis on repeint les flags depuis
+// la Map en memoire (refreshFlagClasses) sans toucher voice_reviews.
+function reloadWords(){
+  if (!L) return;
+  var bust = '?v=' + Date.now();
+  var urls = [
+    STORAGE + '/preview/' + L.lesson_key + '/voiceover-timestamps.json' + bust,
+    STORAGE + '/preview/' + L.lesson_key + '/timestamps.json' + bust,
+    STORAGE + '/' + L.lesson_key + '/voiceover-timestamps.json' + bust,
+    STORAGE + '/' + L.lesson_key + '/timestamps.json' + bust
+  ];
+  var results = [];
+  var done = 0;
+  urls.forEach(function(url, idx){
+    fetch(url)
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .catch(function(){ return null; })
+      .then(function(data){
+        results[idx] = data;
+        done++;
+        if (done !== urls.length) return;
+        var sel = XGReview.pickBestTimestamps(results);
+        if (!sel || !sel.words) return; // rien de frais -> on garde l'affichage courant
+        W = sel.words;
+        W_source = sel.source;
+        computeSentenceRanges();
+        buildWords();
+        try { if (typeof refreshFlagClasses === 'function') refreshFlagClasses(); } catch (e) {}
+        try { if (typeof applyCorrectionStatuses === 'function') applyCorrectionStatuses(); } catch (e) {}
+      });
+  });
+}
+
 // Etat "brouillon" : lecon-conteneur sans voiceover produit. On cache le lecteur audio ET
 // tout le panneau de review (sinon Hela peut cliquer Approuver/Sauvegarder sur du vide) et
 // on explique clairement, avec un retour vers le cours. Vu 2026-06-05 (Surete MET M08-15,

@@ -156,6 +156,9 @@ function pollCorrectionStatus(){
 // Toast non bloquant pour prevenir Hela que la voix a change.
 function refreshAfterRegen(){
   try { if (typeof loadStatus === 'function') loadStatus(); } catch (e) {}
+  // Recharge le TEXTE affiche (W) depuis le storage frais, pas seulement l'audio :
+  // c'est ce qui manquait -> la correction approuvee apparait enfin dans la lecon.
+  try { if (typeof reloadWords === 'function') reloadWords(); } catch (e) {}
   try { if (typeof loadRegenIndices === 'function') loadRegenIndices(); } catch (e) {}
   try { if (typeof showMsg === 'function') showMsg('🔄 Une phrase vient d’être refaite — ré-écoute-la', 'saving'); } catch (e) {}
 }
