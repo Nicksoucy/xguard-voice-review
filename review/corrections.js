@@ -152,8 +152,22 @@ function augmentResolvedFromCorrections(){
     if (ok) { f.correction_applied = true; changed = true; }
   });
   if (changed) {
+    // Surligner en VERT les phrases dont une correction est appliquee : c'est le signal
+    // "corrige" qu'attend la reviseuse (« aucune phrase en vert » = plainte Hela 2026-07-01).
+    // On alimente regenIndices (meme canal que les phrases regenerees une-a-une) -> buildWords
+    // colore la phrase et le bouton "a revoir" apparait.
+    var set = new Set(regenIndices || []);
+    var grew = false;
+    flags.forEach(function(f){
+      if (f.correction_applied && f.sentenceIndex !== null && f.sentenceIndex !== undefined && f.sentenceIndex !== '?') {
+        if (!set.has(f.sentenceIndex)) { set.add(f.sentenceIndex); grew = true; }
+      }
+    });
+    if (grew) regenIndices = Array.from(set);
+    try { if (typeof buildWords === 'function') buildWords(); } catch (e) {}
     try { if (typeof refreshFlagClasses === 'function') refreshFlagClasses(); } catch (e) {}
     try { if (typeof renderFlags === 'function') renderFlags(); } catch (e) {}
+    try { if (typeof updateFilterBtnCount === 'function') updateFilterBtnCount(); } catch (e) {}
   }
 }
 
