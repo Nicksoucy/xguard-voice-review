@@ -84,6 +84,9 @@ function loadExistingReview(){
       renderFlags();
       renderGlitches();
       if (typeof applyCorrectionStatuses === 'function') applyCorrectionStatuses();
+      // Les flags viennent d'etre charges -> verdir ceux dont la correction est deja
+      // faite ET visible (idempotent ; re-tente aussi au polling, quel que soit l'ordre).
+      if (typeof augmentResolvedFromCorrections === 'function') augmentResolvedFromCorrections();
       // Le rafraichissement du contexte ci-dessus (apres une regen) a pu mettre dirty=true, mais ce
       // n'est PAS une edition de l'utilisateur -> une lecon fraichement chargee doit etre "propre".
       // Sinon le garde-fou beforeunload affiche « Leave site? » a CHAQUE navigation (bug signale).
