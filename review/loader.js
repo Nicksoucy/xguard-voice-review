@@ -478,11 +478,14 @@ function loadRegenIndices(){
       if (!rows.length) return;
       lessonRegenAt = rows[0].voiceover_uploaded_at || null;
       var indices = rows[0].regenerated_sentence_indices;
-      // Meme sans phrases regenerees "une a une", des corrections done peuvent etre
-      // visibles (fixes par dico + regen complete) -> verdir les flags concernes.
+      // Poser d'abord les phrases regenerees "une a une" (si presentes)...
+      if (Array.isArray(indices) && indices.length) regenIndices = indices;
+      // ...PUIS verdir les corrections appliquees : augment FUSIONNE dans regenIndices
+      // (jamais un ecrasement), donc l'ordre d'arrivee des fetch n'a pas d'importance.
+      // Cas frequent : regenerated_sentence_indices vide (fix par dico + regen complete) ->
+      // seules les phrases des corrections done deviennent vertes.
       try { augmentResolvedFromCorrections(); } catch (e) {}
       if (!Array.isArray(indices) || indices.length === 0) return;
-      regenIndices = indices;
       // CRITICAL: refresh des classes des mots dans le texte des que regenIndices arrive,
       // peu importe l'etat du bouton filtre. Sinon les mots restent marques 'flagged'
       // alors qu'ils devraient etre 'resolved' (vert) dans la phrase regeneree.
