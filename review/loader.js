@@ -21,7 +21,9 @@ function resolveLesson(cb){
 }
 
 function loadExistingReview(){
-  var rn = (localStorage.getItem('rn') || 'Anonyme').trim();
+  // rnRaw = nom EXPLICITEMENT choisi par le reviseur (vide s'il n'en a jamais mis).
+  var rnRaw = (localStorage.getItem('rn') || '').trim();
+  var rn = rnRaw || 'Anonyme';
   // Charger TOUTES les reviews de la lecon (plus seulement la sienne). On prefere la sienne si elle
   // existe ; sinon on AFFICHE celle d'un autre reviseur (ex. Hela) pour que Nicolas voie son travail.
   // (Avant : filtre reviewer_name=eq.moi -> on ne voyait jamais les flags des autres.)
@@ -29,6 +31,14 @@ function loadExistingReview(){
     .then(function(r){return r.json()})
     .then(function(rows){
       if (!Array.isArray(rows) || !rows.length) { window.viewingOtherReview = null; maybeOfferLocalRestore(null); return; }
+      // SIMPLIFICATION (2026-07-01) : sans nom explicite, on ADOPTE le reviseur existant de la lecon.
+      // Sinon Hela — dont la review est deja sous "héla" mais dont le navigateur n'a pas de nom
+      // enregistre — se retrouvait bloquee en LECTURE SEULE sur SA PROPRE review, incapable
+      // d'approuver. (Nicolas garde la lecture seule seulement s'il a mis son propre nom.)
+      if (!rnRaw && rows[0] && rows[0].reviewer_name) {
+        rn = rows[0].reviewer_name.trim();
+        try { localStorage.setItem('rn', rn); } catch (e) {}
+      }
       var rnN = rn.toLowerCase();
       var mine = null, other = null;
       for (var i = 0; i < rows.length; i++) {
