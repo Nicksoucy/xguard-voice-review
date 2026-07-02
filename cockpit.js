@@ -563,6 +563,7 @@ function convertToSourceEdit(id, el){
       lesson_key: c.lesson_key,
       sentence_index: c.sentence_index,
       flag_type: 'partial',
+      original_text: c.correction_note, // colonne NOT NULL — trace lisible de l'origine
       partial_original: from,
       partial_replacement: to,
       note: '[cockpit] converti depuis la correction ' + c.id + ' (' + (c.requested_by||'?') + ')',
