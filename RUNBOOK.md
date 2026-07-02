@@ -210,3 +210,53 @@ Voir section Phase 1.3 du plan dans `~/.claude/plans/`.
 - 2026-05-10 : Phase 3.4 deployed — UI Push to GHL (course.html bulk + review-video.html lesson)
 - 2026-05-10 : Phase 4.1 deployed — Exports CSV/JSON (5 sections : reviews, lessons, top flags, throughput, sentence flags)
 - 2026-05-10 : Phase 4.2 deployed — RLS hardening sur tables video_* (advisory critical Supabase resolu)
+
+---
+
+## Architecture de fiabilite (audit 2026-07-02)
+
+### Workers et machines
+| Worker | Machines | Declencheur | Heartbeat |
+|---|---|---|---|
+| correction-loop (process-correction-requests.mjs) | Nitro (Task Scheduler 5 min, `git fetch+reset` avant chaque run) + Mac (launchd 300s) | file `correction_requests` | `xguard-correction@<host>` |
+| sentence-flags (process-sentence-flags.mjs) | Nitro (Task Scheduler 5 min, one-shot) + Mac (launchd watch 5s) | file `sentence_flags` | `xguard-sflags@<host>` |
+| studio-worker | Mac (launchd watch) | tables studio | `xguard-studio@<host>` |
+| apply-vault-edits | Mac (launchd 13h45) | `md_synced=false contextual` | — |
+
+Nitro est un CLONE GIT (`C:\Users\User\xguard-pipeline`, deploy key lecture seule
+`id_pipeline`) — plus jamais de scp. L'ancien dossier scp est garde en
+`xguard-pipeline-scp-backup-20260702`. Le vault de Nitro pousse avec `id_vault`
+(lecture-ecriture depuis 2026-07-02, requis par sentence-flags).
+
+### Garde-fous
+1. Gate de version (`scripts/lib/code-version.mjs`) : un worker en retard sur
+   origin/master refuse de claimer (heartbeat `stale-version`).
+2. Fence DB (migration 014) : trigger sur `correction_requests` — un hote
+   `allowed=false` dans `xguard_worker_hosts` recoit 400 au claim, meme avec du
+   vieux code. Debrancher une machine = `UPDATE xguard_worker_hosts SET allowed=false`.
+3. Plus AUCUN statut `error` terminal : anti-boucle et refus du garde-fou dico
+   routent vers `needs_review` avec une raison lisible.
+
+### Surveillance
+- Vue `queue_health` (migration 016) = SEULE source des seuils. Consommee par le
+  cockpit, la routine 14h (hela-feedback) et la sentinelle.
+- Sentinelle : `.github/workflows/queue-health.yml` toutes les 30 min. Alerte ->
+  issue label `watchdog` (email automatique GitHub a Nicolas) ; retour au vert ->
+  issue fermee. Test manuel : Actions -> « Sante du pipeline » -> Run workflow.
+- Cockpit : bandeau par machine sur tous les onglets (rouge = erreur/code
+  perime/travail coince ; le Mac qui dort avec une file vide n'alarme pas).
+
+### Incident type : « une machine tourne du vieux code »
+1. Cockpit : la puce machine affiche « code perime (version) ».
+2. La bloquer immediatement : `UPDATE xguard_worker_hosts SET allowed=false WHERE hostname='<HOST>';`
+3. Sur la machine : `git -C <repo> fetch && git reset --hard origin/master`, puis re-autoriser.
+
+### Etape restante (a faire par Nicolas) — durcissement RLS
+Les workers utilisent la cle anon (fallback). Pour retirer les ecritures anon sur
+`watchdog_heartbeat` et `dict_additions` SANS casser les workers :
+1. Supabase Studio -> Settings -> API -> copier la cle `service_role`.
+2. L'ajouter dans les DEUX .env : `SUPABASE_SERVICE_ROLE_KEY=...`
+   (Mac : `~/XGuard/pipeline/.env` ; Nitro : `C:\Users\User\xguard-pipeline\.env`).
+3. Verifier un cycle complet des workers, PUIS retirer les policies d'ecriture anon
+   sur ces deux tables (migration dediee). Ne PAS toucher aux autres tables : l'app
+   publique (Hela) ecrit avec la cle anon par design.
