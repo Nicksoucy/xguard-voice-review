@@ -1,12 +1,20 @@
 var currentFlaggingSi = null; // sentenceIndex en cours d'edition
 
-// Extrait le texte complet d'une phrase a partir des mots W
+// Extrait le texte complet d'une phrase a partir des mots W.
+// RECOLLAGE (audit 2026-07-02) : les timestamps audio decoupent "d'un" en
+// "d" + "'un" et isolent la ponctuation — la jointure par espaces produisait
+// "d 'un chantier ." et le worker ne retrouvait JAMAIS la phrase dans la
+// source (74 crayons coinces). On recolle apostrophes et ponctuation.
 function getSentenceText(si){
   var parts = [];
   for (var i=0; i<W.length; i++){
     if (W[i].sentenceIndex === si) parts.push(W[i].word);
   }
-  return parts.join(' ');
+  return parts.join(' ')
+    .replace(/\s+(['’])\s*/g, '$1')   // "d 'un" / "qu' est" -> "d'un" / "qu'est"
+    .replace(/\s+([.,;:!?…»%])/g, '$1') // ponctuation collee au mot precedent
+    .replace(/([«])\s+/g, '$1')       // guillemet ouvrant colle au mot suivant
+    .replace(/\s{2,}/g, ' ').trim();
 }
 
 // Ouvre le modal Flag phrase pour un sentenceIndex donne
@@ -43,16 +51,77 @@ function onFlagTypeChange(){
   document.getElementById('field-partial').style.display = (type.value === 'partial') ? 'block' : 'none';
 }
 
-// Recupere les flags existants pour cette phrase et les affiche en note
+// Recupere les flags existants pour cette phrase et montre leur STATUT reel
+// (boucle de feedback : Hela voit enfin ce que sa demande est devenue).
+function escHtml(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
 function loadExistingSentenceFlags(si){
   if (!L) return;
-  fetch(API+'/sentence_flags?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&sentence_index=eq.'+si+'&order=created_at.desc',{headers:H})
+  fetch(API+'/sentence_flags?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&sentence_index=eq.'+si
+      +'&select=id,flag_type,applied,applied_at,auto_status,skip_reason,source_sentence,corrected_text,partial_original,partial_replacement,note,created_at&order=created_at.desc',{headers:H})
     .then(function(r){return r.json()})
     .then(function(rows){
-      if (!rows.length) return;
+      if (!Array.isArray(rows) || !rows.length) return;
+      var f = rows[0]; // le plus recent fait foi
       var msg = document.getElementById('sentence-modal-msg');
-      msg.textContent = '\u26A0 ' + rows.length + ' flag(s) deja pose(s) sur cette phrase';
+      var st = (window.XGReview && XGReview.sentenceFlagStatusLabel) ? XGReview.sentenceFlagStatusLabel(f) : null;
+      var html = st ? '<span class="rfixstatus '+st.c+'">'+escHtml(st.t)+'</span>' : '';
+      // Echec definitif : montrer POURQUOI + le texte source actuel + bouton Renvoyer.
+      if (!f.applied && f.auto_status === 'skipped') {
+        if (f.skip_reason) html += '<div style="margin-top:4px;font-size:12px">Raison : '+escHtml(f.skip_reason)+'</div>';
+        if (f.source_sentence) html += '<div style="margin-top:4px;font-size:12px;opacity:.8">Texte actuel de la source : \u00AB&nbsp;'+escHtml(f.source_sentence)+'&nbsp;\u00BB</div>';
+        html += '<button type="button" class="rfixbtn" style="margin-top:6px" onclick="resendSentenceFlag('+f.id+')">\uD83D\uDD01 Renvoyer avec le texte actuel</button>';
+      }
+      if (rows.length > 1) html += '<div style="margin-top:4px;font-size:11px;opacity:.7">'+rows.length+' demandes au total sur cette phrase</div>';
+      msg.innerHTML = html;
     }).catch(function(){});
+}
+
+// Renvoie un flag skipped en re-ancrant original_text sur le texte ACTUEL de la
+// source (stocke par le worker au moment du skip) : le nouveau flag redevient
+// localisable. L'ancien est marque 'superseded' pour ne pas etre retraite.
+function resendSentenceFlag(oldId){
+  if (!L) return;
+  var msg = document.getElementById('sentence-modal-msg');
+  fetch(API+'/sentence_flags?id=eq.'+oldId+'&select=*',{headers:H})
+    .then(function(r){return r.json()})
+    .then(function(rows){
+      var old = rows && rows[0];
+      if (!old) { msg.textContent = 'Flag introuvable'; return; }
+      if (!old.source_sentence) { msg.textContent = 'Pas de texte source disponible \u2014 re-soumets via le formulaire.'; return; }
+      var rn = (localStorage.getItem('rn') || 'Anonyme').trim();
+      var payload = {
+        lesson_key: old.lesson_key,
+        sentence_index: old.sentence_index,
+        flag_type: old.flag_type,
+        original_text: old.source_sentence, // re-ancre sur la source ACTUELLE
+        corrected_text: old.corrected_text,
+        partial_original: old.partial_original,
+        partial_replacement: old.partial_replacement,
+        note: old.note,
+        reviewer_name: rn,
+      };
+      msg.textContent = 'Renvoi\u2026';
+      fetch(API+'/sentence_flags', {
+        method: 'POST',
+        headers: Object.assign({}, H, {'Content-Type':'application/json','Prefer':'return=minimal'}),
+        body: JSON.stringify(payload),
+      }).then(function(r){
+        if (!r.ok) { msg.textContent = 'Erreur ' + r.status; return; }
+        // L'ancien flag ne doit plus jamais repasser dans la machine.
+        fetch(API+'/sentence_flags?id=eq.'+oldId, {
+          method: 'PATCH',
+          headers: Object.assign({}, H, {'Content-Type':'application/json','Prefer':'return=minimal'}),
+          body: JSON.stringify({ auto_status: 'superseded', skip_reason: 'remplace par un renvoi avec le texte actuel' }),
+        }).catch(function(){});
+        msg.textContent = '\u2713 Renvoye \u2014 en traitement';
+        if (window.loadSentenceFlagStatuses) loadSentenceFlagStatuses();
+        setTimeout(closeSentenceModal, 1400);
+      }).catch(function(e){ msg.textContent = 'Erreur : ' + e.message; });
+    }).catch(function(e){ msg.textContent = 'Erreur : ' + e.message; });
 }
 
 // Envoie le flag vers Supabase
@@ -64,6 +133,9 @@ function submitSentenceFlag(){
     return;
   }
   var rn = (localStorage.getItem('rn') || 'Anonyme').trim();
+  // Normalisation des saisies : espaces multiples/insecables et bords propres,
+  // pour que le worker compare des textes sains.
+  var normIn = function(s){ return String(s||'').replace(/\u00A0/g,' ').replace(/\s+/g,' ').trim(); };
   var payload = {
     lesson_key: L.lesson_key,
     sentence_index: currentFlaggingSi,
@@ -73,20 +145,40 @@ function submitSentenceFlag(){
     reviewer_name: rn,
   };
   if (type.value === 'rewrite') {
-    payload.corrected_text = document.getElementById('sentence-corrected').value || null;
+    payload.corrected_text = normIn(document.getElementById('sentence-corrected').value) || null;
     if (!payload.corrected_text) {
       document.getElementById('sentence-modal-msg').textContent = 'Le nouveau texte est requis';
       return;
     }
+    if (payload.corrected_text === normIn(payload.original_text)) {
+      document.getElementById('sentence-modal-msg').textContent = 'Le nouveau texte est identique à la phrase actuelle — rien à corriger.';
+      return;
+    }
   } else if (type.value === 'partial') {
-    payload.partial_original = document.getElementById('sentence-partial-from').value || null;
-    payload.partial_replacement = document.getElementById('sentence-partial-to').value || null;
+    payload.partial_original = normIn(document.getElementById('sentence-partial-from').value) || null;
+    payload.partial_replacement = normIn(document.getElementById('sentence-partial-to').value) || null;
     if (!payload.partial_original || !payload.partial_replacement) {
       document.getElementById('sentence-modal-msg').textContent = 'Les deux morceaux sont requis';
       return;
     }
+    if (payload.partial_original === payload.partial_replacement) {
+      document.getElementById('sentence-modal-msg').textContent = 'Les deux morceaux sont identiques — rien à corriger.';
+      return;
+    }
   }
   document.getElementById('sentence-modal-msg').textContent = 'Envoi…';
+  // Dedup (meme logique que les corrections de mots) : une demande ACTIVE existe
+  // deja sur cette phrase ? Re-cliquer ne fait pas avancer plus vite.
+  var dedupUrl = API+'/sentence_flags?lesson_key=eq.'+encodeURIComponent(L.lesson_key)
+    + '&sentence_index=eq.'+currentFlaggingSi
+    + '&applied=eq.false&or=(auto_status.is.null,auto_status.eq.processing)'
+    + '&select=id,created_at&limit=1';
+  fetch(dedupUrl, {headers:H}).then(function(r){ return r.ok ? r.json() : []; }).then(function(existing){
+  if (existing && existing[0]) {
+    var quand = new Date(existing[0].created_at).toLocaleDateString('fr-CA', {day:'numeric', month:'long'});
+    document.getElementById('sentence-modal-msg').textContent = '⏳ Deja demande le '+quand+' — en traitement. Pas besoin de re-cliquer.';
+    return;
+  }
   fetch(API+'/sentence_flags', {
     method: 'POST',
     headers: Object.assign({}, H, {'Content-Type':'application/json','Prefer':'return=minimal'}),
@@ -94,6 +186,7 @@ function submitSentenceFlag(){
   }).then(function(r){
     if (r.ok) {
       document.getElementById('sentence-modal-msg').textContent = '✓ Correction de phrase envoyée — en traitement';
+      if (window.loadSentenceFlagStatuses) loadSentenceFlagStatuses();
       setTimeout(closeSentenceModal, 1400);
     } else {
       r.text().then(function(t){
@@ -120,6 +213,10 @@ function submitSentenceFlag(){
         sentence_index: String(payload.sentence_index || '')
       });
     }
+  });
+  }).catch(function(e){
+    // Dedup injoignable (reseau) : on n'empeche pas la soumission pour autant.
+    document.getElementById('sentence-modal-msg').textContent = 'Erreur : ' + e.message;
   });
 }
 

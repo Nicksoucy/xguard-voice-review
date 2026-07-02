@@ -44,16 +44,23 @@ document.getElementById('name').value = localStorage.getItem('rn') || '';
 Promise.all([
   window.XG.api('courses?visible=eq.true&order=sort_order.asc'),
   window.XG.api('lesson_status_full?select=lesson_key,course_id,module_id,module_index,lesson_index,sort_order,title,short_title,status,pipeline_stage,video_stale,video_status,video_reject_reason,video_flags_count,voiceover_version,video_version'),
-  window.XG.api('correction_requests?status=eq.needs_review&select=lesson_key,correction_note,reason,requested_by,created_at&order=created_at.asc'),
+  window.XG.api('correction_requests?status=eq.needs_review&select=id,lesson_key,sentence_index,intent,correction_note,reason,requested_by,created_at&order=created_at.asc'),
   window.XG.api('correction_requests?md_sync_failed=eq.true&select=lesson_key,correction_note,reason,requested_by,completed_at&order=completed_at.desc'),
   window.XG.api('correction_requests?status=eq.error&select=lesson_key,correction_note,reason,attempts,requested_by,completed_at&order=completed_at.desc').catch(function(){return []}),
-  window.XG.api('watchdog_heartbeat?id=eq.xguard-correction&select=status,last_heartbeat,next_jobs,version').catch(function(){return []}),
+  // TOUTES les lignes de sante (une par machine et par worker depuis 2026-07-02) :
+  // xguard-correction@HOST, xguard-sflags@HOST, xguard-studio@HOST + la ligne legacy.
+  window.XG.api('watchdog_heartbeat?id=like.xguard*&select=id,status,last_heartbeat,next_jobs,version').catch(function(){return []}),
   window.XG.api('course_lms_status?target=eq.ghl&select=course_id,status,exported_at,imported_at,live_at,updated_by,folder').catch(function(){return []}),
-  // Corrections actuellement en attente (auto-traitees par la boucle) — sert au bandeau « Nitro »
+  // Corrections actuellement en attente (auto-traitees par la boucle) — sert au bandeau
   // intelligent : on n'alarme que si du travail est coince, pas juste parce que le Mac dort.
-  window.XG.api('correction_requests?status=eq.pending&select=lesson_key').catch(function(){return []})
+  window.XG.api('correction_requests?status=eq.pending&select=lesson_key').catch(function(){return []}),
+  // Reformulations de phrases (crayon) pas encore appliquees — nouvelle section Production.
+  window.XG.api('sentence_flags?applied=eq.false&select=id,lesson_key,sentence_index,flag_type,auto_status,skip_reason,reviewer_name,created_at&order=created_at.asc').catch(function(){return []})
 ]).then(function(res){
-  DATA = { courses:res[0], lessons:res[1]||[], needsReview:res[2]||[], syncFailed:res[3]||[], failed:res[4]||[], health:(res[5]&&res[5][0])||null, lms:res[6]||[], pending:(res[7]||[]).length };
+  var hb = res[5]||[];
+  var legacy = hb.filter(function(r){ return r.id === 'xguard-correction'; })[0] || null;
+  DATA = { courses:res[0], lessons:res[1]||[], needsReview:res[2]||[], syncFailed:res[3]||[], failed:res[4]||[],
+           health:legacy, healthAll:hb, lms:res[6]||[], pending:(res[7]||[]).length, sflags:res[8]||[] };
   render();
 }).catch(function(err){
   document.getElementById('view').innerHTML = '<div class="err">Erreur de chargement: '+esc(err.message)+'</div>';
@@ -175,8 +182,9 @@ function render(){
   var SUBS = {audio:'Révision audio — écoute et flag les voix',video:'Révision vidéo — regarde et approuve les vidéos',prod:'Production — vidéos à produire et corrections (Nicolas)',done:'Formations 100% terminées',ghl:'Formations prêtes à importer dans GoHighLevel'};
   document.getElementById('subtitle').textContent = SUBS[t]||'Pipeline de production des formations';
 
-  // Bandeau santé Nitro : seulement dans l'onglet Production.
-  document.getElementById('health').innerHTML = (t==='prod') ? healthBannerHtml() : '';
+  // Bandeau santé : sur TOUS les onglets (Héla vit dans « audio », pas dans « prod »).
+  // Une machine morte ou périmée doit se voir partout.
+  document.getElementById('health').innerHTML = healthBannerHtml();
 
   if (t==='audio')      renderReviewCards(AUDIO_STAGES, pc, 'Rien à réviser côté voix pour l\'instant.');
   else if (t==='video') renderReviewCards(VIDEO_STAGES, pc, 'Aucune vidéo à regarder pour l\'instant.');
@@ -185,9 +193,24 @@ function render(){
   else if (t==='ghl')   renderGhl(pc);
 }
 
-// Bandeau "Nitro est-il vivant ?" intelligent : rouge SEULEMENT si une vraie erreur OU des
-// corrections sont coincées en attente sans worker. Mac endormi + file vide = note grise discrète.
+// Bandeau santé PAR MACHINE (audit 2026-07-02) : une puce par worker et par machine
+// (Mac + Nitro), version affichée, rouge si erreur/code périmé/travail coincé.
+// N'affiche que les machines qui ont un problème — silence = tout va bien.
 function healthBannerHtml(){
+  var ms = XGCockpit.machinesState(DATA && DATA.healthAll, Date.now(), DATA && DATA.pending);
+  if (ms.show) {
+    var bad = ms.machines.filter(function(m){ return m.level === 'error' || m.level === 'alert'; });
+    if (!bad.length) return '';
+    var chips = bad.map(function(m){
+      var why = m.status === 'stale-version' || m.staleVersion ? 'code périmé ('+esc(m.version)+')'
+        : m.status === 'error' ? 'erreur au dernier passage'
+        : 'silencieux depuis '+Math.round(m.ageMin)+' min avec du travail en attente';
+      return '<div class="health-down">⚠ '+esc(m.worker)+' sur '+esc(m.host)+' : '+why
+        + ' <span style="opacity:0.7;font-weight:400;font-size:11px">· '+esc(m.version)+'</span></div>';
+    }).join('');
+    return chips;
+  }
+  // Repli legacy (transition) : l'ancienne ligne unique si aucune ligne par machine.
   var st = XGCockpit.healthState(DATA && DATA.health, Date.now(), DATA && DATA.pending);
   if (!st.show) return '';
   var ver = st.version && st.version !== 'correction-loop' ? ' <span style="opacity:0.7;font-weight:400;font-size:11px">· worker '+esc(st.version)+'</span>' : '';
@@ -285,19 +308,61 @@ function renderProduction(pc){
 
   // Corrections à trancher (needs_review) — les plus vieilles d'abord + pastille d'attente.
   if (DATA.needsReview.length){
+    var ARROW_NR = /(?:->|=>|→|➜)/;
     var nrRows = DATA.needsReview.map(function(c){
       var ageJours = Math.floor((Date.now() - new Date(c.created_at).getTime()) / 86400000);
       var ageBadge = '';
       if (ageJours >= 7) ageBadge = '<span style="color:#E74C3C;font-size:10px;font-weight:700;white-space:nowrap">⏳ '+ageJours+' j</span>';
       else if (ageJours >= 2) ageBadge = '<span style="color:#F39C12;font-size:10px;white-space:nowrap">'+ageJours+' j</span>';
+      // Bouton « corriger dans la source » : pour un « mot → mot » localisé (sentence_index),
+      // un clic convertit la demande en flag de phrase 'partial' — le circuit crayon fait le
+      // reste (édition du .md canonique, commit, régénération). C'est le chemin doctrine pour
+      // les homographes que le garde-fou dico refuse (cotes→cotés, marche→marché…).
+      var srcBtn = (ARROW_NR.test(c.correction_note||'') && c.sentence_index != null && c.id)
+        ? '<span class="qwhy" style="cursor:pointer;color:#2ECC71;font-weight:700" '
+          + 'onclick="event.preventDefault();event.stopPropagation();convertToSourceEdit(\''+c.id+'\', this)">✏️ corriger dans la source</span>'
+        : '';
       return '<a class="qrow" style="--c:#A855F7" href="review.html?key='+encodeURIComponent(c.lesson_key)+'">'
         + '<span class="qname">'+esc(c.correction_note)+'</span>'
         + ageBadge
+        + srcBtn
         + '<span class="qctx">'+esc(CT[(c.lesson_key||'').split('/')[0]]||c.lesson_key)+'</span>'
         + '<span class="qarrow">→</span></a>';
     }).join('');
     html += '<div class="sec"><h2>👁️ Corrections à trancher <span class="count">'+DATA.needsReview.length+'</span></h2>'
-          + '<div class="hint">Demandes de Héla qui changent le texte — à appliquer à la main dans le .md. Les plus vieilles en premier.</div>'+nrRows+'</div>';
+          + '<div class="hint">Demandes de Héla qui changent le texte. « ✏️ corriger dans la source » convertit en réécriture de phrase (le pipeline édite le .md et régénère tout seul). Les plus vieilles en premier.</div>'+nrRows+'</div>';
+  }
+
+  // Réécritures de phrases (crayon) pas encore appliquées — le circuit qui était
+  // un trou noir (audit 2026-07-02) devient une file visible avec âge et raison.
+  if (DATA.sflags && DATA.sflags.length){
+    var sfCount = { active:0, skipped:0, autre:0 };
+    var sflagRows = DATA.sflags.filter(function(f){
+      return f.auto_status == null || f.auto_status === 'processing' || f.auto_status === 'skipped';
+    });
+    sflagRows.forEach(function(f){
+      if (f.auto_status === 'skipped') sfCount.skipped++; else sfCount.active++;
+    });
+    if (sflagRows.length){
+      var sfHtml = sflagRows.map(function(f){
+        var ageJours = Math.floor((Date.now() - new Date(f.created_at).getTime()) / 86400000);
+        var ageBadge = '';
+        if (ageJours >= 7) ageBadge = '<span style="color:#E74C3C;font-size:10px;font-weight:700;white-space:nowrap">⏳ '+ageJours+' j</span>';
+        else if (ageJours >= 2) ageBadge = '<span style="color:#F39C12;font-size:10px;white-space:nowrap">'+ageJours+' j</span>';
+        var etat = f.auto_status === 'skipped'
+          ? '⚠ '+(f.skip_reason || 'pas appliquée — à renvoyer depuis le crayon')
+          : (f.auto_status === 'processing' ? '⚙️ en cours' : '⏳ en file');
+        return '<a class="qrow" style="--c:#3498DB" href="review.html?key='+encodeURIComponent(f.lesson_key)+'">'
+          + '<span class="qname">phrase #'+esc(String(f.sentence_index==null?'?':f.sentence_index))+' · '+esc(f.flag_type||'')+'</span>'
+          + ageBadge
+          + '<span class="qctx">'+esc(CT[(f.lesson_key||'').split('/')[0]]||f.lesson_key)+'</span>'
+          + '<span class="qwhy">'+esc(etat)+'</span>'
+          + '<span class="qarrow">→</span></a>';
+      }).join('');
+      html += '<div class="sec"><h2>✏️ Phrases à réécrire <span class="count">'+sflagRows.length+'</span></h2>'
+            + '<div class="hint">'+sfCount.active+' en traitement automatique · '+sfCount.skipped+' non appliquées (raison affichée — ouvrir la leçon et « Renvoyer » depuis le crayon).</div>'
+            + sfHtml + '</div>';
+    }
   }
 
   // Textes maîtres à vérifier (md_sync_failed).
@@ -473,3 +538,52 @@ function setGhlFolder(courseId, value){
   }).catch(function(e){ ghlMsg(courseId, 'Erreur dossier : '+e.message); });
 }
 window.setGhlFolder = setGhlFolder;
+
+// ── Conversion « à trancher » -> édition de la source (audit 2026-07-02) ──
+// Chemin doctrine pour les homographes (cotes→cotés, marche→marché…) : le
+// garde-fou refuse la règle dico (elle casserait d'autres phrases), la bonne
+// correction est d'éditer le .md SOURCE. Un clic crée un sentence_flag
+// 'partial' que le worker crayon applique (édition + commit + régén), puis la
+// correction est fermée en 'done' applied_mode=source-edit.
+function convertToSourceEdit(id, el){
+  var c = (DATA && DATA.needsReview || []).filter(function(x){ return String(x.id) === String(id); })[0];
+  if (!c) return;
+  var parts = String(c.correction_note||'').split(/(?:->|=>|→|➜)/);
+  if (parts.length < 2) return;
+  var nettoie = function(s){ return String(s||'').trim().replace(/^[\s'"«»(]+/,'').replace(/[\s'"«»).,;:!?…]+$/,''); };
+  var from = nettoie(parts[0]);
+  var to = nettoie(parts[1]);
+  if (!from || !to || from === to) { if (el) el.textContent = '⚠ note illisible'; return; }
+  if (el) { el.textContent = '⏳…'; el.style.pointerEvents = 'none'; }
+  var wh = Object.assign({}, window.XG.H, {'Content-Type':'application/json','Prefer':'return=minimal'});
+  fetch(window.XG.API + '/sentence_flags', {
+    method: 'POST',
+    headers: wh,
+    body: JSON.stringify({
+      lesson_key: c.lesson_key,
+      sentence_index: c.sentence_index,
+      flag_type: 'partial',
+      partial_original: from,
+      partial_replacement: to,
+      note: '[cockpit] converti depuis la correction ' + c.id + ' (' + (c.requested_by||'?') + ')',
+      reviewer_name: localStorage.getItem('rn') || 'Nicolas',
+    }),
+  }).then(function(r){
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    return fetch(window.XG.API + '/correction_requests?id=eq.'+encodeURIComponent(c.id), {
+      method: 'PATCH',
+      headers: wh,
+      body: JSON.stringify({
+        status: 'done',
+        applied_mode: 'source-edit',
+        reason: 'convertie en édition de la source (crayon) depuis le cockpit',
+        completed_at: new Date().toISOString(),
+      }),
+    });
+  }).then(function(r){
+    if (r && !r.ok) throw new Error('PATCH HTTP '+r.status);
+    if (el) { el.textContent = '✓ envoyé au crayon'; }
+  }).catch(function(e){
+    if (el) { el.textContent = '⚠ '+e.message; el.style.pointerEvents = ''; }
+  });
+}

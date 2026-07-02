@@ -183,3 +183,11 @@ h1{color:#E74C3C;font-size:14px}
 /* Bouton flag phrase dans le texte */
 .sm-flag{display:inline-block;font-size:12px;cursor:pointer;margin:0 2px;padding:1px 3px;border-radius:3px;user-select:none;opacity:0.7}
 .sm-flag:hover{background:rgba(155,89,182,0.2);opacity:1}
+
+/* Badge de statut du crayon (sentence_flags) — audit 2026-07-02.
+   Icone compacte a cote du ✏️ ; le detail complet vit dans le modal. */
+.sflag-badge{font-size:10px;margin-left:2px;cursor:pointer;vertical-align:super}
+.sflag-badge.sflag-pending{color:#E67E22}
+.sflag-badge.sflag-processing{color:#3498DB}
+.sflag-badge.sflag-done{color:#2ECC71}
+.sflag-badge.sflag-error{color:#E74C3C}

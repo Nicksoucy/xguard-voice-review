@@ -96,6 +96,15 @@ function buildWords(){
         flagBtn.onclick=function(e){e.stopPropagation();openSentenceModal(sentenceIdx)};
       })(si);
       c.appendChild(flagBtn);
+      // Badge de statut du crayon (rempli par review/sentence-status.js) :
+      // Hela voit enfin ce que sa reformulation est devenue (⏳/⚙️/✅/⚠).
+      var sfb=document.createElement('span');
+      sfb.className='sflag-badge';
+      sfb.setAttribute('data-si-badge', si);
+      (function(sentenceIdx){
+        sfb.onclick=function(e){e.stopPropagation();openSentenceModal(sentenceIdx)};
+      })(si);
+      c.appendChild(sfb);
       ls=si;
     }
     var s=document.createElement('span');s.className='w';s.textContent=w.word;
@@ -268,6 +277,8 @@ function buildWords(){
     })(i,s);
     c.appendChild(s);c.appendChild(document.createTextNode(' '));els.push(s);
   }
+  // Re-render = badges de crayon recrees vides -> les re-remplir depuis le dernier fetch.
+  if (window.renderSentenceFlagBadges) renderSentenceFlagBadges();
 }
 
 // Toggle le mode filtre (affiche seulement les phrases regenerees ou toutes)

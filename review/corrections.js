@@ -28,10 +28,13 @@ function submitCorrectionRequest(ii){
   // Dedup (audit 2026-06-10) : si la MEME demande est deja en traitement,
   // on ne la recree pas — re-cliquer ne fait pas avancer plus vite, ca
   // creait des doublons (neglige→negligé soumis 3 fois sur 3 jours).
+  // INSENSIBLE a la casse et aux espaces (audit 2026-07-02) : "Grand → grann"
+  // et "grand → grann" sont la meme demande.
+  var normNote = function(s){ return String(s||'').toLowerCase().replace(/\s+/g,' ').trim(); };
   var dedupUrl = API+'/correction_requests?lesson_key=eq.'+encodeURIComponent(L.lesson_key)
-    + '&correction_note=eq.'+encodeURIComponent(note)
-    + '&status=in.(pending,processing,needs_review)&select=id,status,created_at&limit=1';
-  fetch(dedupUrl, {headers:H}).then(function(r){ return r.ok ? r.json() : []; }).then(function(existing){
+    + '&status=in.(pending,processing,needs_review)&select=id,status,created_at,correction_note&limit=200';
+  fetch(dedupUrl, {headers:H}).then(function(r){ return r.ok ? r.json() : []; }).then(function(rows){
+    var existing = (rows||[]).filter(function(x){ return normNote(x.correction_note) === normNote(note); });
     if (existing && existing[0]) {
       var quand = new Date(existing[0].created_at);
       var quandTxt = quand.toLocaleDateString('fr-CA', {day:'numeric', month:'long'});
@@ -269,6 +272,8 @@ function markReflag(ii){
   delete f.approved_at;
   delete f.auto_resolved;
   flags.set(ii, f);
+  dirty = true; // SANS ca, flushAutoSave (qui teste dirty) ne persiste RIEN -> reflag perdu au reload
+                // (meme famille que le bug d'approbation corrige en 29593c0).
   var idxs = (Array.isArray(f.groupIndices) && f.groupIndices.length > 1) ? f.groupIndices : [ii];
   idxs.forEach(function(g){
     if (els[g]) {
@@ -288,6 +293,7 @@ function undoReflag(ii){
   delete f.reflagged;
   delete f.reflagged_at;
   flags.set(ii, f);
+  dirty = true; // meme raison que markReflag : flushAutoSave ne persiste que si dirty.
   var idxs = (Array.isArray(f.groupIndices) && f.groupIndices.length > 1) ? f.groupIndices : [ii];
   var nowResolved = isResolved(f);
   idxs.forEach(function(g){
@@ -379,3 +385,21 @@ function openAtelier(ii){
   var url = 'studio.html?word=' + encodeURIComponent(d.word||'') + '&phrase=' + encodeURIComponent(d.context||'');
   window.open(url, '_blank');
 }
+
+// ── Polling qui survit a l'arriere-plan (audit 2026-07-02) ─────────
+// Le poll s'arretait definitivement quand plus rien n'etait actif OU quand
+// l'onglet dormait : au retour, badges figes -> Hela re-soumettait la meme
+// correction en pensant que la premiere avait echoue. Le retour d'onglet
+// force maintenant TOUJOURS un poll one-shot (des deux circuits), throttle 5 s.
+var lastPokeTs = 0;
+function pokeCorrectionPolling(){
+  var n = Date.now();
+  if (n - lastPokeTs < 5000) return;
+  lastPokeTs = n;
+  if (typeof pollCorrectionStatus === 'function') pollCorrectionStatus();
+  if (window.loadSentenceFlagStatuses) loadSentenceFlagStatuses();
+}
+document.addEventListener('visibilitychange', function(){
+  if (document.visibilityState === 'visible') pokeCorrectionPolling();
+});
+window.addEventListener('focus', pokeCorrectionPolling);

@@ -164,3 +164,52 @@ describe('healthState', () => {
     expect(healthState({}, base, 0).show).toBe(false);
   });
 });
+
+// ── Audit 2026-07-02 : sante PAR MACHINE (fin de l'ecrasement mutuel) ──
+describe('machinesState', () => {
+  const NOW = Date.parse('2026-07-02T12:00:00Z');
+  const beat = (minAgo) => new Date(NOW - minAgo * 60000).toISOString();
+
+  it('une puce par machine, la ligne legacy (sans @) est ignoree', () => {
+    const r = cockpit.machinesState(
+      [
+        { id: 'xguard-correction', status: 'alive', last_heartbeat: beat(1), version: 'aaa' },
+        { id: 'xguard-correction@MAC', status: 'alive', last_heartbeat: beat(1), version: 'aaa' },
+        { id: 'xguard-correction@NITRO', status: 'alive', last_heartbeat: beat(2), version: 'aaa' },
+      ],
+      NOW,
+      0,
+    );
+    expect(r.machines.length).toBe(2);
+    expect(r.machines.every((m) => m.level === 'ok')).toBe(true);
+  });
+
+  it('stale-version -> error (machine au code perime)', () => {
+    const r = cockpit.machinesState(
+      [{ id: 'xguard-correction@NITRO', status: 'stale-version', last_heartbeat: beat(1), version: 'vieux' }],
+      NOW,
+      0,
+    );
+    expect(r.machines[0].level).toBe('error');
+  });
+
+  it('silencieuse >30 min AVEC du travail en attente -> alert ; sans travail -> idle', () => {
+    const rows = [{ id: 'xguard-correction@MAC', status: 'alive', last_heartbeat: beat(45), version: 'aaa' }];
+    expect(cockpit.machinesState(rows, NOW, 3).machines[0].level).toBe('alert');
+    expect(cockpit.machinesState(rows, NOW, 0).machines[0].level).toBe('idle');
+  });
+
+  it('version divergente entre machines vivantes -> perimee (error)', () => {
+    const r = cockpit.machinesState(
+      [
+        { id: 'xguard-correction@MAC', status: 'alive', last_heartbeat: beat(1), version: 'neuf' },
+        { id: 'xguard-correction@NITRO', status: 'alive', last_heartbeat: beat(5), version: 'vieux' },
+      ],
+      NOW,
+      0,
+    );
+    const nitro = r.machines.find((m) => m.host === 'NITRO');
+    expect(nitro.staleVersion).toBe(true);
+    expect(nitro.level).toBe('error');
+  });
+});

@@ -327,3 +327,45 @@ describe('backup local (anti-perte)', () => {
     expect(review.shouldRestoreBackup(0, server)).toBe(false); // pas de backup
   });
 });
+
+// ── Audit 2026-07-02 : mot nu + statuts du crayon ─────────────────────
+describe('buildCorrection — mot nu (ponctuation collee des timestamps)', () => {
+  it('retire la ponctuation collee au mot flagge ("répandue." -> note propre)', () => {
+    // Cas reel Hela 2026-06-30 : la note "répandue. → rependue" etait introuvable
+    // dans la source a cause du point colle -> 5 tentatives puis abandon.
+    const r = review.buildCorrection({ category: 'typo', word: 'répandue.', value: 'rependue' });
+    expect(r.ok).toBe(true);
+    expect(r.correctionNote).toBe('répandue → rependue');
+  });
+  it('refuse un typo identique au mot une fois nettoye (rien a corriger)', () => {
+    const r = review.buildCorrection({ category: 'typo', word: 'répandue.', value: 'répandue' });
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain('déjà');
+  });
+  it('nettoie aussi guillemets et parentheses aux bords', () => {
+    const r = review.buildCorrection({ category: 'typo', word: '«cotes»', value: 'cotés' });
+    expect(r.ok).toBe(true);
+    expect(r.correctionNote).toBe('cotes → cotés');
+  });
+});
+
+describe('sentenceFlagStatusLabel — boucle de feedback du crayon', () => {
+  it('applique -> vert avec date', () => {
+    const r = review.sentenceFlagStatusLabel({ applied: true, applied_at: '2026-07-02T10:00:00Z' });
+    expect(r.c).toBe('done');
+    expect(r.t).toContain('✅');
+  });
+  it('skipped -> orange avec la raison', () => {
+    const r = review.sentenceFlagStatusLabel({ applied: false, auto_status: 'skipped', skip_reason: 'phrase introuvable' });
+    expect(r.c).toBe('error');
+    expect(r.t).toContain('phrase introuvable');
+  });
+  it('en file (auto_status null) -> en traitement', () => {
+    const r = review.sentenceFlagStatusLabel({ applied: false, auto_status: null });
+    expect(r.c).toBe('pending');
+  });
+  it('converted -> re-roll voix', () => {
+    const r = review.sentenceFlagStatusLabel({ applied: false, auto_status: 'converted' });
+    expect(r.t).toContain('re-roll');
+  });
+});
