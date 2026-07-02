@@ -1,0 +1,73 @@
+# Sentinelle des files du pipeline (audit 2026-07-02)
+#
+# Toutes les 30 min : lit la vue Supabase `queue_health` (cle anon publique,
+# zero secret). S'il y a une alerte (travail coince, worker en erreur/code
+# perime), met a jour l'issue epinglee « Sante du pipeline » -> GitHub envoie
+# l'email a Nicolas automatiquement. Quand tout redevient vert, l'issue est
+# fermee avec un commentaire de resolution.
+#
+# Pourquoi externe : les workers tournent sur les machines de Nicolas ; si une
+# machine meurt, elle ne peut pas s'alerter elle-meme (la ligne 'nitro' est
+# restee morte 5 jours sans que personne le voie).
+
+name: Sante du pipeline (queue_health)
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+concurrency:
+  group: queue-health
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Verifier les files
+        id: check
+        continue-on-error: true
+        run: node scripts/check-queue-health.mjs
+
+      - name: Ouvrir/mettre a jour l'issue si alerte
+        if: steps.check.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BODY=$(cat queue-health-report.md)
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --label watchdog --state open --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body "$BODY"
+          else
+            gh label create watchdog --repo "$GITHUB_REPOSITORY" --color D93F0B --description "Alerte automatique sante du pipeline" 2>/dev/null || true
+            gh issue create --repo "$GITHUB_REPOSITORY" --label watchdog \
+              --title "🔴 Santé du pipeline : du travail est coincé" \
+              --body "$BODY"
+          fi
+
+      - name: Fermer l'issue si tout est redevenu vert
+        if: steps.check.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --label watchdog --state open --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue close "$EXISTING" --repo "$GITHUB_REPOSITORY" \
+              --comment "🟢 Résolu — toutes les files sont revenues en santé. $(date -u +'%Y-%m-%d %H:%M') UTC"
+          fi
+
+      - name: Statut du job = statut des files
+        if: steps.check.outcome == 'failure'
+        run: exit 1
