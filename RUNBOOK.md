@@ -260,3 +260,34 @@ Les workers utilisent la cle anon (fallback). Pour retirer les ecritures anon su
 3. Verifier un cycle complet des workers, PUIS retirer les policies d'ecriture anon
    sur ces deux tables (migration dediee). Ne PAS toucher aux autres tables : l'app
    publique (Hela) ecrit avec la cle anon par design.
+
+## Garde-manger mince Supabase Storage (2026-07-13)
+
+Strategie : rester sur le plan Pro (25 $/mois) le temps de la production ; les
+buckets `videos`/`voiceovers` ne gardent QUE ce qui est activement en review.
+Tout le reste vit dans l'archive locale (Mac `~/XGuard/renders` + `pipeline/out`,
+miroir Nitro `C:\Users\User\XGuard-Archive`) et sur GHL pour les cours livres.
+Contexte : 402 de juillet 2026 (storage 14,5 Go vs quota) — purge initiale
+15 Go -> 9,3 Go le 2026-07-13.
+
+Outils (repo pipeline, `scripts/`) :
+- `inventory-storage.mjs` — lecture seule, carte des 2 buckets croisee avec la DB
+  (verdict par formation). Rapport : `out/storage-inventory.json`.
+- `archive-storage.mjs` — descend en local tout fichier courant manquant
+  (no-clobber, verif de taille). A lancer AVANT toute purge R3.
+- `prune-storage.mjs` — dry-run PAR DEFAUT, manifest ecrit avant suppression
+  (`out/prune-manifests/`), suppression par l'API Storage (jamais SQL).
+  R1 = vieilles versions final-vK ; R2 = previews promus ; R3 = formation
+  livree (exige `--course` explicite + tous statuts verts + archive verifiee
+  fichier par fichier, jamais contournable).
+
+Routine a chaque formation livree a GHL (apres `package-ghl` + upload) :
+1. `node scripts/archive-storage.mjs --course <id>`
+2. `node scripts/prune-storage.mjs --rules r3 --course <id>`   (relire le dry-run)
+3. `node scripts/prune-storage.mjs --rules r3 --course <id> --apply`
+4. De temps en temps : `--rules r1,r2 --apply` (menage des versions/previews).
+
+Garde-fous : la cle service_role est requise pour `--apply` (sinon refus) ;
+les orphelins ambigus (base pointe `final.mp4`, des `final-vN` non references
+trainent — vieux cours alerte-bombe/tireur-actif, ~300 Mo) ne sont JAMAIS
+purges automatiquement.
