@@ -293,13 +293,23 @@ function loadExistingReview() {
     .then(function(r){return r.json()})
     .then(function(rows){
       if (rows && rows[0]) {
-        flags = (rows[0].flags || []).slice();
-        flags.sort(function(a,b){ return a.time - b.time; });
-
         // Nouvelle version produite depuis le dernier passage de la reviseuse ?
         // (audit 2026-06-10 : Hela confondait ancienne et nouvelle video.)
         var versionRevue = rows[0].video_version || 1;
         var versionCourante = (VM && VM.version) || 1;
+
+        // Un flag est horodate sur UN montage : il ne veut plus rien dire sur la
+        // version suivante. On ne les recharge donc PAS quand la revue portait sur
+        // une version anterieure. Sans ca, l'autosave (2 s apres la premiere frappe)
+        // les reecrivait avec le video_version courant et la lecon retombait en
+        // 'rejected' sur des flags perimes — c'est ainsi que pemp m02-l04 s'est
+        // retrouvee en v7 avec des flags du 11 juillet, et m03-l01 en v8 avec des
+        // flags de la v1. Le trigger archive_video_review_on_regen purge desormais
+        // en base (migration 018) ; ce garde-ci empeche un onglet reste ouvert de
+        // les reinjecter par-dessus.
+        flags = versionCourante > versionRevue ? [] : (rows[0].flags || []).slice();
+        flags.sort(function(a,b){ return a.time - b.time; });
+
         if (versionCourante > versionRevue) {
           var nb = document.getElementById('new-version-banner');
           if (nb) {
