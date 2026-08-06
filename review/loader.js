@@ -597,20 +597,40 @@ function updateFilterBtnCount(){
 // Le pipeline est repare (le bot ecrit maintenant les vraies phrases changees), mais
 // il restera des cas legitimes sans vert : une lecon entierement refaite n'a rien de
 // particulier a surligner. Dans ces cas-la, on dit la verite et on propose un geste.
-function majBandeauRecheck(nbVert){
+// Deux signaux DIFFERENTS, qu'il ne faut pas confondre :
+//   nbFlagsCorriges — des flags d'Hela ont ete corriges et attendent son « ok ».
+//                     C'est ce que compte greenCount dans renderFlags().
+//   phrases surlignees — regenIndices, les phrases dont l'audio a change.
+// Une lecon peut avoir des phrases vertes SANS aucun flag (la voix a change, mais
+// Hela n'avait rien signale sur ces phrases-la) : c'est le cas des deux lecons du
+// 6 aout. Le bouton « Approuver les corriges » reste alors cache — a juste titre,
+// il n'y a rien a approuver — et sans le bouton ci-dessous elle n'a aucun geste.
+function majBandeauRecheck(nbFlagsCorriges){
   if (!lessonNeedsRecheck) return;
   var banniere = document.getElementById('recheck-banner');
   var bouton = document.getElementById('btnRecheckDone');
-  if (nbVert > 0) { if (bouton) bouton.style.display = 'none'; return; }
+  var aDuVert = !!(regenIndices && regenIndices.length);
 
-  if (banniere) {
+  // Le texte du bandeau depend de ce qu'on sait montrer, pas des flags.
+  if (banniere && !aDuVert) {
     banniere.innerHTML =
       '<strong>🆕 La voix a ete refaite</strong><br>'
       + 'On ne sait pas quelles phrases ont change — il n\'y a donc rien a surligner en vert. '
       + 'Re-ecoute la lecon en entier. Si tout va bien, clique sur '
       + '<strong>✓ J\'ai re-ecoute, c\'est bon</strong> ci-dessous ; sinon, flague comme d\'habitude.';
+  } else if (banniere && aDuVert) {
+    banniere.innerHTML =
+      '<strong>🆕 La voix a ete refaite</strong><br>'
+      + (regenIndices.length === 1 ? 'Une phrase a change' : regenIndices.length + ' phrases ont change')
+      + ' — elle' + (regenIndices.length === 1 ? ' est' : 's sont') + ' surlignee'
+      + (regenIndices.length === 1 ? '' : 's') + ' en vert. Re-ecoute'
+      + (regenIndices.length === 1 ? '-la' : '-les') + ', puis confirme avec '
+      + '<strong>✓ J\'ai re-ecoute, c\'est bon</strong>.';
   }
-  if (bouton) bouton.style.display = 'inline-block';
+
+  // Le bouton depend de ce qu'elle peut CLIQUER : s'il y a des flags corriges,
+  // « Approuver les corriges » fait deja le travail et referme l'etat.
+  if (bouton) bouton.style.display = nbFlagsCorriges > 0 ? 'none' : 'inline-block';
 }
 
 // Referme « a re-ecouter » SANS approuver la lecon : on ecrit la revue telle quelle,
