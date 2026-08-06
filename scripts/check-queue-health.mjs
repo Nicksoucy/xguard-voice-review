@@ -24,7 +24,8 @@ const LIBELLES = {
   correction_pending_stuck: 'Corrections en attente non consommées',
   correction_processing_zombie: 'Corrections coincées en processing (>1 h)',
   sflags_pending: 'Réécritures de phrases (crayon) en attente',
-  sflags_skipped: 'Réécritures non appliquées (raison visible dans l’app)',
+  sflags_skipped: 'Réécritures non appliquées que personne ne peut reprendre',
+  lecons_recheck_bloquees: 'Leçons bloquées en « à ré-écouter » (la réviseure attend)',
   md_unsynced_contextual: 'Éditions contextuelles pas encore dans la source',
   md_sync_failed: 'Textes maîtres à vérifier',
 };
