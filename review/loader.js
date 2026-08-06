@@ -231,7 +231,10 @@ function loadStatus(){
       }
 
       if (s.status === 'needs_recheck') {
+        lessonNeedsRecheck = true;
         // Langage clair (audit 2026-06-10) : dire QUOI FAIRE, pas juste l'etat.
+        // Le texte suppose qu'il y a des phrases en vert. Quand il n'y en a pas,
+        // majBandeauRecheck() le reecrit — voir plus bas.
         document.getElementById('recheck-banner').innerHTML =
           '<strong>🆕 La voix a ete refaite le ' + fmtDate(s.voiceover_uploaded_at) + '</strong><br>'
           + 'Tu avais approuve l\'ancienne version le ' + fmtDate(s.latest_review_at) + '. '
@@ -581,6 +584,50 @@ function updateFilterBtnCount(){
     btn.style.display = 'inline-block';
     btn.style.opacity = '1';
   }
+}
+
+// SORTIE DE SECOURS QUAND IL N'Y A AUCUNE PHRASE EN VERT (blocage du 6 aout 2026)
+//
+// Le bandeau de recheck dit « re-ecoute les phrases en vert pour confirmer », et le
+// bouton « Valider les corrections appliquees » ne s'affiche que s'il y a du vert.
+// Or le vert vient de voiceover_metadata.regenerated_sentence_indices, que le bot de
+// correction ne renseignait jamais (0 fois sur 69). Resultat : une consigne impossible
+// a suivre et aucun bouton — Hela est restee bloquee deux jours sur deux lecons.
+//
+// Le pipeline est repare (le bot ecrit maintenant les vraies phrases changees), mais
+// il restera des cas legitimes sans vert : une lecon entierement refaite n'a rien de
+// particulier a surligner. Dans ces cas-la, on dit la verite et on propose un geste.
+function majBandeauRecheck(nbVert){
+  if (!lessonNeedsRecheck) return;
+  var banniere = document.getElementById('recheck-banner');
+  var bouton = document.getElementById('btnRecheckDone');
+  if (nbVert > 0) { if (bouton) bouton.style.display = 'none'; return; }
+
+  if (banniere) {
+    banniere.innerHTML =
+      '<strong>🆕 La voix a ete refaite</strong><br>'
+      + 'On ne sait pas quelles phrases ont change — il n\'y a donc rien a surligner en vert. '
+      + 'Re-ecoute la lecon en entier. Si tout va bien, clique sur '
+      + '<strong>✓ J\'ai re-ecoute, c\'est bon</strong> ci-dessous ; sinon, flague comme d\'habitude.';
+  }
+  if (bouton) bouton.style.display = 'inline-block';
+}
+
+// Referme « a re-ecouter » SANS approuver la lecon : on ecrit la revue telle quelle,
+// ce qui pousse voice_reviews.updated_at devant voiceover_uploaded_at — la seule chose
+// qui renverse l'inegalite dont depend needs_recheck (migration 008). Une lecon jamais
+// approuvee reste donc dans la file, au stade « voix a reviser », ce qui est correct :
+// confirmer une re-ecoute n'est pas approuver.
+function confirmerReecoute(){
+  if (typeof roGuard === 'function' && roGuard()) return;
+  var b = document.getElementById('btnRecheckDone');
+  if (b) { b.disabled = true; b.textContent = 'Enregistrement...'; }
+  saveReview(false);
+  setTimeout(function(){
+    if (b) { b.textContent = '✓ Enregistre'; }
+    var banniere = document.getElementById('recheck-banner');
+    if (banniere) banniere.classList.add('hidden');
+  }, 900);
 }
 
 // Re-applique les classes flagged/resolved sur tous les mots actuellement rendus.

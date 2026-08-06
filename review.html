@@ -70,6 +70,10 @@
   <div class="acts">
     <button class="btn br" onclick="saveReview(false)" title="Enregistre ta revue (les mots marqués). Les corrections envoyées via Corriger sont déjà parties.">Sauvegarder</button>
     <button class="btn bApproveGreen" id="btnApproveGreens" onclick="approveAllGreens()" title="Valide les corrections déjà appliquées (mots en vert) après les avoir ré-écoutées">&#10003; Valider les corrections appliquées</button>
+    <!-- Sortie de secours : s'affiche quand la voix a été refaite mais qu'aucune phrase
+         n'est surlignée en vert. Sans lui, le bandeau réclame un geste impossible et
+         aucun bouton ne referme l'état (blocage constaté le 6 août 2026). -->
+    <button class="btn bApproveGreen" id="btnRecheckDone" style="display:none" onclick="confirmerReecoute()" title="Confirme que tu as ré-écouté la leçon. Ça la sort de « à ré-écouter » sans l'approuver.">&#10003; J'ai ré-écouté, c'est bon</button>
     <button class="btn bg" onclick="askApprove()" title="Approuve toute la leçon — la voix passe en prêt">&#10003; Approuver la leçon</button>
     <button class="btn by" onclick="copyReview()">Copier texte</button>
     <button class="toggle-approved" id="toggleApproved" onclick="toggleShowApproved()" style="display:none"></button>
@@ -107,7 +111,11 @@
         <input type="radio" name="flagType" value="regen" onchange="onFlagTypeChange()">
         <span class="sentence-type-label">
           <strong>&#127908; Voix bizarre</strong>
-          <em>Le texte est correct mais ElevenLabs le lit mal. Regenerer avec autre seed.</em>
+          <!-- Ancien texte : « ElevenLabs le lit mal. Regenerer avec autre seed. » Deux
+               faussetes qui envoyaient Hela dans une boucle : le moteur est Edge TTS
+               depuis des mois, et il n'y a pas de seed — il est DETERMINISTE. Re-tirer
+               sans changer le texte redonne exactement le meme audio. -->
+          <em>Le texte est bon mais la voix le dit mal. Dis en un mot ce qui cloche (quel mot, comment ça devrait sonner) : la voix est déterministe, la refaire à l'identique ne changerait rien.</em>
         </span>
       </label>
       <label class="sentence-type-option">
@@ -157,9 +165,9 @@
 <!-- Logique pure partagee (testee par vitest) — DOIT charger avant flags.js/loader.js/corrections.js -->
 <script src="lib/format-utils.js?v=20260621d"></script>
 <script src="lib/review-logic.js?v=20260702a"></script>
-<script src="review/flags.js?v=20260701e"></script>
-<script src="review/loader.js?v=20260701e"></script>
-<script src="review/dom-builder.js?v=20260702a"></script>
+<script src="review/flags.js?v=20260806a"></script>
+<script src="review/loader.js?v=20260806a"></script>
+<script src="review/dom-builder.js?v=20260806a"></script>
 <script src="review/corrections.js?v=20260702a"></script>
 <script src="review/sentence-status.js?v=20260702a"></script>
 <script src="review/player.js?v=20260701e"></script>

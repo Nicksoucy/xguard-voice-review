@@ -396,6 +396,10 @@ function renderFlags(){
       btnApprove.style.display = 'none';
     }
   }
+  // Zero vert sur une lecon \u00ab a re-ecouter \u00bb = l'impasse du 6 aout : le bandeau
+  // reclame un geste sur des phrases qui n'existent pas et ce bouton-ci est cache.
+  // majBandeauRecheck reecrit la consigne et sort le bouton de confirmation.
+  if (typeof majBandeauRecheck === 'function') majBandeauRecheck(greenCount);
   // Mettre a jour le toggle "Afficher approuves"
   var tog = document.getElementById('toggleApproved');
   if (tog) {

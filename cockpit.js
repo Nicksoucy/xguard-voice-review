@@ -263,7 +263,7 @@ function renderReviewCards(taskStages, pc, emptyMsg){
       +   '<span class="revbadge">'+n+' à faire</span>'
       + '</div>'
       + '<div class="stagebar revbar">'+bar+'</div>'
-      + '<div class="revsub">Voix <b>'+t+'/'+t+'</b> · Vidéo <b>'+s.done+'/'+t+'</b></div>'
+      + '<div class="revsub">Voix <b>'+XGCockpit.voiceDoneCount(s)+'/'+t+'</b> · Vidéo <b>'+s.done+'/'+t+'</b></div>'
       + '<div class="revbody'+(open?'':' collapsed')+'" id="revbody-'+c.id+'">'+reviewerRowsGrouped(tasks)+'</div>'
       + '</div>';
   }).join('');
@@ -394,7 +394,7 @@ function renderProduction(pc){
     }).join('');
     var ph = XGCockpit.coursePhase(s), phase = ph.label, pcls = ph.cls;
     var bits = [];
-    bits.push('Voix <b>'+t+'/'+t+'</b>');
+    bits.push('Voix <b>'+XGCockpit.voiceDoneCount(s)+'/'+t+'</b>');
     bits.push('Vidéo <b>'+s.done+'/'+t+'</b>');
     if (s.video_redo) bits.push('<span style="color:#E67E22"><b>'+s.video_redo+'</b> à refaire</span>');
     return '<a class="course" href="course.html?course='+encodeURIComponent(c.id)+'">'

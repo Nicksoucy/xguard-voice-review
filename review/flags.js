@@ -29,6 +29,11 @@ var filterModeActive = false;
 // Date d'upload du voiceover courant (voiceover_metadata) — sert a decider si une
 // correction "done" (surtout prononciation) a bien ete integree dans l'audio actuel.
 var lessonRegenAt = null;
+// La lecon est-elle en « voix corrigee — a re-ecouter » ? (lesson_status_full.status)
+// Sert a proposer une sortie quand il n'y a AUCUNE phrase en vert a montrer : sans ca
+// le bandeau ordonne « re-ecoute les phrases en vert » et le bouton de validation est
+// masque, donc Hela n'a aucun geste possible (blocage constate le 6 aout 2026).
+var lessonNeedsRecheck = false;
 // Source des timestamps charges : 'preview' ou 'final'
 // Utilise par loadStatus() pour detecter un mismatch avec le chemin audio.
 var W_source = 'final'; // par defaut "final" avant que pickBestTimestamps confirme

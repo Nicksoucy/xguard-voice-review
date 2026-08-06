@@ -9,6 +9,8 @@ const {
   byStage,
   gStatusOf,
   coursePhase,
+  voiceDoneCount,
+  sumStages,
   healthState,
   lessonName,
 } = cockpit;
@@ -211,5 +213,26 @@ describe('machinesState', () => {
     const nitro = r.machines.find((m) => m.host === 'NITRO');
     expect(nitro.staleVersion).toBe(true);
     expect(nitro.level).toBe('error');
+  });
+});
+
+// Le compteur « Voix » etait code en dur a t/t (cockpit.js:266 et :397) : toujours
+// 100 %, quel que soit le nombre de lecons en attente. Hela voyait « Voix 17/17 »
+// juste au-dessus d'un badge « 1 a faire ». Ces tests verrouillent le vrai calcul.
+describe('voiceDoneCount — le compteur qui mentait', () => {
+  it('retire les lecons en revue de voix et celles a re-ecouter', () => {
+    expect(voiceDoneCount({ voice_review: 0, voice_recheck: 1, video_review: 0, done: 16 })).toBe(16);
+    expect(voiceDoneCount({ voice_review: 2, voice_recheck: 1, video_review: 0, done: 21 })).toBe(21);
+  });
+
+  it('vaut le total quand toutes les voix sont reglees', () => {
+    const s = { voice_review: 0, voice_recheck: 0, video_review: 3, done: 5 };
+    expect(voiceDoneCount(s)).toBe(sumStages(s));
+  });
+
+  it('le cas exact du blocage : 17 lecons, 1 a re-ecouter -> 16, pas 17', () => {
+    const s = { voice_review: 0, voice_recheck: 1, video_review: 0, done: 16 };
+    expect(sumStages(s)).toBe(17);
+    expect(voiceDoneCount(s)).toBe(16);
   });
 });
