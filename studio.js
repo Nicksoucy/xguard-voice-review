@@ -187,6 +187,19 @@ function pollDecision(did){
   decisionTimer = setInterval(check, 3000);
 }
 
+// Un flag de prononciation arrive sous la forme « mot → graphie voulue »
+// (fabrique par lib/review-logic.js:arrowed). Colle tel quel dans « Mot a tester »,
+// ce LABEL COMPLET devenait la cle du dictionnaire : checkDictRule le refuse
+// ("contient une fleche"), et la decision d'Hela mourait. 4 rejets sur ce seul
+// motif entre le 19 et le 20 aout, dont « inspecte » qu'elle a redepose 4 fois.
+// On separe : la gauche est le mot ECRIT dans le .md (donc la cle), la droite est
+// la graphie qu'elle veut entendre (donc une variante a tester).
+var FLECHE = /\s*(?:→|⇒|->|=>)\s*/;
+function decouperLabelFlag(note){
+  var parts = String(note || '').split(FLECHE);
+  return { mot: (parts[0] || '').trim(), graphie: (parts[1] || '').trim() };
+}
+
 // ── File des mots flaggés (prononciation) — clic pour pré-remplir ──
 function loadFlagged(){
   fetch(API+'/correction_requests?intent=eq.pronunciation&select=correction_note,lesson_key,phrase_text,created_at&order=created_at.desc&limit=25', {headers:H})
@@ -195,15 +208,21 @@ function loadFlagged(){
       var seen = {};
       $('flagged').innerHTML = rows.filter(function(r){ var k=deaccent(r.correction_note); if(seen[k])return false; seen[k]=1; return !!k; }).slice(0,15).map(function(r){
         var note = (r.correction_note||'').replace(/\[[^\]]*\]/g,'').trim();
+        var d = decouperLabelFlag(note);
         return '<div class="frow"><span class="fword">'+esc(note)+'</span>'
           + '<span class="fctx">'+esc((r.lesson_key||'').split('/').pop())+'</span>'
-          + '<button class="ftest" onclick="prefill('+JSON.stringify(note).replace(/"/g,'&quot;')+', '+JSON.stringify(r.phrase_text||'').replace(/"/g,'&quot;')+')">Tester</button></div>';
+          + '<button class="ftest" onclick="prefill('+JSON.stringify(d.mot).replace(/"/g,'&quot;')+', '+JSON.stringify(r.phrase_text||'').replace(/"/g,'&quot;')+', '+JSON.stringify(d.graphie).replace(/"/g,'&quot;')+')">Tester</button></div>';
       }).join('');
     }).catch(function(){ $('flagged').innerHTML = '<div class="empty">—</div>'; });
 }
-function prefill(word, phrase){
-  $('word').value = word; $('phrase').value = phrase || '';
-  renderScopeBanner(word); resetGraphieRows(word);
+function prefill(word, phrase, graphieVoulue){
+  // Securite : meme si l'appelant passe encore un label complet, on ne met JAMAIS
+  // une fleche dans le champ « Mot a tester ».
+  var d = decouperLabelFlag(word);
+  $('word').value = d.mot; $('phrase').value = phrase || '';
+  renderScopeBanner(d.mot); resetGraphieRows(d.mot);
+  var voulue = (graphieVoulue || d.graphie || '').trim();
+  if (voulue && voulue !== d.mot) addGraphieRow(voulue, 'Sylvie');  // sa proposition, prete a ecouter
   window.scrollTo({top:0, behavior:'smooth'});
 }
 
@@ -213,7 +232,9 @@ function setStatus(msg, cls){ var el=$('status'); el.className = 'status '+(cls|
 (function init(){
   var nm = $('name'); if (nm){ nm.value = localStorage.getItem('rn')||''; nm.oninput = function(){ localStorage.setItem('rn', this.value); }; }
   var q = new URLSearchParams(location.search).get('word');
-  var w0 = q || '';
+  // Meme garde que prefill : un ?word= peut porter un label « mot → graphie ».
+  var d0 = decouperLabelFlag(q || '');
+  var w0 = d0.mot;
   $('word').value = w0;
   var ph0 = new URLSearchParams(location.search).get('phrase') || '';
   if (ph0 && $('phrase')) $('phrase').value = ph0;
@@ -222,6 +243,7 @@ function setStatus(msg, cls){ var el=$('status'); el.className = 'status '+(cls|
   $('addGraphie').addEventListener('click', function(){ addGraphieRow('', 'Sylvie'); });
   $('word').addEventListener('change', function(){ resetGraphieRows(this.value); });
   resetGraphieRows(w0);
+  if (d0.graphie && d0.graphie !== w0) addGraphieRow(d0.graphie, 'Sylvie');
   renderScopeBanner(w0);
   loadFlagged();
 })();
