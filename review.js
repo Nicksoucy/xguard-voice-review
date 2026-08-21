@@ -70,7 +70,7 @@ function loadExistingSentenceFlags(si){
       var st = (window.XGReview && XGReview.sentenceFlagStatusLabel) ? XGReview.sentenceFlagStatusLabel(f) : null;
       var html = st ? '<span class="rfixstatus '+st.c+'">'+escHtml(st.t)+'</span>' : '';
       // Echec definitif : montrer POURQUOI + le texte source actuel + bouton Renvoyer.
-      if (!f.applied && f.auto_status === 'skipped') {
+      if (!f.applied && (f.auto_status === 'skipped' || f.auto_status === 'dismissed')) {
         if (f.skip_reason) html += '<div style="margin-top:4px;font-size:12px">Raison : '+escHtml(f.skip_reason)+'</div>';
         if (f.source_sentence) html += '<div style="margin-top:4px;font-size:12px;opacity:.8">Texte actuel de la source : \u00AB&nbsp;'+escHtml(f.source_sentence)+'&nbsp;\u00BB</div>';
         html += '<button type="button" class="rfixbtn" style="margin-top:6px" onclick="resendSentenceFlag('+f.id+')">\uD83D\uDD01 Renvoyer avec le texte actuel</button>';
