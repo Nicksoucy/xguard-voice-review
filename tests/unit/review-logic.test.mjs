@@ -369,3 +369,19 @@ describe('sentenceFlagStatusLabel — boucle de feedback du crayon', () => {
     expect(r.t).toContain('re-roll');
   });
 });
+
+describe('correctionStatusLabel — doublon', () => {
+  // 2026-08-21 : la dedup fermait les doublons en 'done', donc affiches « ✅ Corrige »
+  // alors que rien n'avait ete fait pour eux. Si l'originale mourait ensuite en
+  // needs_review, les deux etaient perdues et l'ecran annoncait un succes.
+  it('un doublon ne s affiche PAS comme corrige', () => {
+    const l = correctionStatusLabel({ status: 'superseded' });
+    expect(l.t).toContain('Doublon');
+    expect(l.t).not.toContain('Corrigé');
+    expect(l.c).toBe('pending');
+  });
+
+  it('un vrai done reste « corrige »', () => {
+    expect(correctionStatusLabel({ status: 'done' }).t).toContain('Corrigé');
+  });
+});
