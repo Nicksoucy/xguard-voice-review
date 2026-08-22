@@ -176,9 +176,14 @@ function render(){
   }).join('');
 
   // Nav contextuelle + sous-titre
+  // Le Journal est offert PARTOUT (2026-08-22) : c'est le seul endroit ou Hela peut voir
+  // ce que ses corrections sont devenues, et surtout lesquelles n'aboutiront pas. Avant,
+  // les raisons de refus etaient ecrites en base par les trois circuits et affichees
+  // nulle part — elle redeposait le meme mot quatre fois sans jamais savoir pourquoi.
+  var JOURNAL = '<a class="navlink" href="journal.html">📓 Journal</a>';
   document.getElementById('nav').innerHTML = (t==='prod')
-    ? '<a class="navlink" href="studio.html">🎛️ Atelier du son</a><a class="navlink" href="analytics.html">📊 Analytics</a><a class="navlink" href="exports.html">📥 Exports</a><a class="navlink" href="guide.html">📖 Guide</a>'
-    : '<a class="navlink" href="studio.html">🎛️ Atelier du son</a><a class="navlink" href="guide.html">📖 Guide</a>';
+    ? JOURNAL + '<a class="navlink" href="studio.html">🎛️ Atelier du son</a><a class="navlink" href="analytics.html">📊 Analytics</a><a class="navlink" href="exports.html">📥 Exports</a><a class="navlink" href="guide.html">📖 Guide</a>'
+    : JOURNAL + '<a class="navlink" href="studio.html">🎛️ Atelier du son</a><a class="navlink" href="guide.html">📖 Guide</a>';
   var SUBS = {audio:'Révision audio — écoute et flag les voix',video:'Révision vidéo — regarde et approuve les vidéos',prod:'Production — vidéos à produire et corrections (Nicolas)',done:'Formations 100% terminées',ghl:'Formations prêtes à importer dans GoHighLevel'};
   document.getElementById('subtitle').textContent = SUBS[t]||'Pipeline de production des formations';
 

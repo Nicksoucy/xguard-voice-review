@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Journal des corrections — XGuard Academy</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0A0E1A;color:#F0F0F0;padding:24px;min-height:100vh;max-width:1000px;margin:0 auto}
+h1{color:#E74C3C;font-size:21px;margin-bottom:2px}
+.sub{color:#94A3B8;font-size:13px;margin-bottom:16px;line-height:1.5}
+a{text-decoration:none;color:inherit}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:8px}
+.navlink{color:#94A3B8;font-size:12px;padding:6px 13px;border-radius:5px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1)}
+.navlink:hover{background:rgba(255,255,255,0.12);color:#fff}
+
+.bilan{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.tuile{flex:1;min-width:130px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:13px 15px;cursor:pointer;transition:.12s}
+.tuile:hover{background:rgba(255,255,255,0.08)}
+.tuile.on{border-color:rgba(255,255,255,0.35);background:rgba(255,255,255,0.10)}
+.tuile .n{font-size:26px;font-weight:700;line-height:1.1}
+.tuile .l{font-size:12px;color:#94A3B8;margin-top:2px}
+.tuile.abouti .n{color:#2ECC71}
+.tuile.encours .n{color:#3B82F6}
+.tuile.mort .n{color:#E74C3C}
+.tuile.tout .n{color:#F0F0F0}
+
+.filtres{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;font-size:13px;color:#94A3B8}
+select{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:7px 10px;color:#F0F0F0;font-size:13px;font-family:inherit}
+
+.ligne{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-left-width:3px;border-radius:9px;padding:12px 15px;margin-bottom:8px}
+.ligne.abouti{border-left-color:#2ECC71}
+.ligne.en-cours{border-left-color:#3B82F6}
+.ligne.mort{border-left-color:#E74C3C}
+.lh{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:5px}
+.quoi{font-size:14px;color:#F0F0F0;font-weight:600;flex:1;min-width:220px}
+.quoi .fleche{color:#7681a0;font-weight:400;margin:0 5px}
+.quoi .vers{color:#B9E8CB;font-weight:600}
+.meta{font-size:11.5px;color:#7681a0;white-space:nowrap}
+.badge{display:inline-block;font-size:10.5px;padding:2px 7px;border-radius:4px;margin-right:6px;vertical-align:1px;letter-spacing:.02em}
+.badge.crayon{background:rgba(243,156,18,0.16);color:#F6D79B}
+.badge.demande{background:rgba(59,130,246,0.16);color:#BcD4Fb}
+.badge.atelier{background:rgba(155,89,182,0.18);color:#DCC0EA}
+.etat{font-size:12.5px;margin-top:3px}
+.ligne.abouti .etat{color:#8FD9AC}
+.ligne.en-cours .etat{color:#A9C4F0}
+.ligne.mort .etat{color:#F0A9A0}
+.raison{font-size:12.5px;color:#C7CEDB;line-height:1.5;margin-top:6px;padding:8px 11px;background:rgba(255,255,255,0.04);border-radius:6px}
+.lecon{font-size:11.5px;color:#7681a0;margin-top:4px}
+.vide{color:#7681a0;font-size:13.5px;padding:26px;text-align:center;background:rgba(255,255,255,0.03);border-radius:10px}
+.chargement{color:#94A3B8;font-size:13px;padding:20px;text-align:center}
+.note{font-size:12px;color:#7681a0;margin-top:18px;line-height:1.6;border-top:1px solid rgba(255,255,255,0.07);padding-top:12px}
+</style></head><body>
+
+<div class="topbar">
+  <h1>📓 Journal des corrections</h1>
+  <a class="navlink" href="index.html">← Cockpit</a>
+</div>
+<p class="sub">Tout ce que tu as envoyé, et ce que c'est devenu. Les corrections qui n'aboutiront pas sont en rouge, avec la raison — c'est là qu'il faut regarder.</p>
+
+<div class="bilan" id="bilan"></div>
+
+<div class="filtres">
+  <label>Période <select id="periode">
+    <option value="1">aujourd'hui</option>
+    <option value="7" selected>7 derniers jours</option>
+    <option value="30">30 derniers jours</option>
+  </select></label>
+  <label>Personne <select id="personne"><option value="tout">tout le monde</option></select></label>
+  <span id="compte"></span>
+</div>
+
+<div id="liste"><div class="chargement">Chargement…</div></div>
+
+<p class="note">
+  Le <b>crayon</b>, ce sont les phrases corrigées directement dans la leçon.
+  Les <b>demandes</b>, ce que tu envoies depuis le panneau de correction.
+  L'<b>atelier</b>, les mots testés à l'atelier du son.<br>
+  Une ligne rouge ne repartira pas toute seule : lis la raison, elle dit quoi faire.
+</p>
+
+<script src="lib/app-config.js?v=20260621b"></script>
+<script src="lib/format-utils.js?v=20260622a"></script>
+<script src="lib/journal-logic.js?v=20260822a"></script>
+<script src="journal.js?v=20260822a"></script>
+</body></html>
