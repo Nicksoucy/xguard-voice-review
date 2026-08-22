@@ -1,59 +1,121 @@
-# Gating production : merge sur gh-pages necessite label `staging-validated`
+# Garde-fou de la mise en production.
 #
-# Workflow :
-# 1. Dev cree branche `feature/xyz`, push commits
-# 2. `deploy-staging.yml` deploie auto sur gh-pages-staging
-# 3. Dev teste sur staging URL
-# 4. Dev ouvre PR vers gh-pages
-# 5. CI lint passe
-# 6. Dev ajoute label `staging-validated` sur la PR
-# 7. Ce workflow verifie le label avant de permettre le merge
+# CE QUI S'EST PASSE (repare le 2026-08-22). Ce fichier avait une YAML INVALIDE depuis le
+# 2026-07-02 : les lignes du corps de commentaire (« 1. Teste tes changements… ») etaient
+# ecrites colonne 1, donc HORS du bloc `run: |`. YAML y voyait de nouvelles cles, et le
+# « https:// » qui suivait cassait le parsing. GitHub Actions ne pouvait pas demarrer le
+# workflow : chaque push produisait un `startup_failure`, c'est-a-dire un ✗ rouge, en
+# 0 seconde et sans aucun journal a lire. 10 push sur 10 depuis sept semaines.
 #
-# Note : ce workflow est INFORMATIF. Pour vraiment bloquer le merge sans label,
-# configurer Branch Protection Rules dans Settings > Branches sur gh-pages :
-#   - Require status checks to pass : check "validate-staging-label"
-#   - Require pull request reviews : 1 approval
+# Un ✗ rouge permanent, c'est une alarme qu'on apprend a ignorer — et le jour ou un VRAI
+# echec arrive, il se confond avec le bruit.
 #
-# (Branch protection necessite plan paid GitHub, gratuit en repo public)
+# CE QUE CE WORKFLOW GARDAIT VRAIMENT : rien. Il ne se declenchait que sur
+# `pull_request` vers gh-pages. Or il n'y a JAMAIS eu une seule PR vers gh-pages : le
+# deploiement se fait par push direct (gh-pages = prod). Et le label `staging-validated`
+# qu'il exigeait n'existait meme pas dans le depot. Il gardait une porte que personne
+# n'empruntait.
+#
+# CE QU'IL FAIT MAINTENANT. Les deux chemins, chacun avec un vrai travail :
+#
+#   - push direct sur gh-pages (le cas reel) : on attend que GitHub Pages ait servi la
+#     nouvelle version, puis on verifie que les pages qui comptent repondent vraiment.
+#     C'est exactement le controle que le commentaire d'origine decrivait sans jamais
+#     l'executer (« verifie que voice review + video review + course.html marchent »).
+#   - pull_request vers gh-pages (si un jour on y passe) : le controle du label.
+#
+# Les tests et le lint restent dans ci.yml, qui tourne deja sur les deux evenements.
 
 name: Validate Production Deploy
 
 on:
+  push:
+    branches:
+      - gh-pages
   pull_request:
     branches:
       - gh-pages
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
 jobs:
-  validate-staging-label:
+  # ── Le cas reel : on vient de deployer, est-ce que le site repond ? ──────────
+  verifier-le-site-en-ligne:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - name: Check staging-validated label
+      - name: Attendre que GitHub Pages ait publie
+        # Pages deploie de facon asynchrone : sans cette attente on testerait la version
+        # precedente et le controle ne voudrait rien dire.
+        run: sleep 45
+
+      - name: Les pages qui comptent repondent-elles ?
+        run: |
+          BASE="https://nicksoucy.github.io/xguard-voice-review"
+          echoue=0
+          for page in "index.html:Cockpit" \
+                      "review.html:review" \
+                      "review-video.html:video" \
+                      "course.html:course" \
+                      "studio.html:Atelier du son" \
+                      "journal.html:Journal des corrections"; do
+            f="${page%%:*}"
+            attendu="${page#*:}"
+            # 6 essais : la propagation du CDN de Pages peut prendre une minute de plus.
+            for essai in 1 2 3 4 5 6; do
+              code=$(curl -s -o /tmp/page.html -w '%{http_code}' "$BASE/$f?v=$GITHUB_SHA")
+              [ "$code" = "200" ] && break
+              sleep 15
+            done
+            if [ "$code" != "200" ]; then
+              echo "::error::$f repond HTTP $code"
+              echoue=1
+              continue
+            fi
+            if ! grep -qi -- "$attendu" /tmp/page.html; then
+              echo "::error::$f repond 200 mais ne contient pas « $attendu » — page vide ou cassee ?"
+              echoue=1
+              continue
+            fi
+            echo "  ok  $f"
+          done
+          exit $echoue
+
+  # ── Le cas PR : le label de validation staging ──────────────────────────────
+  validate-staging-label:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verifier le label staging-validated
+        id: label
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Verifier que le label "staging-validated" est present sur la PR
-          PR_NUMBER=${{ github.event.pull_request.number }}
-          LABELS=$(gh pr view $PR_NUMBER --json labels --jq '.labels[].name' --repo ${{ github.repository }})
-
+          LABELS=$(gh pr view "${{ github.event.pull_request.number }}" \
+            --json labels --jq '.labels[].name' --repo "${{ github.repository }}")
           if echo "$LABELS" | grep -q "staging-validated"; then
-            echo "✓ Label staging-validated present — PR peut etre mergee"
+            echo "✓ Label staging-validated present — la PR peut etre mergee"
             exit 0
-          else
-            echo "::error::Label 'staging-validated' manquant sur PR #${PR_NUMBER}"
-            echo "::error::Avant de merger, teste sur https://nicksoucy.github.io/xguard-voice-review-staging/ puis ajoute le label."
-            exit 1
           fi
+          echo "::error::Label 'staging-validated' manquant sur la PR #${{ github.event.pull_request.number }}"
+          exit 1
 
-      - name: Comment on PR si manque
+      - name: Commenter la PR si le label manque
         if: failure()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr comment ${{ github.event.pull_request.number }} \
-            --body "⚠️ **Label \`staging-validated\` manquant**. Avant de merger sur gh-pages :
-1. Teste tes changements sur https://nicksoucy.github.io/xguard-voice-review-staging/
-2. Verifie que voice review + video review + course.html marchent
-3. Verifie aucune erreur Sentry nouvelle
-4. Ajoute le label \`staging-validated\` sur cette PR" \
-            --repo ${{ github.repository }}
+          # Heredoc plutot qu'une chaine multi-ligne : c'est la chaine multi-ligne mal
+          # indentee qui rendait ce fichier impossible a parser pendant sept semaines.
+          cat > /tmp/commentaire.md <<'TXT'
+          ⚠️ **Label `staging-validated` manquant.**
+
+          Avant de merger sur `gh-pages` (qui est la production) :
+
+          1. Teste sur https://nicksoucy.github.io/xguard-voice-review-staging/
+          2. Verifie que review audio, review video et course.html marchent
+          3. Verifie qu'aucune nouvelle erreur Sentry n'apparait
+          4. Ajoute le label `staging-validated` sur cette PR
+          TXT
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --body-file /tmp/commentaire.md \
+            --repo "${{ github.repository }}"
