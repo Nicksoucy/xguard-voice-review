@@ -2,6 +2,12 @@
  * cockpit.js — Logique du cockpit XGuard, organisé en 5 ONGLETS par phase du pipeline :
  *   audio (révision voix) → video (révision vidéo) → prod (production) → done (finies) → ghl (import GHL)
  *
+ * 2026-08-25 : la production vidéo est devenue automatique (approuver une voix suffit,
+ * le worker monte le brief, rend, passe les gates et uploade). L'onglet Production n'est
+ * donc plus « ce que Nicolas doit faire » mais « ce qui demande une décision humaine »,
+ * et les stades de production apparaissent aussi dans l'onglet d'Héla — sinon une leçon
+ * dont elle vient d'approuver la voix sortait de sa vue sans explication.
+ *
  * Données : vue lesson_status_full (colonne pipeline_stage), courses, correction_requests,
  * watchdog_heartbeat, et course_lms_status (suivi import GHL au niveau cours).
  * Config Supabase via window.XG (lib/app-config.js).
@@ -13,15 +19,20 @@ var STAGE = {
   voice_recheck:    {label:'Voix corrigées — à ré-écouter', emoji:'↻',  color:'#E74C3C', link:'review.html',       hint:'La voix a été refaite après tes flags. Ré-écoute les phrases en vert pour confirmer.'},
   voice_review:     {label:'Voix à réviser',                emoji:'🎙️', color:'#3B82F6', link:'review.html',       hint:'Écoute et clique sur les mots qui sonnent mal.'},
   video_review:     {label:'Vidéos à regarder',             emoji:'🎬', color:'#1ABC9C', link:'review-video.html', hint:'Regarde la vidéo au complet, puis approuve ou refuse.'},
-  video_production: {label:'Vidéos à produire',             emoji:'🎬', color:'#9B59B6', link:'review-video.html', hint:'Voix approuvée, vidéo pas encore produite.'},
-  video_redo:       {label:'Vidéos en re-production',       emoji:'🔧', color:'#E67E22', link:'review-video.html', hint:'Voix changée ou vidéo refusée — Nicolas re-produit, rien à faire côté révision.'},
+  video_production: {label:'Vidéos en production auto',     emoji:'⚙️', color:'#9B59B6', link:'review-video.html', hint:'Voix approuvée : la vidéo se monte et se rend toute seule, puis arrive dans « Vidéos à regarder ». Rien à faire.'},
+  video_redo:       {label:'Vidéos en re-production',       emoji:'🔧', color:'#E67E22', link:'review-video.html', hint:'Voix changée ou vidéo refusée — la re-production est automatique, rien à faire côté révision.'},
   done:             {label:'Prêt',                          emoji:'✅', color:'#27AE60', link:'course.html',       hint:''}
 };
 var STAGE_ORDER = XGCockpit.STAGE_ORDER; // source unique dans lib/cockpit-logic.js
 
 // Stades par phase de révision (Héla). Valeur = priorité d'affichage.
 var AUDIO_STAGES = { voice_recheck:0, voice_review:1 };
-var VIDEO_STAGES = { video_review:0 };
+// Hela vit dans cet onglet. Avant, une lecon dont elle venait d'approuver la voix
+// disparaissait de sa vue : elle basculait en 'video_production', un stade affiche
+// uniquement dans l'onglet Production — celui de Nicolas. Elle approuvait, et plus
+// rien. Depuis que la production est automatique (2026-08-25), ces deux stades sont
+// des NOUVELLES pour elle : « ta vidéo se fabrique ». On les montre donc ici aussi.
+var VIDEO_STAGES = { video_review:0, video_production:1, video_redo:2 };
 
 // Onglets, dans l'ordre du pipeline.
 var TABS = [
@@ -184,7 +195,7 @@ function render(){
   document.getElementById('nav').innerHTML = (t==='prod')
     ? JOURNAL + '<a class="navlink" href="studio.html">🎛️ Atelier du son</a><a class="navlink" href="analytics.html">📊 Analytics</a><a class="navlink" href="exports.html">📥 Exports</a><a class="navlink" href="guide.html">📖 Guide</a>'
     : JOURNAL + '<a class="navlink" href="studio.html">🎛️ Atelier du son</a><a class="navlink" href="guide.html">📖 Guide</a>';
-  var SUBS = {audio:'Révision audio — écoute et flag les voix',video:'Révision vidéo — regarde et approuve les vidéos',prod:'Production — vidéos à produire et corrections (Nicolas)',done:'Formations 100% terminées',ghl:'Formations prêtes à importer dans GoHighLevel'};
+  var SUBS = {audio:'Révision audio — écoute et flag les voix',video:'Révision vidéo — regarde et approuve les vidéos',prod:'Production — la file avance toute seule ; ici, ce qui demande une décision',done:'Formations 100% terminées',ghl:'Formations prêtes à importer dans GoHighLevel'};
   document.getElementById('subtitle').textContent = SUBS[t]||'Pipeline de production des formations';
 
   // Bandeau santé : sur TOUS les onglets (Héla vit dans « audio », pas dans « prod »).
