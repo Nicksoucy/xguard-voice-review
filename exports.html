@@ -206,7 +206,10 @@
   </div>
 </div>
 
+<!-- app-config AVANT exports.js : fournit XG.apiAll (GET pagine). Sans lui, l'export
+     des lecons serait tronque a 1000 lignes par PostgREST, silencieusement. -->
+<script src="lib/app-config.js?v=20260829a"></script>
 <script src="lib/format-utils.js?v=20260621b"></script>
-<script src="exports.js?v=20260621b"></script>
+<script src="exports.js?v=20260829a"></script>
 </body>
 </html>

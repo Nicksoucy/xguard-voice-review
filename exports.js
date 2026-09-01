@@ -150,10 +150,12 @@ async function exportLessons(format) {
   showMsg('Chargement des lecons...', 'success');
   try {
     var f = getFilters();
-    var url = API + '/lesson_status_full?select=*&order=sort_order.asc';
-    if (f.courseId) url += '&course_id=eq.' + encodeURIComponent(f.courseId);
-    if (f.status) url += '&status=eq.' + encodeURIComponent(f.status);
-    var rows = await fetch(url, { headers: H }).then(function(r) { return r.json(); });
+    // Ordre total (sort_order n'est pas unique, lesson_key l'est) : exige par apiAll,
+    // qui pagine parce que la vue depasse 1000 lignes et que PostgREST tronque au-dela.
+    var q = 'lesson_status_full?select=*&order=sort_order.asc,lesson_key.asc';
+    if (f.courseId) q += '&course_id=eq.' + encodeURIComponent(f.courseId);
+    if (f.status) q += '&status=eq.' + encodeURIComponent(f.status);
+    var rows = await window.XG.apiAll(q);
 
     var filename = getFilenamePrefix() + 'lessons-' + getDateStamp();
     if (format === 'csv') {

@@ -54,7 +54,10 @@ document.getElementById('name').value = localStorage.getItem('rn') || '';
 
 Promise.all([
   window.XG.api('courses?visible=eq.true&order=sort_order.asc'),
-  window.XG.api('lesson_status_full?select=lesson_key,course_id,module_id,module_index,lesson_index,sort_order,title,short_title,status,pipeline_stage,video_stale,video_status,video_reject_reason,video_flags_count,voiceover_version,video_version'),
+  // apiAll et non api : la vue depasse 1000 lignes depuis le 2026-08-29 et PostgREST
+  // tronque silencieusement au-dela — les cours les plus recents disparaissaient des files.
+  // L'order se termine par lesson_key (unique) : sans ordre total, la pagination duplique.
+  window.XG.apiAll('lesson_status_full?select=lesson_key,course_id,module_id,module_index,lesson_index,sort_order,title,short_title,status,pipeline_stage,video_stale,video_status,video_reject_reason,video_flags_count,voiceover_version,video_version&order=lesson_key.asc'),
   window.XG.api('correction_requests?status=eq.needs_review&select=id,lesson_key,sentence_index,intent,correction_note,reason,requested_by,created_at&order=created_at.asc'),
   window.XG.api('correction_requests?md_sync_failed=eq.true&select=lesson_key,correction_note,reason,requested_by,completed_at&order=completed_at.desc'),
   window.XG.api('correction_requests?status=eq.error&select=lesson_key,correction_note,reason,attempts,requested_by,completed_at&order=completed_at.desc').catch(function(){return []}),
