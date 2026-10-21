@@ -128,7 +128,9 @@ h1{color:#E74C3C;font-size:14px}
 .rfixstatus.done{color:#2ECC71}
 .rfixstatus.review{color:#A855F7}
 .rfixstatus.error{color:#E74C3C}
-.rfixstatus.local{color:#94A3B8}
+.rfixstatus.local{color:#E5B567}
+/* Libelles d'action (a trancher, garde-fou de saisie) : passage a la ligne permis (2026-10-21). */
+.rfixstatus.review,.rfixstatus.local{white-space:normal;flex-basis:100%}
 .acts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center}
 .btn{border:none;border-radius:5px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
 .br{background:#C0392B;color:#fff}.br:hover{background:#E74C3C}

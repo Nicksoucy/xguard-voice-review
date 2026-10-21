@@ -1,5 +1,8 @@
 var correctionStatuses = {}; // phrase_index -> {status, completed_at, reason}
 var correctionPollTimer = null;
+// Messages LOCAUX (garde-fou de saisie, « tape d'abord... ») : sans memoire, le polling des 20 s
+// les ecrasait avec le badge de l'ANCIENNE demande sur la meme phrase. On les garde 60 s.
+var localStatusUntil = {}; // phrase_index -> {t, until}
 
 function submitCorrectionRequest(ii){
   if (!L) return;
@@ -32,16 +35,26 @@ function submitCorrectionRequest(ii){
   // et "grand → grann" sont la meme demande.
   var normNote = function(s){ return String(s||'').toLowerCase().replace(/\s+/g,' ').trim(); };
   var dedupUrl = API+'/correction_requests?lesson_key=eq.'+encodeURIComponent(L.lesson_key)
-    + '&status=in.(pending,processing,needs_review)&select=id,status,created_at,correction_note&limit=200';
+    + '&status=in.(pending,processing,needs_review)&select=id,status,created_at,correction_note,reason,intent&limit=200';
   fetch(dedupUrl, {headers:H}).then(function(r){ return r.ok ? r.json() : []; }).then(function(rows){
-    var existing = (rows||[]).filter(function(x){ return normNote(x.correction_note) === normNote(note); });
+    // Meme note ET meme intention : passer de « prononciation » a « faute de frappe » avec le
+    // meme mot est une NOUVELLE demande (c'est ce que le badge « vrai mot » conseille).
+    var existing = (rows||[]).filter(function(x){
+      return normNote(x.correction_note) === normNote(note) && (!x.intent || !built.intent || x.intent === built.intent);
+    });
     if (existing && existing[0]) {
       var quand = new Date(existing[0].created_at);
       var quandTxt = quand.toLocaleDateString('fr-CA', {day:'numeric', month:'long'});
-      var statutTxt = existing[0].status === 'needs_review'
-        ? 'Nicolas doit trancher celle-la a la main'
-        : 'elle est en traitement automatique';
-      setCorrectionStatusEl(ii, 'pending', '⏳ Deja demande le ' + quandTxt + ' — ' + statutTxt + '. Pas besoin de re-cliquer.');
+      // A trancher : meme libelle que le badge (XGReview.needsReviewLabel), qui dit quoi
+      // faire — sans « Pas besoin de re-cliquer », qui le contredisait (2026-10-21).
+      if (existing[0].status === 'needs_review') {
+        var lab = XGReview.needsReviewLabel(existing[0].reason);
+        setCorrectionStatusEl(ii, lab.c, 'Déjà demandé le ' + quandTxt + ' — ' + lab.t);
+        var elD = document.getElementById('rfixstatus'+ii);
+        if (elD) elD.title = existing[0].reason || '';
+      } else {
+        setCorrectionStatusEl(ii, 'pending', '⏳ Déjà demandé le ' + quandTxt + ' — elle est en traitement automatique. Pas besoin de re-cliquer.');
+      }
       return;
     }
     fetch(API+'/correction_requests', {
@@ -105,6 +118,8 @@ function submitRepeat(ii){
 function correctionStatusLabel(s){ return XGReview.correctionStatusLabel(s); }
 
 function setCorrectionStatusEl(ii, cls, text){
+  if (cls === 'local') localStatusUntil[ii] = { t: text, until: Date.now() + 60000 };
+  else delete localStatusUntil[ii];
   var el = document.getElementById('rfixstatus'+ii);
   if (!el) return;
   el.textContent = text;
@@ -116,9 +131,13 @@ function applyCorrectionStatuses(){
   Object.keys(correctionStatuses).forEach(function(idx){
     var el = document.getElementById('rfixstatus'+idx);
     if (!el) return;
+    var loc = localStatusUntil[idx];
+    if (loc && loc.until > Date.now()) { el.textContent = loc.t; el.className = 'rfixstatus local'; return; }
     var lab = correctionStatusLabel(correctionStatuses[idx]);
     el.textContent = lab.t;
     el.className = 'rfixstatus ' + lab.c;
+    // Raison brute du worker au survol : utile a Nicolas, invisible sinon.
+    el.title = (correctionStatuses[idx] && correctionStatuses[idx].reason) || '';
   });
 }
 
@@ -226,7 +245,7 @@ function refreshAfterRegen(){
 function corrlogEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 function loadCorrectionsLog(){
   if (!L) return;
-  fetch(API+'/correction_requests?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=correction_note,intent,status,applied_mode,completed_at,created_at,requested_by,sentence_index&order=created_at.desc&limit=60', {headers:H})
+  fetch(API+'/correction_requests?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=correction_note,intent,status,applied_mode,completed_at,created_at,requested_by,sentence_index,reason&order=created_at.desc&limit=60', {headers:H})
     .then(function(r){ return r.json(); })
     .then(function(rows){
       var panel = document.getElementById('corrlog-panel');
@@ -243,7 +262,9 @@ function loadCorrectionsLog(){
         else if (r.intent === 'pronunciation') what = '🗣️ prononciation : ' + corrlogEsc(raw);
         else if (r.intent === 'word') what = '✏️ mot : ' + corrlogEsc(raw);
         else what = corrlogEsc(raw) || '—';
-        var st = STAT[r.status] || corrlogEsc(r.status);
+        var st = r.status === 'needs_review'
+          ? corrlogEsc(XGReview.needsReviewLabel(r.reason).t)
+          : (STAT[r.status] || corrlogEsc(r.status));
         var mode = MODE[r.applied_mode] ? ' <span style="color:#7681a0">('+MODE[r.applied_mode]+')</span>' : '';
         var phr = (r.sentence_index!=null) ? ('<span style="color:#7681a0">phrase #'+r.sentence_index+'</span> · ') : '';
         var when = r.completed_at || r.created_at;

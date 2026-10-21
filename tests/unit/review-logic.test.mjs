@@ -385,3 +385,98 @@ describe('correctionStatusLabel — doublon', () => {
     expect(correctionStatusLabel({ status: 'done' }).t).toContain('Corrigé');
   });
 });
+
+describe('needsReviewLabel — dire a la reviseure quoi faire (Rawen 2026-10-21)', () => {
+  // Raisons REELLES lues dans correction_requests le 2026-10-21, et gabarits exacts du pipeline.
+  const L = (reason) => review.needsReviewLabel(reason).t;
+
+  it('plus jamais « Nicolas ajuste la prononciation » ni crochet vert pour une demande a trancher', () => {
+    for (const r of [null, '', 'abandon auto apres 5 tentatives — a trancher a la main', 'prononciation à préciser (humain)']) {
+      expect(L(r)).not.toContain('ajuste la prononciation');
+      expect(L(r).startsWith('✓')).toBe(false);
+    }
+  });
+
+  it('le son tape dans « Note » : renvoie a la grande case', () => {
+    expect(L('prononciation à préciser (humain)')).toContain('grande case');
+  });
+
+  it('mot NON protege present dans beaucoup de lecons : renvoie a l Atelier', () => {
+    expect(L("« fils » est dans 26 lecons : une regle globale « fils » -> « fiss » changerait la voix de toutes ; la tester a l'atelier du son (ecouter les versions, choisir), ou reformuler la phrase avec le crayon")).toContain('Atelier');
+  });
+
+  it('mot protege (site, Ton, Qui...) : JAMAIS l Atelier (le Studio le refuserait), reformuler', () => {
+    const audit = 'mise en attente 2026-10-20 : regle de prononciation sur un mot tres courant — elle changerait la voix de toutes les lecons ; a trancher par Nicolas (reformulation ou Atelier)';
+    expect(L(audit)).not.toContain('Atelier');
+    expect(L(audit)).toContain('corriger la phrase');
+    const cle = "regle dico refusee — garde-fou: « Le » est un mot courant ou a double sens — une regle de prononciation le remplacerait PARTOUT, dans toutes les lecons (majuscule ou non). Si la phrase sonne mal, la reformuler avec le crayon ; corriger le mot dans la SOURCE .md";
+    expect(L(cle)).toContain('corriger la phrase');
+  });
+
+  it('graphie en MAJUSCULES (XGuard -> IX-GARD) : la reecrire en minuscules', () => {
+    expect(L('regle dico refusee — garde-fou: la valeur « IX-GARD » contient « IX » en MAJUSCULES alors que la cle « XGuard » ne les a pas — Edge lit des capitales comme un sigle ; ecrire la graphie en minuscules, ou reformuler la phrase avec le crayon')).toContain('minuscules');
+  });
+
+  it('valeur = vrai mot : faute de frappe ou corriger la phrase', () => {
+    expect(L("« client » est un vrai mot des lecons : en regle de prononciation, l'ecran le reafficherait en « cliente » partout ; si c'est une faute de frappe, choisir « faute de frappe » ; sinon reformuler la phrase avec le crayon")).toContain('faute de frappe');
+  });
+
+  it('texte deja correct (mise en attente) : non retenue — mais PAS sur la prose libre du tri Claude', () => {
+    const l = review.needsReviewLabel("mise en attente 2026-10-20 : « l'entreprise cliente » est correct (cliente s'accorde avec entreprise) — ne pas modifier la source");
+    expect(l.t).toContain('Non retenue');
+    expect(l.c).toBe('error');
+    // Raison reelle decided_by=claude-cli : une correction EST demandee ici.
+    expect(L("Homographe : « La cause de l'ignition » est correct. Correction requise seulement ici")).toContain('En attente');
+    expect(L("'l'agent' (minuscule) est correct en milieu de phrase")).toContain('En attente');
+  });
+
+  it('panne apres plusieurs essais : panne technique, rien a refaire', () => {
+    expect(L('abandon auto apres 5 tentatives — a trancher a la main')).toContain('Panne technique');
+  });
+
+  it('gabarits qui ne disent pas quoi faire a la reviseure : en attente de Nicolas', () => {
+    for (const r of [
+      'regle dico refusee — garde-fou dico: ecriture de pronunciation-dictionary.json invalide — 1 erreur(s) : ; corriger le mot dans la SOURCE .md',
+      "correction NON ecrite dans la source : « blablou » n'existe dans aucune lecon (vrai mot nouveau -> l'ecrire a la main)",
+      're-tirage sans effet : meme texte, meme dico — soit ajouter une regle de prononciation, soit reformuler',
+    ]) expect(L(r), r).toContain('En attente');
+    expect(review.correctionStatusLabel({ status: 'needs_review' }).c).toBe('review');
+  });
+
+  it('libelles courts (la carte est etroite)', () => {
+    for (const r of ['prononciation à préciser (humain)', '« fils » est dans 26 lecons : une regle globale', 'abandon auto apres 5 tentatives', null]) {
+      expect(L(r).length, L(r)).toBeLessThanOrEqual(80);
+    }
+  });
+});
+
+describe('buildCorrection — le son tape dans « Note » au lieu de la grande case (Rawen 2026-10-21)', () => {
+  const B = (word, note, value = '') => review.buildCorrection({ category: 'pronunciation', word, value, note });
+
+  it('les cas reels de Rawen sont arretes avant l envoi, avec la marche a suivre', () => {
+    for (const [word, note] of [['fils', 'fiss'], ['entièrement', 'antièrement'], ['pompiers', 'pom-pies'], ['XGuard', 'IX-GARD']]) {
+      const r = B(word, note);
+      expect(r.ok, `${word}/${note}`).toBe(false);
+      expect(r.error).toContain('grande case');
+    }
+  });
+
+  it('signal d accent (memes lettres sans accents) et mots courts : pas pris pour un son', () => {
+    expect(review.looksLikeSoundOf('étiez', 'etiez')).toBe(false);
+    expect(review.looksLikeSoundOf('lent', 'le')).toBe(false);
+    expect(review.looksLikeSoundOf('muet', 'et')).toBe(false);
+    expect(review.looksLikeSoundOf('fiss', 'fils')).toBe(true);
+  });
+
+  it('une vraie remarque passe toujours (espaces, ou sans ressemblance)', () => {
+    expect(B('refuse', 'la prononciation est en accent anglais').ok).toBe(true);
+    expect(B('fils', 'anglais').ok).toBe(true);
+    expect(B('Ton', 'thon').ok).toBe(false);   // « thon » ressemble a « Ton » : c'est un son
+  });
+
+  it('le son dans la grande case (avec ou sans note) passe comme avant', () => {
+    const r = B('fils', 'fiss', 'fiss');
+    expect(r.ok).toBe(true);
+    expect(r.correctionNote).toBe('fils → fiss');
+  });
+});
