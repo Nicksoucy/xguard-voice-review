@@ -102,7 +102,8 @@
         imageUrl: '',
         categories: [{
           title: 'Module ' + l.module_index,
-          sequenceNo: l.module_index || 1,
+          // module_index peut valoir 0 (module d'introduction) — evite le fallback falsy
+          sequenceNo: l.module_index != null ? l.module_index : 1,
           visibility: 'published',
           posts: [{
             title: l.title || l.short_title,

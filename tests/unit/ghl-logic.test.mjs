@@ -156,4 +156,10 @@ describe('formatModuleTitle', () => {
     expect(ghl.formatModuleTitle({ module_index: 5, lessons: [] })).toBe('Module 5');
     expect(ghl.formatModuleTitle({ lessons: [] })).toBe('Module ?');
   });
+  // Regression 2026-07-27 : Hela a vu M1/Introduction pour cariste alors que la
+  // video dit "Module 0". Cause : sync forcait mi+1 + falsy || masquait le zero.
+  it('module d\'introduction (module_index=0) affiche "Module 0", pas "Module ?"', () => {
+    expect(ghl.formatModuleTitle({ module_index: 0, lessons: [{}] })).toBe('Module 0');
+    expect(ghl.formatModuleTitle({ module_index: 0, lessons: [] })).toBe('Module 0');
+  });
 });
