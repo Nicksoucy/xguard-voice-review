@@ -19,8 +19,8 @@ var STAGE = {
   voice_recheck:    {label:'Voix corrigées — à ré-écouter', emoji:'↻',  color:'#E74C3C', link:'review.html',       hint:'La voix a été refaite après tes flags. Ré-écoute les phrases en vert pour confirmer.'},
   voice_review:     {label:'Voix à réviser',                emoji:'🎙️', color:'#3B82F6', link:'review.html',       hint:'Écoute et clique sur les mots qui sonnent mal.'},
   video_review:     {label:'Vidéos à regarder',             emoji:'🎬', color:'#1ABC9C', link:'review-video.html', hint:'Regarde la vidéo au complet, puis approuve ou refuse.'},
-  video_production: {label:'Vidéos en production auto',     emoji:'⚙️', color:'#9B59B6', link:'review-video.html', hint:'Voix approuvée : la vidéo se monte et se rend toute seule, puis arrive dans « Vidéos à regarder ». Rien à faire.'},
-  video_redo:       {label:'Vidéos en re-production',       emoji:'🔧', color:'#E67E22', link:'review-video.html', hint:'Voix changée ou vidéo refusée — la re-production est automatique, rien à faire côté révision.'},
+  video_production: {label:'Vidéos en production auto',     emoji:'⚙️', color:'#9B59B6', link:'review-video.html', hint:'Voix approuvée : la vidéo se monte et se rend toute seule, puis arrive dans « Vidéos à regarder ». Rien à faire, sauf si un blocage est indiqué.'},
+  video_redo:       {label:'Vidéos en re-production',       emoji:'🔧', color:'#E67E22', link:'review-video.html', hint:'Voix changée ou vidéo refusée — la re-production est automatique, sauf si un blocage est indiqué.'},
   done:             {label:'Prêt',                          emoji:'✅', color:'#27AE60', link:'course.html',       hint:''}
 };
 var STAGE_ORDER = XGCockpit.STAGE_ORDER; // source unique dans lib/cockpit-logic.js
@@ -57,7 +57,7 @@ Promise.all([
   // apiAll et non api : la vue depasse 1000 lignes depuis le 2026-08-29 et PostgREST
   // tronque silencieusement au-dela — les cours les plus recents disparaissaient des files.
   // L'order se termine par lesson_key (unique) : sans ordre total, la pagination duplique.
-  window.XG.apiAll('lesson_status_full?select=lesson_key,course_id,module_id,module_index,lesson_index,sort_order,title,short_title,status,pipeline_stage,video_stale,video_status,video_reject_reason,video_flags_count,voiceover_version,video_version&order=lesson_key.asc'),
+  window.XG.apiAll('lesson_status_full?select=lesson_key,course_id,module_id,module_index,lesson_index,sort_order,title,short_title,status,pipeline_stage,video_stale,video_status,video_reject_reason,video_flags_count,voiceover_version,video_version,video_approved&order=lesson_key.asc'),
   window.XG.api('correction_requests?status=eq.needs_review&select=id,lesson_key,sentence_index,intent,correction_note,reason,requested_by,created_at&order=created_at.asc'),
   window.XG.api('correction_requests?md_sync_failed=eq.true&select=lesson_key,correction_note,reason,requested_by,completed_at&order=completed_at.desc'),
   window.XG.api('correction_requests?status=eq.error&select=lesson_key,correction_note,reason,attempts,requested_by,completed_at&order=completed_at.desc').catch(function(){return []}),
@@ -75,6 +75,8 @@ Promise.all([
   var legacy = hb.filter(function(r){ return r.id === 'xguard-correction'; })[0] || null;
   DATA = { courses:res[0], lessons:res[1]||[], needsReview:res[2]||[], syncFailed:res[3]||[], failed:res[4]||[],
            health:legacy, healthAll:hb, lms:res[6]||[], pending:(res[7]||[]).length, sflags:res[8]||[] };
+  // Voix encore en écoute, par cours : sert à dire POURQUOI une vidéo ne bouge pas.
+  DATA.pendingVoices = XGCockpit.voicesPendingByCourse(DATA.lessons);
   render();
 }).catch(function(err){
   document.getElementById('view').innerHTML = '<div class="err">Erreur de chargement: '+esc(err.message)+'</div>';
@@ -100,6 +102,45 @@ function lessonRow(l, link, why){
     + '<span class="qarrow">→</span></a>';
 }
 
+// ─── Vidéos qui ne bougent pas (2026-10-27) ───
+// « Rien à faire » était faux pour 25 vidéos : le robot de re-rendu les sautait à chaque
+// heure, retenues par la barrière de cours (une voix du cours encore en écoute) ou par le
+// forward-only (vidéo déjà approuvée). Logique dans XGCockpit.videoBlocks.
+function blocksOf(l){ return XGCockpit.videoBlocks(l, DATA.pendingVoices); }
+function hasBlock(blocks, kind){ return blocks.some(function(b){ return b.kind === kind; }); }
+
+// Étiquette courte pour une ligne (doit tenir sur une ligne : .qwhy ne passe pas à la ligne).
+function blockTag(blocks){
+  return blocks.map(function(b){
+    if (b.kind === 'cours-en-ecoute') return '⏸ attend '+b.voices.length+' voix du cours';
+    if (b.kind === 'deja-approuvee') return 'approuvée — décision requise';
+    return '';
+  }).filter(Boolean).join(' · ');
+}
+
+// En-tête d'un groupe vidéo d'une carte de formation. Toutes les leçons d'un groupe sont
+// du même cours, donc la barrière de cours vaut pour tout le groupe : on la dit une fois.
+function videoGroupHint(stage, group){
+  var blocks = group.map(blocksOf);
+  var barrier = null;
+  blocks.forEach(function(bs){ bs.forEach(function(b){ if (b.kind === 'cours-en-ecoute') barrier = b.voices; }); });
+  var allApproved = blocks.length && blocks.every(function(bs){ return hasBlock(bs, 'deja-approuvee'); });
+  var someApproved = blocks.some(function(bs){ return hasBlock(bs, 'deja-approuvee'); });
+  var FWD = 'Une vidéo déjà approuvée n’est jamais refaite par le robot : il faut une décision de Nicolas.';
+  if (barrier) {
+    var noms = barrier.slice(0, 3).map(function(v){ return XGCockpit.lessonName(v); });
+    var reste = barrier.length - noms.length;
+    return '⏸ Bloquées tant que '+barrier.length+' voix du cours ne '+(barrier.length > 1 ? 'sont' : 'est')
+      + ' pas approuvée'+(barrier.length > 1 ? 's' : '')+' (onglet Révision audio) : '
+      + noms.join(', ') + (reste > 0 ? ' et '+reste+' autre'+(reste > 1 ? 's' : '') : '') + '. '
+      + (allApproved ? 'Même après, '+FWD.charAt(0).toLowerCase()+FWD.slice(1)
+         : someApproved ? 'Ensuite, elles partiront toutes seules, sauf celles marquées « approuvée ».'
+         : 'Ensuite, elles partiront toutes seules.');
+  }
+  if (allApproved) return 'Voix changée depuis l’approbation de la vidéo. '+FWD;
+  return (STAGE[stage] || {}).hint || '';
+}
+
 function sectionList(stageKey, lessons){
   var st = STAGE[stageKey];
   if (!lessons.length) return '';
@@ -114,6 +155,8 @@ function sectionList(stageKey, lessons){
         why = 'voix v'+(l.voiceover_version||'?')+' › vidéo v'+(l.video_version||'?');
       }
     }
+    var tag = blockTag(blocksOf(l));
+    if (tag) why = why ? why+' · '+tag : tag;
     return lessonRow(l, st.link, why);
   }).join('');
   return '<div class="sec"><h2>'+st.emoji+' '+st.label+' <span class="count">'+lessons.length+'</span></h2>'
@@ -124,11 +167,14 @@ function sectionList(stageKey, lessons){
 function reviewerLessonRow(l){
   var st = STAGE[l.pipeline_stage] || {};
   var name = XGCockpit.lessonName(l);
-  var why = l.pipeline_stage === 'voice_recheck' ? 'voix corrigée' : '';
+  // La barrière de cours est dite une fois dans l'en-tête du groupe ; la ligne ne porte
+  // que ce qui est propre à la leçon (vidéo déjà approuvée).
+  var why = l.pipeline_stage === 'voice_recheck' ? 'voix corrigée'
+    : hasBlock(blocksOf(l), 'deja-approuvee') ? 'approuvée — décision requise' : '';
   return '<a class="qrow" style="--c:'+(st.color||'#3B82F6')+'" href="'+(st.link||'review.html')+'?key='+encodeURIComponent(l.lesson_key)+'">'
     + '<span class="qstage">'+(st.emoji||'')+'</span>'
     + '<span class="qname">'+esc(name)+'</span>'
-    + (why?'<span class="qwhy">'+why+'</span>':'')
+    + (why?'<span class="qwhy">'+esc(why)+'</span>':'')
     + '<span class="qarrow">→</span></a>';
 }
 
@@ -139,9 +185,14 @@ function reviewerRowsGrouped(tasks){
     if (l.pipeline_stage !== lastStage) {
       lastStage = l.pipeline_stage;
       var st = STAGE[lastStage] || {};
+      var group = tasks.filter(function(x){ return x.pipeline_stage === lastStage; });
+      var hint = (lastStage === 'video_production' || lastStage === 'video_redo')
+        ? videoGroupHint(lastStage, group) : st.hint;
+      // Un groupe bloqué s'écrit en orange : ce n'est plus « rien à faire ».
+      var blocked = hint && hint !== st.hint;
       html += '<div style="font-size:11px;font-weight:700;color:'+(st.color||'#94A3B8')+';margin:10px 2px 4px;display:flex;gap:6px;align-items:baseline;flex-wrap:wrap">'
         + (st.emoji||'') + ' ' + esc(st.label||lastStage)
-        + (st.hint ? ' <span style="color:#94A3B8;font-weight:400">— '+esc(st.hint)+'</span>' : '')
+        + (hint ? ' <span style="color:'+(blocked ? '#F5A623' : '#94A3B8')+';font-weight:'+(blocked ? 600 : 400)+'">— '+esc(hint)+'</span>' : '')
         + '</div>';
     }
     html += reviewerLessonRow(l);

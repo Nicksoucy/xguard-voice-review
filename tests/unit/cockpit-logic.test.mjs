@@ -236,3 +236,52 @@ describe('voiceDoneCount — le compteur qui mentait', () => {
     expect(voiceDoneCount(s)).toBe(16);
   });
 });
+
+// 2026-10-27 : le cockpit disait « rien a faire » pour 25 videos que le robot de re-rendu
+// sautait a chaque heure. Ces tests verrouillent les deux gardes du worker que l'app
+// doit montrer : la barriere de cours et le forward-only.
+describe('videoBlocks — pourquoi une video ne bouge pas', () => {
+  const { voicesPendingByCourse, videoBlocks } = cockpit;
+  const LECONS = [
+    { lesson_key: 'transpalette/m04/05', course_id: 'transpalette', pipeline_stage: 'voice_recheck' },
+    { lesson_key: 'transpalette/m08/03', course_id: 'transpalette', pipeline_stage: 'voice_review' },
+    { lesson_key: 'transpalette/m02/04', course_id: 'transpalette', pipeline_stage: 'video_production', video_approved: false },
+    { lesson_key: 'transpalette/m00/01', course_id: 'transpalette', pipeline_stage: 'video_redo', video_approved: true },
+    { lesson_key: 'espace-clos/m01/04', course_id: 'espace-clos', pipeline_stage: 'video_redo', video_approved: true },
+    { lesson_key: 'amiante/m01/01', course_id: 'amiante', pipeline_stage: 'video_redo', video_approved: false },
+    { lesson_key: 'amiante/m01/02', course_id: 'amiante', pipeline_stage: 'done' },
+  ];
+  const pend = voicesPendingByCourse(LECONS);
+  const kinds = (key) => videoBlocks(LECONS.find((l) => l.lesson_key === key), pend).map((b) => b.kind);
+
+  it('regroupe les voix en ecoute par cours (voice_review ET voice_recheck)', () => {
+    expect(pend.transpalette.map((l) => l.lesson_key)).toEqual(['transpalette/m04/05', 'transpalette/m08/03']);
+    expect(pend['espace-clos']).toBeUndefined();
+    expect(pend.amiante).toBeUndefined();
+  });
+
+  it('une voix en ecoute bloque une production du meme cours', () => {
+    expect(kinds('transpalette/m02/04')).toEqual(['cours-en-ecoute']);
+  });
+
+  it('une video approuvee cumule les deux blocages : la barriere tombee, elle reste bloquee', () => {
+    expect(kinds('transpalette/m00/01')).toEqual(['cours-en-ecoute', 'deja-approuvee']);
+  });
+
+  it('cas espace-clos : aucune voix en ecoute, mais video approuvee -> decision requise', () => {
+    expect(kinds('espace-clos/m01/04')).toEqual(['deja-approuvee']);
+  });
+
+  it('une video refusee, sans voix en ecoute dans son cours, n est pas bloquee', () => {
+    expect(kinds('amiante/m01/01')).toEqual([]);
+  });
+
+  it('ne dit rien des lecons hors des etapes video automatiques', () => {
+    expect(kinds('amiante/m01/02')).toEqual([]);
+    expect(kinds('transpalette/m04/05')).toEqual([]);
+  });
+
+  it('tient sans liste de voix en ecoute', () => {
+    expect(videoBlocks(LECONS[2], undefined)).toEqual([]);
+  });
+});
