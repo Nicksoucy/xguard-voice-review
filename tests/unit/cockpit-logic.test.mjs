@@ -246,7 +246,10 @@ describe('videoBlocks — pourquoi une video ne bouge pas', () => {
     { lesson_key: 'transpalette/m04/05', course_id: 'transpalette', pipeline_stage: 'voice_recheck' },
     { lesson_key: 'transpalette/m08/03', course_id: 'transpalette', pipeline_stage: 'voice_review' },
     { lesson_key: 'transpalette/m02/04', course_id: 'transpalette', pipeline_stage: 'video_production', video_approved: false },
-    { lesson_key: 'transpalette/m00/01', course_id: 'transpalette', pipeline_stage: 'video_redo', video_approved: true },
+    { lesson_key: 'transpalette/m00/01', course_id: 'transpalette', pipeline_stage: 'video_redo', video_approved: true, video_latest_review_at: '2026-09-10T14:00:00+00:00' },
+    { lesson_key: 'transpalette/m09/02', course_id: 'transpalette', pipeline_stage: 'video_redo', video_approved: true, video_latest_review_at: '2026-10-30T14:00:00+00:00' },
+    { lesson_key: 'savoir-etre/m01/03', course_id: 'savoir-etre', pipeline_stage: 'video_redo', video_approved: true, video_latest_review_at: '2026-09-10T14:00:00+00:00' },
+    { lesson_key: 'savoir-etre/m01/02', course_id: 'savoir-etre', pipeline_stage: 'voice_recheck' },
     { lesson_key: 'espace-clos/m01/04', course_id: 'espace-clos', pipeline_stage: 'video_redo', video_approved: true },
     { lesson_key: 'amiante/m01/01', course_id: 'amiante', pipeline_stage: 'video_redo', video_approved: false },
     { lesson_key: 'amiante/m01/02', course_id: 'amiante', pipeline_stage: 'done' },
@@ -265,7 +268,21 @@ describe('videoBlocks — pourquoi une video ne bouge pas', () => {
   });
 
   it('une video approuvee cumule les deux blocages : la barriere tombee, elle reste bloquee', () => {
-    expect(kinds('transpalette/m00/01')).toEqual(['cours-en-ecoute', 'deja-approuvee']);
+    expect(kinds('savoir-etre/m01/03')).toEqual(['cours-en-ecoute', 'deja-approuvee']);
+  });
+
+  // Derogation du 2026-10-22 (transpalette v2) : meme table que process-video-rerenders.mjs.
+  it('derogation transpalette : approuvee avant le 22 octobre -> le robot la refera, seule la barriere reste', () => {
+    expect(kinds('transpalette/m00/01')).toEqual(['cours-en-ecoute']);
+  });
+
+  it('derogation bornee : une video transpalette approuvee depuis le 22 octobre reste protegee', () => {
+    expect(kinds('transpalette/m09/02')).toEqual(['cours-en-ecoute', 'deja-approuvee']);
+  });
+
+  it('derogation : sans date de revue, on ne deroge pas', () => {
+    const l = { course_id: 'transpalette', pipeline_stage: 'video_redo', video_approved: true };
+    expect(cockpit.derogationForwardOnly(l)).toBe(false);
   });
 
   it('cas espace-clos : aucune voix en ecoute, mais video approuvee -> decision requise', () => {
