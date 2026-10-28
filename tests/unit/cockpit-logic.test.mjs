@@ -280,6 +280,22 @@ describe('videoBlocks — pourquoi une video ne bouge pas', () => {
     expect(kinds('transpalette/m09/02')).toEqual(['cours-en-ecoute', 'deja-approuvee']);
   });
 
+  // Derogations par lecon du 2026-10-28 : corrections de fond sur une seule video approuvee.
+  it('derogation par lecon : plan-urgence m01/03 et simdut m08/02 seront refaites, la voisine reste protegee', () => {
+    const redo = (lesson_key, quand) => ({
+      lesson_key, course_id: lesson_key.split('/')[0], pipeline_stage: 'video_redo',
+      video_approved: true, video_latest_review_at: quand,
+    });
+    const pmu = redo('plan-mesures-urgence/module-01-cadre-legal/03-le-regime-du-batiment', '2026-08-27T15:00:00Z');
+    const simdut = redo('simdut-tmd-routier/module-08-tmd-indications-et-documents/02-seuil-500-kg-et-exceptions', '2026-07-09T12:00:00Z');
+    const voisine = redo('plan-mesures-urgence/module-01-cadre-legal/02-le-rsst', '2026-08-27T15:00:00Z');
+    expect(videoBlocks(pmu, {}).map((b) => b.kind)).toEqual([]);
+    expect(videoBlocks(simdut, {}).map((b) => b.kind)).toEqual([]);
+    expect(videoBlocks(voisine, {}).map((b) => b.kind)).toEqual(['deja-approuvee']);
+    // la nouvelle version, approuvee a partir du 28 octobre, retombe sous le forward-only
+    expect(cockpit.derogationForwardOnly({ ...pmu, video_latest_review_at: '2026-10-30T09:00:00Z' })).toBe(false);
+  });
+
   it('derogation : sans date de revue, on ne deroge pas', () => {
     const l = { course_id: 'transpalette', pipeline_stage: 'video_redo', video_approved: true };
     expect(cockpit.derogationForwardOnly(l)).toBe(false);
