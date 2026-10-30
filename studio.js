@@ -11,6 +11,14 @@
  * Config Supabase via window.XG (lib/app-config.js, chargee avant).
  */
 var API = window.XG.API, H = window.XG.H;
+var S = window.XGStudio; // lib/studio-logic.js (logique pure, testee)
+
+// Lecon et phrase d'ou l'Atelier a ete ouvert (bouton « 🎵 Atelier » d'un mot, 2026-10-30).
+// Sans elles, le worker devait retrouver la lecon par la phrase et renoncait sous 20
+// caracteres : « Puis on redescend. » -> regle posee, voix pas refaite pendant 7 heures.
+var QS = new URLSearchParams(location.search);
+var LESSON_KEY = QS.get('lesson') || '';
+var SENTENCE_INDEX = /^\d+$/.test(QS.get('s') || '') ? parseInt(QS.get('s'), 10) : null;
 
 // Mots HOMOGRAPHES — copie de PROTECTED_FROM_WORDS (pipeline/scripts/lib/dict.mjs)
 // Resynchronisee le 2026-10-21 (incident Rawen) : 36 mots manquaient (le, qui, site, ton, guide,
@@ -34,8 +42,9 @@ function renderScopeBanner(word){
   if (!word || !word.trim()){ el.innerHTML = ''; return; }
   if (isHomograph(word)){
     el.className = 'banner homograph';
-    el.innerHTML = '⚠️ « '+esc(word)+' » a deux sens (ex. « il compte » / « un compte »). '
-      + 'Le choix ne sera PAS appliqué partout — la bonne graphie devra être écrite dans la phrase de la leçon. C\'est ce qui évite de casser l\'autre sens.';
+    el.innerHTML = '⚠️ « '+esc(word)+' » est un mot courant ou à deux sens (ex. « il compte » / « un compte »). '
+      + 'Ton choix sera posé SEULEMENT dans ta phrase, pas dans les autres leçons'
+      + (LESSON_KEY ? '.' : ' — ouvre l\'Atelier avec le bouton « 🎵 Atelier » du mot, dans la leçon, pour que je sache laquelle.');
   } else {
     el.className = 'banner ok';
     el.innerHTML = '✅ « '+esc(word)+' » a un seul sens : le choix pourra devenir une règle valable partout dans les formations.';
@@ -97,10 +106,23 @@ function go(){
     requested_variants: variants,
     created_by: (localStorage.getItem('rn')||'Anonyme').trim()
   };
+  if (LESSON_KEY) { payload.lesson_key = LESSON_KEY; payload.sentence_index = SENTENCE_INDEX; }
   setStatus('⏳ Envoi au worker… (génération en cours)', 'pending');
   $('variants').innerHTML = '';
   $('decision').innerHTML = '';
-  fetch(API+'/studio_words', { method:'POST', headers:Object.assign({},H,{'Content-Type':'application/json','Prefer':'return=representation'}), body:JSON.stringify(payload) })
+  var poster = function(body){
+    return fetch(API+'/studio_words', { method:'POST', headers:Object.assign({},H,{'Content-Type':'application/json','Prefer':'return=representation'}), body:JSON.stringify(body) });
+  };
+  poster(payload)
+    .then(function(r){
+      // Migration 024 pas encore appliquee : la base refuse les colonnes inconnues.
+      // On renvoie sans elles plutot que de bloquer l'Atelier.
+      if (!r.ok && r.status === 400 && payload.lesson_key !== undefined) {
+        delete payload.lesson_key; delete payload.sentence_index;
+        return poster(payload);
+      }
+      return r;
+    })
     .then(function(r){ return r.ok ? r.json() : r.text().then(function(t){ throw new Error(r.status+' '+t.slice(0,100)); }); })
     .then(function(rows){
       currentWordId = rows[0].id;
@@ -136,16 +158,27 @@ function poll(){
 }
 
 // ── Rendu des variantes (lecteur + bouton choisir) ──
+// 2026-10-30 : le mot TEL QUEL n'est plus un choix. C'est la reference (« le son
+// d'aujourd'hui ») : le choisir ne changeait rien, et le worker repondait « identite
+// from = to » — Rawen l'a choisi 4 fois en une minute le 10-26. Les versions « dans la
+// phrase » passent en premier : c'est dans la phrase que le defaut s'entend.
 function renderVariants(list){
   var word = ($('word').value||'').trim();
-  $('variants').innerHTML = list.map(function(v){
+  $('variants').innerHTML = S.rangerVersions(word, list).map(function(x){
+    var v = x.v;
     var src = 'data:audio/mpeg;base64,'+v.audio_b64;
     var dur = v.duration_sec ? (' · '+Number(v.duration_sec).toFixed(1)+'s') : '';
-    return '<div class="vcard">'
-      + '<div class="vhead"><span class="vlabel">'+esc(v.label||v.spelling)+'</span>'
+    var titre = x.origine
+      ? '🔈 Tel quel — le son d\'aujourd\'hui'+(x.phrase ? ', dans la phrase' : '')+' · '+esc(v.voice||'')
+      : (x.phrase ? '🗣 ' : '')+esc(v.label||v.spelling);
+    var action = x.origine
+      ? '<div class="substatus">Référence pour comparer : la choisir ne changerait rien.</div>'
+      : '<button class="choose" onclick="choose(\''+v.id+'\', '+JSON.stringify(v.spelling).replace(/"/g,'&quot;')+', \''+esc(v.voice)+'\')">✓ C\'est celle-ci</button>';
+    return '<div class="vcard'+(x.origine ? ' vorigine' : '')+'">'
+      + '<div class="vhead"><span class="vlabel">'+titre+'</span>'
       + '<span class="vmeta">graphie envoyée : <code>'+esc(v.spelling)+'</code>'+dur+'</span></div>'
       + '<audio controls preload="none" src="'+src+'"></audio>'
-      + '<button class="choose" onclick="choose(\''+v.id+'\', '+JSON.stringify(v.spelling).replace(/"/g,'&quot;')+', \''+esc(v.voice)+'\')">✓ C\'est celle-ci</button>'
+      + action
       + '</div>';
   }).join('');
 }
@@ -153,6 +186,12 @@ function renderVariants(list){
 // ── Choisir une version -> decision ──
 function choose(variantId, spelling, voice){
   var word = ($('word').value||'').trim();
+  // Garde immediate : la version d'origine ne change rien (meme si une vieille page l'affiche).
+  if (S.estVersionOrigine(word, spelling)){
+    $('decision').innerHTML = '<div class="banner homograph">« '+esc(word)+' » tel quel, c\'est le son d\'aujourd\'hui : rien ne changerait. '
+      + 'Si le mot sonne mal dans la phrase, choisis une autre version, ou tape une autre graphie puis « Proposer des versions ».</div>';
+    return;
+  }
   var scope = isHomograph(word) ? 'contextual' : 'global';
   var payload = {
     word_id: currentWordId, chosen_variant_id: variantId,
@@ -166,23 +205,35 @@ function choose(variantId, spelling, voice){
       var did = rows[0].id;
       var intro = (scope==='global')
         ? '✅ Choix enregistré : « '+esc(word)+' » se dira « '+esc(spelling)+' » PARTOUT dans les formations.'
-        : '✅ Choix enregistré : « '+esc(word)+' » est un mot à double sens — à écrire « '+esc(spelling)+' » dans la phrase de la leçon (pas de règle globale).';
+        : '✅ Choix enregistré : « '+esc(word)+' » est un mot courant — « '+esc(spelling)+' » sera posé SEULEMENT dans ta phrase (pas dans les autres leçons).';
       $('decision').innerHTML = '<div class="banner '+(scope==='global'?'ok':'homograph')+'">'+intro+'</div><div id="decstatus" class="substatus">⏳ en attente du worker…</div>';
       pollDecision(did);
     })
     .catch(function(e){ $('decision').innerHTML = '<div class="banner error">⚠ '+esc(e.message)+'</div>'; });
 }
+// 2026-10-30 : le statut suit la VOIX, pas seulement le dictionnaire. Avant, « Appliqué
+// au dictionnaire. Les prochaines générations diront la bonne version » s'affichait que la
+// voix de la leçon soit refaite ou non. Maintenant : « voix en cours de régénération »,
+// puis « voix refaite à HH:MM, tu peux réécouter » (colonnes regen_* de la migration 024 ;
+// sans elles, la note du worker le dit). Logique dans lib/studio-logic.js (etatDecision).
 function pollDecision(did){
   if (decisionTimer) clearInterval(decisionTimer);
+  var colonnes = 'status,note,applied_section,regen_status,regen_done_at,regen_note,regen_lesson_key';
   function check(){
-    fetch(API+'/studio_decisions?id=eq.'+did+'&select=status,note,applied_section', {headers:H})
-      .then(function(r){return r.json();}).then(function(rows){
+    fetch(API+'/studio_decisions?id=eq.'+did+'&select='+colonnes, {headers:H})
+      .then(function(r){
+        // Migration 024 absente : on relit sans les colonnes regen_*.
+        if (!r.ok && r.status === 400 && colonnes.indexOf('regen_') >= 0){ colonnes = 'status,note,applied_section'; return null; }
+        return r.json();
+      }).then(function(rows){
         var d = (rows||[])[0]; if (!d) return;
         var el = $('decstatus'); if (!el) return;
-        if (d.status === 'applied'){ el.className='substatus done'; el.innerHTML = '✅ Appliqué au dictionnaire ('+esc(d.applied_section||'')+'). Les prochaines générations diront la bonne version.'; clearInterval(decisionTimer); }
-        else if (d.status === 'needs_source'){ el.className='substatus done'; el.innerHTML = '📝 '+esc(d.note||'À corriger dans la phrase de la leçon.'); clearInterval(decisionTimer); }
-        else if (d.status === 'rejected'){ el.className='substatus warn'; el.innerHTML = '⛔ Non appliqué : '+esc(d.note||''); clearInterval(decisionTimer); }
-        else if (d.status === 'error'){ el.className='substatus warn'; el.innerHTML = '⚠ Erreur : '+esc(d.note||''); clearInterval(decisionTimer); }
+        var e = S.etatDecision(d);
+        el.className = 'substatus '+e.c;
+        var lecon = d.regen_lesson_key || LESSON_KEY;
+        el.innerHTML = esc(e.t) + (e.reecouter && lecon
+          ? ' <a class="navlink" href="review.html?key='+encodeURIComponent(lecon)+'" target="_blank">▶ Réécouter la leçon</a>' : '');
+        if (e.fini){ clearInterval(decisionTimer); decisionTimer = null; }
       }).catch(function(){});
   }
   check();
@@ -204,7 +255,7 @@ function decouperLabelFlag(note){
 
 // ── File des mots flaggés (prononciation) — clic pour pré-remplir ──
 function loadFlagged(){
-  fetch(API+'/correction_requests?intent=eq.pronunciation&select=correction_note,lesson_key,phrase_text,created_at&order=created_at.desc&limit=25', {headers:H})
+  fetch(API+'/correction_requests?intent=eq.pronunciation&select=correction_note,lesson_key,phrase_text,sentence_index,created_at&order=created_at.desc&limit=25', {headers:H})
     .then(function(r){return r.json();}).then(function(rows){
       if (!Array.isArray(rows) || !rows.length){ $('flagged').innerHTML = '<div class="empty">Aucun mot signalé en prononciation pour l\'instant.</div>'; return; }
       var seen = {};
@@ -213,11 +264,14 @@ function loadFlagged(){
         var d = decouperLabelFlag(note);
         return '<div class="frow"><span class="fword">'+esc(note)+'</span>'
           + '<span class="fctx">'+esc((r.lesson_key||'').split('/').pop())+'</span>'
-          + '<button class="ftest" onclick="prefill('+JSON.stringify(d.mot).replace(/"/g,'&quot;')+', '+JSON.stringify(r.phrase_text||'').replace(/"/g,'&quot;')+', '+JSON.stringify(d.graphie).replace(/"/g,'&quot;')+')">Tester</button></div>';
+          + '<button class="ftest" onclick="prefill('+JSON.stringify(d.mot).replace(/"/g,'&quot;')+', '+JSON.stringify(r.phrase_text||'').replace(/"/g,'&quot;')+', '+JSON.stringify(d.graphie).replace(/"/g,'&quot;')
+          + ', '+JSON.stringify(r.lesson_key||'').replace(/"/g,'&quot;')+', '+(Number.isInteger(r.sentence_index) ? r.sentence_index : 'null')+')">Tester</button></div>';
       }).join('');
     }).catch(function(){ $('flagged').innerHTML = '<div class="empty">—</div>'; });
 }
-function prefill(word, phrase, graphieVoulue){
+function prefill(word, phrase, graphieVoulue, lessonKey, sentenceIndex){
+  // La demande de correction connait sa lecon : l'Atelier la garde (regen + regle de phrase).
+  if (lessonKey){ LESSON_KEY = lessonKey; SENTENCE_INDEX = Number.isInteger(sentenceIndex) ? sentenceIndex : null; }
   // Securite : meme si l'appelant passe encore un label complet, on ne met JAMAIS
   // une fleche dans le champ « Mot a tester ».
   var d = decouperLabelFlag(word);
@@ -233,12 +287,12 @@ function setStatus(msg, cls){ var el=$('status'); el.className = 'status '+(cls|
 // ── Init ──
 (function init(){
   var nm = $('name'); if (nm){ nm.value = localStorage.getItem('rn')||''; nm.oninput = function(){ localStorage.setItem('rn', this.value); }; }
-  var q = new URLSearchParams(location.search).get('word');
+  var q = QS.get('word');
   // Meme garde que prefill : un ?word= peut porter un label « mot → graphie ».
   var d0 = decouperLabelFlag(q || '');
   var w0 = d0.mot;
   $('word').value = w0;
-  var ph0 = new URLSearchParams(location.search).get('phrase') || '';
+  var ph0 = QS.get('phrase') || '';
   if (ph0 && $('phrase')) $('phrase').value = ph0;
   $('word').addEventListener('input', function(){ renderScopeBanner(this.value); });
   $('go').addEventListener('click', go);

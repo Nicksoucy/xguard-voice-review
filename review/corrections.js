@@ -196,7 +196,7 @@ function augmentResolvedFromCorrections(){
 // Lit les correction_requests de la lecon et met a jour les badges.
 function pollCorrectionStatus(){
   if (!L) return;
-  fetch(API+'/correction_requests?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=phrase_index,status,completed_at,reason,intent&order=created_at.desc', {headers:H})
+  fetch(API+'/correction_requests?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=phrase_index,status,completed_at,reason,intent,applied_mode&order=created_at.desc', {headers:H})
     .then(function(r){ return r.json(); })
     .then(function(rows){
       if (!Array.isArray(rows)) return;
@@ -210,7 +210,7 @@ function pollCorrectionStatus(){
         // version FRAICHE (avant : elle re-ecoutait l'ancienne voix et croyait que c'etait mal
         // corrige — reponses Hela 2026-06-24).
         if (row.status === 'done' && prev && (prev.status === 'pending' || prev.status === 'processing')) justDone = true;
-        correctionStatuses[row.phrase_index] = {status:row.status, completed_at:row.completed_at, reason:row.reason, intent:row.intent};
+        correctionStatuses[row.phrase_index] = {status:row.status, completed_at:row.completed_at, reason:row.reason, intent:row.intent, applied_mode:row.applied_mode};
         if (row.status === 'pending' || row.status === 'processing') anyActive = true;
       });
       applyCorrectionStatuses();
@@ -404,6 +404,11 @@ function toggleShowApproved(){
 function openAtelier(ii){
   var d = (typeof flags!=='undefined') ? flags.get(ii) : null; if(!d) return;
   var url = 'studio.html?word=' + encodeURIComponent(d.word||'') + '&phrase=' + encodeURIComponent(d.context||'');
+  // 2026-10-30 : la lecon et l'index de phrase partent avec le mot. Le worker de l'Atelier
+  // refait alors la voix de CETTE lecon a coup sur, et peut poser une regle limitee a la
+  // phrase pour un mot courant (avant : recherche par la phrase, abandon sous 20 caracteres).
+  if (typeof L !== 'undefined' && L && L.lesson_key) url += '&lesson=' + encodeURIComponent(L.lesson_key);
+  if (d.sentenceIndex != null) url += '&s=' + encodeURIComponent(d.sentenceIndex);
   window.open(url, '_blank');
 }
 

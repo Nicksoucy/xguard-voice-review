@@ -480,3 +480,25 @@ describe('buildCorrection — le son tape dans « Note » au lieu de la grande c
     expect(r.correctionNote).toBe('fils → fiss');
   });
 });
+
+// ── 2026-10-30 (plainte de Rawen) : dire quand reecouter, et ou la correction s'applique ──
+describe('correctionStatusLabel — modes du 2026-10-30', () => {
+  it('pending ne parle plus de Nitro et dit que la voix sera refaite', () => {
+    const l = correctionStatusLabel({ status: 'pending' });
+    expect(l.t).not.toMatch(/Nitro/);
+    expect(l.t).toMatch(/voix sera refaite/);
+  });
+  it('regle de phrase : « dans cette phrase », voix refaite', () => {
+    const l = correctionStatusLabel({ status: 'done', applied_mode: 'dict-phrase', completed_at: '2026-10-30T15:00:00Z' });
+    expect(l.t).toMatch(/Corrigé dans cette phrase/);
+    expect(l.t).toMatch(/voix refaite/);
+    expect(l.c).toBe('done');
+  });
+  it('reglee dans l Atelier, ou caduque (voix approuvee depuis)', () => {
+    expect(correctionStatusLabel({ status: 'done', applied_mode: 'atelier' }).t).toMatch(/Atelier/);
+    expect(correctionStatusLabel({ status: 'done', applied_mode: 'caduque' }).t).toMatch(/voix approuvée depuis/);
+  });
+  it('done classique inchange', () => {
+    expect(correctionStatusLabel({ status: 'done', applied_mode: 'dict-global' }).t).toMatch(/^✅ Corrigé/);
+  });
+});
