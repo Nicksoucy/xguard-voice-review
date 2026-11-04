@@ -13,6 +13,7 @@ var H = { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY };
 // ============= Init : load courses for dropdown =============
 fetch(API + '/courses?visible=eq.true&order=sort_order.asc&select=id,title,short_title', { headers: H })
   .then(function(r) { return r.json(); })
+  .then(window.XG.filtrerLangue)
   .then(function(courses) {
     var sel = document.getElementById('course-filter');
     courses.forEach(function(c) {
@@ -38,6 +39,7 @@ function updateCounts() {
 
   fetch(API + '/lesson_status?select=lesson_key' + qs, { headers: H })
     .then(function(r) { return r.json(); })
+    .then(window.XG.filtrerLangue)
     .then(function(rows) {
       document.getElementById('counts').textContent =
         rows.length + ' lecons matchent les filtres';

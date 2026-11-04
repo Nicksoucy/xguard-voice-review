@@ -256,7 +256,7 @@ function decouperLabelFlag(note){
 // ── File des mots flaggés (prononciation) — clic pour pré-remplir ──
 function loadFlagged(){
   fetch(API+'/correction_requests?intent=eq.pronunciation&select=correction_note,lesson_key,phrase_text,sentence_index,created_at&order=created_at.desc&limit=25', {headers:H})
-    .then(function(r){return r.json();}).then(function(rows){
+    .then(function(r){return r.json();}).then(window.XG.filtrerLangue).then(function(rows){
       if (!Array.isArray(rows) || !rows.length){ $('flagged').innerHTML = '<div class="empty">Aucun mot signalé en prononciation pour l\'instant.</div>'; return; }
       var seen = {};
       $('flagged').innerHTML = rows.filter(function(r){ var k=deaccent(r.correction_note); if(seen[k])return false; seen[k]=1; return !!k; }).slice(0,15).map(function(r){

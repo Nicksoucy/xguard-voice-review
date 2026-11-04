@@ -166,6 +166,8 @@ function resolveCourseId(cb){
   if (/^\d+$/.test(courseParam)) {
     fetch(API+'/courses?visible=eq.true&order=sort_order.asc',{headers:H})
       .then(function(r){return r.json()})
+      // Cours de l'edition anglaise (<id>-en) : jamais dans la numerotation francaise.
+      .then(function(rows){ return (rows||[]).filter(function(c){ return String(c.id).slice(-3)!=='-en'; }); })
       .then(function(rows){
         var idx = parseInt(courseParam,10);
         if (idx >= 0 && idx < rows.length) cb(rows[idx].id);

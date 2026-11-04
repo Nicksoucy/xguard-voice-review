@@ -23,8 +23,9 @@ function charger() {
   document.getElementById('liste').innerHTML = '<div class="chargement">Chargement…</div>';
   var q = '&created_at=gte.' + encodeURIComponent(iso) + '&order=created_at.desc&limit=400';
   Promise.all([
-    fetch(API + '/sentence_flags?select=id,lesson_key,sentence_index,original_text,corrected_text,partial_original,partial_replacement,applied,auto_status,skip_reason,reviewer_name,created_at' + q, { headers: H }).then(function (r) { return r.json(); }),
-    fetch(API + '/correction_requests?select=id,lesson_key,correction_note,phrase_text,status,reason,last_error,requested_by,created_at' + q, { headers: H }).then(function (r) { return r.json(); }),
+    // XG.filtrerLangue : le journal francais ne montre jamais l'edition anglaise (et vice versa).
+    fetch(API + '/sentence_flags?select=id,lesson_key,sentence_index,original_text,corrected_text,partial_original,partial_replacement,applied,auto_status,skip_reason,reviewer_name,created_at' + q, { headers: H }).then(function (r) { return r.json(); }).then(window.XG.filtrerLangue),
+    fetch(API + '/correction_requests?select=id,lesson_key,correction_note,phrase_text,status,reason,last_error,requested_by,created_at' + q, { headers: H }).then(function (r) { return r.json(); }).then(window.XG.filtrerLangue),
     fetch(API + '/studio_decisions?select=id,word,spelling,status,note,decided_by,created_at' + q, { headers: H }).then(function (r) { return r.json(); }),
   ]).then(function (res) {
     TOUTES = J.construire(res[0], res[1], res[2]);

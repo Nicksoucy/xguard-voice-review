@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>XGuard Academy — English Voice Review</title>
+<link rel="stylesheet" href="en.css?v=20261104a">
+</head>
+<body>
+<!--
+  Edition anglaise de l'app de revision (2026-11-04). Page SEPAREE du cockpit francais :
+  elle ne montre que les cours <id>-en (filtre XG.filtrerLangue de lib/app-config.js, actif
+  parce que la page vit sous /en/), et le cockpit francais ne les montre jamais.
+  Reviseuse prevue : Rachelle (anglophone). Tout le texte affiche est en anglais.
+-->
+<h1>English Voice Review</h1>
+<div class="sub">XGuard Academy — English edition of the online health and safety courses</div>
+
+<div class="who">
+  <label for="rn" class="help">Your name:</label>
+  <input id="rn" placeholder="e.g. Rachelle" autocomplete="name">
+  <button class="btn ghost" onclick="saveName()">Save</button>
+  <span class="help" id="who-msg"></span>
+</div>
+
+<div class="card help">
+  <h2 style="color:#F0F0F0">How to review a lesson</h2>
+  <ul>
+    <li>Open a lesson and listen to it from start to finish. The text follows the voice.</li>
+    <li>Click any word that sounds wrong. Choose whether it is mispronounced or the wrong word, and add a short note if it helps.</li>
+    <li>If a whole sentence reads badly, click the pencil at the end of it and type the sentence you would like to hear.</li>
+    <li>Press the Glitch button (or the G key) if the voice stutters or cuts out.</li>
+    <li>When the lesson sounds right, click Approve lesson. Your work saves automatically as you go.</li>
+  </ul>
+  <p style="margin-top:8px">Your notes are read by the production team, who fix the text or the pronunciation and send the lesson back to you. You only need to listen and point things out.</p>
+</div>
+
+<div id="courses"><div class="empty">Loading…</div></div>
+
+<script src="../lib/app-config.js?v=20261104a"></script>
+<script>
+var XG = window.XG;
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+var rnInput = document.getElementById('rn');
+try { rnInput.value = localStorage.getItem('rn') || ''; } catch (e) {}
+function saveName(){
+  var v = rnInput.value.trim();
+  if (!v) { document.getElementById('who-msg').textContent = 'Please type your name.'; return; }
+  try { localStorage.setItem('rn', v); } catch (e) {}
+  document.getElementById('who-msg').textContent = 'Saved. Your reviews will be signed ' + v + '.';
+}
+
+// Etat d'une lecon, du point de vue de la reviseuse anglaise.
+function etat(l){
+  if (!l.voiceover_uploaded_at) return { cls:'wait', txt:'Voice not ready' };
+  if (l.latest_approved) return { cls:'ok', txt:'Approved' };
+  if ((l.flags_count || 0) + (l.glitches_count || 0) > 0) return { cls:'flags', txt:(l.flags_count||0) + (l.glitches_count||0) + ' note(s)' };
+  if (l.latest_review_at) return { cls:'todo', txt:'In progress' };
+  return { cls:'todo', txt:'To review' };
+}
+
+Promise.all([
+  XG.api('courses?visible=eq.true&order=sort_order.asc,id.asc&select=id,title,short_title,lesson_count'),
+  XG.apiAll('lesson_status_full?course_id=like.*-en&select=lesson_key,course_id,module_id,module_index,lesson_index,sort_order,title,voiceover_uploaded_at,latest_approved,latest_reviewer,latest_review_at,flags_count,glitches_count&order=sort_order.asc,lesson_key.asc'),
+]).then(function(res){
+  var courses = res[0] || [];
+  var lessons = res[1] || [];
+  var parCours = {};
+  lessons.forEach(function(l){ (parCours[l.course_id] = parCours[l.course_id] || []).push(l); });
+  if (!courses.length) { document.getElementById('courses').innerHTML = '<div class="empty">No English course yet.</div>'; return; }
+  document.getElementById('courses').innerHTML = courses.map(function(c, ci){
+    var ls = parCours[c.id] || [];
+    var ok = ls.filter(function(l){ return l.latest_approved; }).length;
+    var pret = ls.filter(function(l){ return l.voiceover_uploaded_at; }).length;
+    var mods = {};
+    ls.forEach(function(l){ (mods[l.module_id] = mods[l.module_id] || []).push(l); });
+    var corps = Object.keys(mods).sort().map(function(m){
+      var ml = mods[m];
+      return '<div class="mod"><h3>Module ' + esc(ml[0].module_index) + '</h3>' + ml.map(function(l){
+        var e = etat(l);
+        var lien = l.voiceover_uploaded_at ? ' href="review.html?key=' + encodeURIComponent(l.lesson_key) + '"' : '';
+        return '<a class="row"' + lien + '><span class="t">' + esc(l.title) + '</span><span class="chip ' + e.cls + '">' + e.txt + '</span></a>';
+      }).join('') + '</div>';
+    }).join('');
+    return '<div class="card"><div class="course-title" onclick="this.parentNode.querySelector(\'.corps\').hidden=!this.parentNode.querySelector(\'.corps\').hidden">'
+      + '<span>' + esc(c.title) + '</span><span class="counts">' + ok + ' / ' + ls.length + ' approved</span></div>'
+      + '<div class="bar"><i style="width:' + (ls.length ? Math.round(100 * ok / ls.length) : 0) + '%"></i></div>'
+      + '<div class="counts">' + pret + ' of ' + ls.length + ' voices ready to review</div>'
+      + '<div class="corps"' + (ci > 0 ? ' hidden' : '') + '>' + corps + '</div></div>';
+  }).join('');
+}).catch(function(e){
+  document.getElementById('courses').innerHTML = '<div class="empty">Could not load the courses (' + esc(e.message) + '). Please refresh the page.</div>';
+});
+</script>
+</body>
+</html>

@@ -7,6 +7,9 @@ var H = {apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY};
 
 var params = new URLSearchParams(location.search);
 var lessonKey = params.get('key') || '';
+// Edition anglaise (<id>-en) : elle a sa propre page, en anglais (en/review.html). On n'ouvre
+// jamais une lecon anglaise dans l'interface francaise (2026-11-04).
+if (/-en$/i.test(lessonKey.split('/')[0])) location.replace('en/review.html?key=' + encodeURIComponent(lessonKey));
 var legacyIdx = params.get('lesson');
 
 // Etat global
