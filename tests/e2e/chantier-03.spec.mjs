@@ -205,3 +205,17 @@ test('voix : la revue ne se charge pas → lecture seule, aucun écrasement en b
   expect(posts.filter((u) => u.includes('voice_reviews'))).toEqual([]);
   await expect(page.locator('#msg')).toContainText('pas encore chargée');
 });
+
+test('voix : le texte à réviser a un contraste d’au moins 4,5:1 (axe, règle color-contrast)', async ({ page }) => {
+  const { default: AxeBuilder } = await import('@axe-core/playwright');
+  await mockVoix(page);
+  await page.addInitScript(() => localStorage.setItem('rn', 'Rawen'));
+  await page.goto(URL_VOIX);
+  await page.locator('.w').first().waitFor();
+  // Un mot marque (rouge) pour verifier aussi cette couleur-la.
+  await page.locator('.w').nth(1).click();
+  const r = await new AxeBuilder({ page }).include('#wc').withRules(['color-contrast']).analyze();
+  expect(r.violations.flatMap((v) => v.nodes.map((n) => n.target.join(' ') + ' : ' + n.failureSummary))).toEqual([]);
+  const taille = await page.locator('.w').first().evaluate((el) => getComputedStyle(el).fontSize);
+  expect(taille).toBe('16px');
+});
