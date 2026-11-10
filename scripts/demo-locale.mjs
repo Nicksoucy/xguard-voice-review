@@ -160,7 +160,7 @@ const serveur = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'video/mp4' });
         return res.end(await readFile(join(RACINE, 'tests/fixtures/mini.mp4')));
       }
-      if (url.pathname.includes(VOIX) && url.pathname.includes('timestamps')) {
+      if (url.pathname.includes('timestamps')) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify(MOTS));
       }
