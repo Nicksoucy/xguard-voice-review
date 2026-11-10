@@ -40,7 +40,7 @@ async function mockReview(page, reviews = []) {
     const method = req.method();
     if (method === 'POST') {
       let body = {};
-      try { body = JSON.parse(req.postData() || '{}'); } catch (e) {}
+      try { body = JSON.parse(req.postData() || '{}'); } catch (e) { body = { _illisible: String(e) }; }
       if (url.includes('/correction_requests')) posts.correction_requests.push(body);
       else if (url.includes('/voice_reviews')) posts.voice_reviews.push(body);
       return route.fulfill({ status: 201, contentType: 'application/json', body: '[]' });

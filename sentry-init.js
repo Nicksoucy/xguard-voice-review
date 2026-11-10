@@ -118,7 +118,7 @@
         Sentry.setUser({ username: rn });
         Sentry.setTag('reviewer_name', rn);
       }
-    } catch (e) {}
+    } catch (e) { console.warn('[Sentry] nom de la reviseuse illisible', e); }
 
     // Tag global : environnement + page courante
     Sentry.setTag('environment', env);
@@ -132,7 +132,7 @@
       if (lessonKey) Sentry.setTag('lesson_key', lessonKey);
       var courseId = params.get('course');
       if (courseId) Sentry.setTag('course_id', courseId);
-    } catch (e) {}
+    } catch (e) { console.warn('[Sentry] parametres d\'URL illisibles', e); }
 
     console.log('[Sentry] configured in env:', env);
   }

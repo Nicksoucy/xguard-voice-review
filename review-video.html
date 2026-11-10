@@ -15,6 +15,8 @@
   <!-- Logique pure partagee (testee) : ghl-logic avant ghl-payload, review-logic pour la barre d'info -->
   <script src="lib/ghl-logic.js?v=20260621b"></script>
   <script src="lib/review-logic.js?v=20261030a"></script>
+  <!-- Appels reseau : reessai + bandeau d'erreur qui reste (chantier 03) -->
+  <script src="lib/net.js?v=20261110a"></script>
   <!-- LMS GHL payload generator (Phase 3) -->
   <script src="lms/ghl-payload.js?v=20260621b"></script>
 </head>
@@ -88,13 +90,15 @@
     <div class="empty">Clique sur "ADD FLAG ICI" pendant la lecture pour signaler un probleme.</div>
   </div>
   <div class="acts">
-    <button class="btn br" onclick="saveReview(false, false)">Sauvegarder</button>
-    <button class="btn bg" onclick="askApprove()">&#10003; Approuver</button>
-    <button class="btn by" onclick="askReject()">&#8635; Renvoyer pour correction</button>
+    <!-- UN seul bouton de fin (chantier 03) : approuvee s'il n'y a aucun probleme bloquant,
+         a corriger sinon. Plus de flags bloquants laisses en plan sans verdict. -->
+    <button class="btn bg" id="finish-btn" onclick="askFinish()">&#10003; J'ai fini cette vidéo</button>
+    <button class="btn by" onclick="saveReview(false).catch(function(e){XGNet.signaler(e,'bouton sauvegarder video')})" title="La revue se sauvegarde toute seule 2 s après chaque changement">Sauvegarder</button>
     <button class="btn by" onclick="copyReview()">Copier liste</button>
     <button class="btn" id="lms-lesson-push-btn" onclick="pushLessonToGhl()" style="background:rgba(155,89,182,0.15);color:#bb8fce;border:1px solid rgba(155,89,182,0.4);display:none">🚀 Push to GHL</button>
     <span class="msg" id="msg"></span>
   </div>
+  <div class="verdict-state" id="verdict-state"></div>
 </div>
 
 <!-- Modal: Add Flag -->
@@ -136,29 +140,20 @@
   </div>
 </div>
 
-<!-- Modal: Approve -->
-<div class="modal-bg" id="approve-modal-bg">
-  <div class="modal">
-    <h3>&#10003; Approuver cette video ?</h3>
-    <p>Cette video sera marquee comme <strong>approuvee</strong>. La lecon est prete pour le deploiement LMS.</p>
-    <div class="acts">
-      <button class="btn bg" onclick="confirmApprove()">Oui, approuver</button>
-      <button class="btn by" onclick="closeApproveModal()">Annuler</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal: Reject -->
-<div class="modal-bg" id="reject-modal-bg">
+<!-- Modal: fin de revue (remplace « Approuver » et « Renvoyer », chantier 03) -->
+<div class="modal-bg" id="finish-modal-bg">
   <div class="modal reject-modal">
-    <h3>&#8635; Renvoyer pour correction</h3>
-    <p>La vidéo repart <strong>à refaire</strong>. Nicolas reçoit ta liste de moments flaggés + ta raison.</p>
-    <label>Résumé du problème (raison globale) :</label>
-    <textarea id="reject-reason" rows="3" placeholder="Ex: sous-titres décalés à partir de 2:10, refaire le montage..."></textarea>
-    <div class="acts">
-      <button class="btn br" onclick="confirmReject()">Renvoyer</button>
-      <button class="btn by" onclick="closeRejectModal()">Annuler</button>
+    <h3 id="finish-title">J'ai fini cette vidéo</h3>
+    <p id="finish-text"></p>
+    <div id="finish-reason-wrap" style="display:none">
+      <label>Résumé du problème principal (optionnel — ta liste part de toute façon) :</label>
+      <textarea id="finish-reason" rows="3" placeholder="Ex. : le texte déborde de l'écran dans tout le module 2"></textarea>
     </div>
+    <div class="acts">
+      <button class="btn bg" id="finish-confirm" onclick="confirmFinish()">Oui</button>
+      <button class="btn by" onclick="closeFinishModal()">Annuler</button>
+    </div>
+    <p class="msg" id="finish-msg" style="margin-top:10px;font-size:14px"></p>
   </div>
 </div>
 

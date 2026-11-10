@@ -116,6 +116,12 @@ function getGroupCtx(groupIndices) { return XGReview.getGroupCtx(W, groupIndices
 // NE PAS l'utiliser pour soumettre sa propre demande (correction_requests/sentence_flags) :
 // soumettre sous son propre nom est permis meme en lecture seule (ca n'ecrase la review de personne).
 function roGuard() {
+  // Revue pas chargee (panne reseau) : modifier ici puis autosauvegarder ECRASERAIT la vraie
+  // revue en base par une liste partielle (chantier 03). On bloque jusqu'au « Réessayer ».
+  if (window.revueNonChargee) {
+    if (typeof showMsg === 'function') showMsg('Ta revue n’est pas encore chargée — clique « Réessayer » dans le bandeau rouge en haut.', 'error');
+    return true;
+  }
   if (!XGReview.canEditReview(window.viewingOtherReview)) {
     if (typeof showMsg === 'function') showMsg('\u{1F441}\u{FE0F} Lecture seule — review de ' + window.viewingOtherReview, '');
     return true;

@@ -15,8 +15,7 @@ function loadSentenceFlagStatuses(){
   var url = API+'/sentence_flags?lesson_key=eq.'+encodeURIComponent(L.lesson_key)
     + '&select=id,sentence_index,flag_type,applied,applied_at,auto_status,skip_reason,created_at'
     + '&order=created_at.desc';
-  fetch(url, {headers:H})
-    .then(function(r){ return r.ok ? r.json() : []; })
+  XGNet.requete(url, {headers:H}, {action:'lire l’état de tes corrections de phrase', reessayer: loadSentenceFlagStatuses})
     .then(function(rows){
       sentenceFlagRows = Array.isArray(rows) ? rows : [];
       renderSentenceFlagBadges();
@@ -27,7 +26,7 @@ function loadSentenceFlagStatuses(){
       if (anyActive) startSentenceFlagPolling();
       else if (sentenceFlagPollTimer) { clearInterval(sentenceFlagPollTimer); sentenceFlagPollTimer = null; }
     })
-    .catch(function(){ /* reseau : re-essai au prochain poll/retour d'onglet */ });
+    .catch(function(e){ XGNet.signaler(e, 'loadSentenceFlagStatuses'); /* re-essai au prochain poll/retour d'onglet */ });
 }
 
 function startSentenceFlagPolling(){

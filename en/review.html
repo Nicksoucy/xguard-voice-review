@@ -153,7 +153,7 @@ function demanderNom(){
   var b = document.getElementById('banner');
   b.innerHTML = '<div class="banner" style="background:rgba(243,156,18,0.15);color:#F8C471">Please type your name before you start. It signs your review. '
     + '<input id="rn-here" placeholder="Your name" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:5px;padding:4px 8px;font:inherit;margin-left:6px"> '
-    + '<button class="btn ghost" onclick="var v=document.getElementById(\'rn-here\').value.trim();if(v){try{localStorage.setItem(\'rn\',v)}catch(e){};location.reload()}">Save</button></div>';
+    + '<button class="btn ghost" onclick="var v=document.getElementById(\'rn-here\').value.trim();if(v){try{localStorage.setItem(\'rn\',v)}catch(e){console.warn(e)};location.reload()}">Save</button></div>';
 }
 
 function json(url){ return fetch(url, { headers: H }).then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }); }
@@ -382,7 +382,7 @@ function voisins(){
       var a = document.getElementById(p[0]);
       if (p[1] && p[1].voiceover_uploaded_at) { a.href = 'review.html?key=' + encodeURIComponent(p[1].lesson_key); a.hidden = false; }
     });
-  }).catch(function(){});
+  }).catch(function(e){ console.warn('previous/next links unavailable', e); if (window.captureWithContext) captureWithContext(e, {action:'en_prev_next'}); });
 }
 
 document.addEventListener('keydown', function(e){

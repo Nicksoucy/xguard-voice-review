@@ -4,12 +4,13 @@ function jmp(t){if(!au)return;au.currentTime=Math.max(0,t-0.5);if(au.paused)au.p
 function scheduleAutoSave(){
   // Mode lecture (on regarde la review d'un autre reviseur) : ne rien enregistrer sous notre nom.
   if (window.viewingOtherReview) return;
+  if (window.revueNonChargee) return; // voir roGuard : jamais ecraser une revue qu'on n'a pas lue
   dirty = true;
   saveLocalBackup();        // snapshot local SYNCHRONE immediat (filet anti-crash, independant du debounce 2s)
   if (saveTimer) clearTimeout(saveTimer);
   showMsg('●', 'saving');
   saveTimer = setTimeout(function(){
-    saveReview(false, true);
+    saveReview(false, true).catch(function(e){ XGNet.signaler(e, 'autosave voix'); });
   }, 2000);
 }
 
@@ -18,7 +19,7 @@ function scheduleAutoSave(){
 function flushAutoSave(){
   if (window.viewingOtherReview) return;
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
-  if (dirty) saveReview(false, true);
+  if (dirty) saveReview(false, true).catch(function(e){ XGNet.signaler(e, 'flush voix'); });
 }
 
 // ── Backup local (anti-perte de travail) ─────────────────────────
@@ -40,72 +41,72 @@ function saveLocalBackup(){
       glitches: glitches,
       ts: Date.now()
     }));
-  } catch (e) { /* quota plein / navigation privee : on degrade, le serveur reste la source */ }
+  } catch (e) {
+    // Quota plein / navigation privee : on degrade, le serveur reste la source. Signale quand meme.
+    XGNet.signaler(e, 'backup local voix');
+  }
 }
 function clearLocalBackup(){
-  try { localStorage.removeItem(backupKey()); } catch (e) {}
+  try { localStorage.removeItem(backupKey()); } catch (e) { XGNet.signaler(e, 'effacer backup local'); }
 }
 
 function saveReview(approved, isAuto, force){
-  if (!L) return;
+  if (!L) return Promise.reject(new Error('lecon absente'));
   // Lecture seule : on affiche la review d'un AUTRE reviseur -> on ne l'ecrase pas sous notre nom.
   // EXCEPTION (force) : une APPROBATION explicite ecrit NOTRE propre enregistrement (reviewer_name = nous,
   // on_conflict lesson_key+reviewer_name) -> elle n'ecrase JAMAIS le travail de l'autre reviseur. Donc
   // Nicolas peut approuver une lecon meme en regardant la review d'Hela (bug : avant, ca ne faisait rien).
   if (!XGReview.shouldWriteReview(window.viewingOtherReview, force)) {
     if (!isAuto) showMsg('\u{1F441}\u{FE0F} Lecture seule — c\'est la review de ' + window.viewingOtherReview, '');
-    return;
+    return Promise.resolve(false);
   }
+  if (window.revueNonChargee) {
+    showMsg('Ta revue n’est pas encore chargée — clique « Réessayer » dans le bandeau rouge en haut.', 'error');
+    return Promise.resolve(false);
+  }
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
   // Approbation EXPLICITE (confirmApprove passe approved=true) -> sticky. Les autosaves
   // (approved=false) NE remettent PAS la lecon en non-approuvee : on renvoie lessonApproved.
-  lessonApproved = XGReview.approvedToPersist(approved, lessonApproved);
+  // L'approbation n'est retenue en memoire qu'apres la reponse 2xx (chantier 03) : avant,
+  // une coupure reseau laissait la page croire la lecon approuvee.
+  var aPersister = XGReview.approvedToPersist(approved, lessonApproved);
   var rn = (localStorage.getItem('rn') || 'Anonyme').trim();
   var lessonId = L.lesson_key.split('/').slice(1).join('/');
-  if (isAuto) showMsg('Sauvegarde...', 'saving');
-  fetch(API+'/voice_reviews?on_conflict=lesson_key,reviewer_name',{
+  showMsg(approved ? 'Approbation en cours…' : 'Sauvegarde…', 'saving');
+  var corps = {
+    lesson_key: L.lesson_key,
+    course_id: L.course_id,
+    lesson_id: lessonId,
+    lesson_title: L.short_title ? '['+L.course_id+'] '+L.short_title : L.title,
+    reviewer_name: rn,
+    flags: Array.from(flags.values()),
+    glitches: glitches,
+    approved: aPersister,
+    updated_at: new Date().toISOString()
+  };
+  // Upsert idempotent : XGNet le reessaie tout seul, puis affiche un bandeau qui reste avec
+  // « Réessayer » (qui refait LE MEME geste : approuver reste approuver).
+  return XGNet.requete(API+'/voice_reviews?on_conflict=lesson_key,reviewer_name',{
     method:'POST',
     headers:Object.assign({},H,{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'}),
-    body:JSON.stringify({
-      lesson_key: L.lesson_key,
-      course_id: L.course_id,
-      lesson_id: lessonId,
-      lesson_title: L.short_title ? '['+L.course_id+'] '+L.short_title : L.title,
-      reviewer_name: rn,
-      flags: Array.from(flags.values()),
-      glitches: glitches,
-      approved: lessonApproved,
-      updated_at: new Date().toISOString()
-    })
-  }).then(function(r){
-    if (r.ok) {
-      dirty = false;
-      clearLocalBackup();   // le serveur a la version -> le backup local n'est plus necessaire
-      showMsg(approved ? '\u2713 Approuve!' : (isAuto ? '\u2713 Auto-sauvegarde' : '\u2713 Sauvegarde!'));
-    } else {
-      showMsg('Erreur '+r.status+' \u2014 Nicolas a ete notifie');
-      if (window.captureWithContext) {
-        captureWithContext(new Error('Voice review save HTTP ' + r.status), {
-          action: 'save_voice_review',
-          lesson_key: L.lesson_key,
-          reviewer: rn,
-          status: String(r.status),
-          flag_count: String(flags.size),
-          glitch_count: String(glitches.length),
-          approved: String(!!approved),
-          is_auto: String(!!isAuto)
-        });
-      }
-    }
-  }).catch(function(e){
-    showMsg('Erreur reseau: '+e.message);
-    if (window.captureWithContext) {
-      captureWithContext(e, {
-        action: 'save_voice_review_network',
-        lesson_key: L.lesson_key,
-        reviewer: rn,
-        flag_count: String(flags.size)
-      });
-    }
+    body:JSON.stringify(corps)
+  }, {
+    action: approved ? 'approuver la leçon' : 'enregistrer ta revue (tes mots marqués sont encore sur cette page, ne la ferme pas)',
+    cle: 'save-voice-review',
+    essais: 3,
+    reessayer: function(){ saveReview(approved, isAuto, force).catch(function(e){ XGNet.signaler(e, 'reessai save voix'); }); }
+  }).then(function(){
+    lessonApproved = aPersister;
+    dirty = false;
+    clearLocalBackup();   // le serveur a la version -> le backup local n'est plus necessaire
+    showMsg(approved ? '✓ Leçon approuvée' : (isAuto ? '✓ Sauvegardé automatiquement' : '✓ Sauvegardé'));
+    return true;
+  }, function(e){
+    // Message qui RESTE (classe saving = pas d'effacement a 2,5 s) ; le bandeau rouge en haut
+    // porte le bouton « Réessayer ». Le backup local garde le travail en cas de fermeture.
+    saveLocalBackup();
+    showMsg('✗ Pas enregistré — voir le bandeau rouge en haut', 'error');
+    throw e;
   });
 }
 
@@ -119,8 +120,9 @@ function closeModal(){
 function confirmApprove(){
   closeModal();
   // force=true : approuver fonctionne meme en mode lecture seule (ecrit notre propre enregistrement).
-  saveReview(true, false, true);
-  window.viewingOtherReview = null; // on vient d'ecrire NOTRE review approuvee -> on n'est plus en lecture seule
+  saveReview(true, false, true).then(function(ecrit){
+    if (ecrit) window.viewingOtherReview = null; // NOTRE review approuvee est ecrite -> plus en lecture seule
+  }, function(e){ XGNet.signaler(e, 'approuver lecon'); });
 }
 
 function copyReview(){if(!L)return;var t='Lecon: '+(L.short_title||L.title)+'\n';
@@ -129,7 +131,10 @@ function copyReview(){if(!L)return;var t='Lecon: '+(L.short_title||L.title)+'\n'
   if(sf.length){t+='\nMots:\n';for(var j=0;j<sf.length;j++){var f=sf[j];t+='- ['+f.time+'] #'+f.sentenceIndex+' "'+((f.context||'').replace(/\*\*/g,''))+'"';if(f.note)t+=' \u2192 '+f.note;t+='\n'}}
   navigator.clipboard.writeText(t);showMsg('Copie!')}
 
-function showMsg(t, cls){var m=document.getElementById('msg');m.textContent=t;m.className='msg'+(cls?' '+cls:'');if(!cls)setTimeout(function(){m.textContent=''},2500)}
+// Message d'etat a cote des boutons. Sans classe : succes, efface apres 2,5 s. Avec une classe
+// ('saving', 'error') : il RESTE jusqu'au prochain message (une erreur ne clignote plus).
+var showMsgTimer = null;
+function showMsg(t, cls){var m=document.getElementById('msg');if(!m)return;if(showMsgTimer){clearTimeout(showMsgTimer);showMsgTimer=null}m.textContent=t;m.className='msg'+(cls?' '+cls:'');if(!cls)showMsgTimer=setTimeout(function(){m.textContent=''},2500)}
 
 // Cherche le debut de la prochaine phrase regeneree (>=t). Retourne null si aucune.
 // Logique pure deleguee a lib/review-logic.js (testee par vitest).
@@ -234,7 +239,7 @@ document.addEventListener('keydown', function(e){
   // Ctrl+S : save
   if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
     e.preventDefault();
-    saveReview(false);
+    saveReview(false).catch(function(err){ XGNet.signaler(err, 'ctrl-s voix'); });
     return;
   }
   // F : toggle filtre phrases regenerees

@@ -43,11 +43,11 @@ var XG = window.XG;
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 
 var rnInput = document.getElementById('rn');
-try { rnInput.value = localStorage.getItem('rn') || ''; } catch (e) {}
+try { rnInput.value = localStorage.getItem('rn') || ''; } catch (e) { console.warn('localStorage unavailable', e); }
 function saveName(){
   var v = rnInput.value.trim();
   if (!v) { document.getElementById('who-msg').textContent = 'Please type your name.'; return; }
-  try { localStorage.setItem('rn', v); } catch (e) {}
+  try { localStorage.setItem('rn', v); } catch (e) { console.warn('localStorage unavailable', e); }
   document.getElementById('who-msg').textContent = 'Saved. Your reviews will be signed ' + v + '.';
 }
 

@@ -60,9 +60,9 @@ function escHtml(s){
 }
 function loadExistingSentenceFlags(si){
   if (!L) return;
-  fetch(API+'/sentence_flags?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&sentence_index=eq.'+si
-      +'&select=id,flag_type,applied,applied_at,auto_status,skip_reason,source_sentence,corrected_text,partial_original,partial_replacement,note,created_at&order=created_at.desc',{headers:H})
-    .then(function(r){return r.json()})
+  XGNet.requete(API+'/sentence_flags?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&sentence_index=eq.'+si
+      +'&select=id,flag_type,applied,applied_at,auto_status,skip_reason,source_sentence,corrected_text,partial_original,partial_replacement,note,created_at&order=created_at.desc',{headers:H},
+      {action:'lire les demandes déjà faites sur cette phrase', reessayer: function(){ loadExistingSentenceFlags(si); }})
     .then(function(rows){
       if (!Array.isArray(rows) || !rows.length) return;
       var f = rows[0]; // le plus recent fait foi
@@ -77,7 +77,7 @@ function loadExistingSentenceFlags(si){
       }
       if (rows.length > 1) html += '<div style="margin-top:4px;font-size:11px;opacity:.7">'+rows.length+' demandes au total sur cette phrase</div>';
       msg.innerHTML = html;
-    }).catch(function(){});
+    }).catch(function(e){ XGNet.signaler(e, 'loadExistingSentenceFlags'); });
 }
 
 // Renvoie un flag skipped en re-ancrant original_text sur le texte ACTUEL de la
@@ -116,7 +116,10 @@ function resendSentenceFlag(oldId){
           method: 'PATCH',
           headers: Object.assign({}, H, {'Content-Type':'application/json','Prefer':'return=minimal'}),
           body: JSON.stringify({ auto_status: 'superseded', skip_reason: 'remplace par un renvoi avec le texte actuel' }),
-        }).catch(function(){});
+        }).catch(function(e){
+          // L'ancien flag reste actif : le worker le verra comme doublon. On le signale.
+          XGNet.signaler(e, 'supersede sentence_flag ' + oldId);
+        });
         msg.textContent = '\u2713 Renvoye \u2014 en traitement';
         if (window.loadSentenceFlagStatuses) loadSentenceFlagStatuses();
         setTimeout(closeSentenceModal, 1400);

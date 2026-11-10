@@ -154,7 +154,11 @@ function poll(){
     } else {
       setStatus('⏳ Génération… '+variants.length+' version(s) prête(s)', 'pending');
     }
-  }).catch(function(){});
+  }).catch(function(e){
+    // Le polling reessaie toutes les 3 s : on le dit dans le statut au lieu de se taire.
+    XGNet.signaler(e, 'studio poll');
+    setStatus('⚠ Pas de nouvelles du serveur (connexion ?) — nouvel essai automatique…', 'error');
+  });
 }
 
 // ── Rendu des variantes (lecteur + bouton choisir) ──
@@ -234,7 +238,11 @@ function pollDecision(did){
         el.innerHTML = esc(e.t) + (e.reecouter && lecon
           ? ' <a class="navlink" href="review.html?key='+encodeURIComponent(lecon)+'" target="_blank">▶ Réécouter la leçon</a>' : '');
         if (e.fini){ clearInterval(decisionTimer); decisionTimer = null; }
-      }).catch(function(){});
+      }).catch(function(err){
+        XGNet.signaler(err, 'studio decision');
+        var el = $('decstatus');
+        if (el) { el.className = 'substatus error'; el.textContent = '⚠ Pas de nouvelles du serveur (connexion ?) — nouvel essai automatique…'; }
+      });
   }
   check();
   decisionTimer = setInterval(check, 3000);

@@ -303,6 +303,8 @@ function flagStutter(){
   scheduleAutoSave();
 }
 
+// Echappement pour un attribut HTML (value="..."). Les valeurs viennent de la base ou de la saisie.
+function escAttr(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function hl(ctx){return (ctx||'').replace(/\*\*(.+?)\*\*/g,'<b style="color:#E74C3C">$1</b>')}
 
 // Tokens nus du contexte (les mots de W joints par espaces, marqueurs ** retires).
@@ -416,6 +418,11 @@ function renderFlags(){
   var totalVisible = 0;
   flags.forEach(function(f){ if (showApproved || !isHidden(f)) totalVisible++; });
   if(!totalVisible){l.innerHTML='<div class="empty">'+(flags.size?'Tous les flags ont ete approuves apres regen':'Clique sur les mots qui sonnent mal<br><span style="font-size:10px;opacity:0.7">Astuce : Ctrl+clic pour grouper plusieurs mots (ex: "cent vingt metres" en 1 flag)</span>')+'</div>';return}
+  // Saisie en cours (chantier 03) : on note quelle case avait le curseur pour le remettre
+  // apres la reconstruction. Le TEXTE, lui, vit dans rfixDrafts / flag.note, pas dans le DOM.
+  var focEl = document.activeElement;
+  var focId = (focEl && focEl.id && l.contains(focEl)) ? focEl.id : null;
+  var focSel = focId && typeof focEl.selectionStart === 'number' ? [focEl.selectionStart, focEl.selectionEnd] : null;
   l.innerHTML='';var sorted=Array.from(flags.entries()).sort(function(a,b){return a[0]-b[0]});
   for(var k=0;k<sorted.length;k++){(function(ii,d){
     // Masquer les flags approuves OU auto_resolved sauf si showApproved
@@ -472,7 +479,8 @@ function renderFlags(){
     var approveBtn = (!approved && !autoResolved)
       ? '<button class="rfixbtn rapprove" style="background:#1E8449;border-color:#1E8449;color:#fff" title="Écoute la phrase, puis approuve si elle est bonne" onclick="approveOneFlag('+ii+')">✅ Approuver</button>'
       : '';
-    var rfixBlock = '<span class="rfixwrap"><input class="rfix" id="rfix'+ii+'" placeholder="'+rfixPlaceholder(currentCat)+'"><button class="rfixbtn" title="Tu as le bon texte : envoyer la correction (régénération auto)" onclick="submitCorrectionRequest('+ii+')">Corriger</button><button class="rfixbtn rpt" title="La voix répète ou bégaie ce mot — refaire ce bout (sans changer le texte)" onclick="submitRepeat('+ii+')">🔁 Re-générer</button><button class="rfixbtn" title="Atelier du son — tester la prononciation de ce mot" onclick="openAtelier('+ii+')">🎵 Atelier</button>'+phraseLink+listenBtn+approveBtn+'<span class="rfixstatus" id="rfixstatus'+ii+'"></span></span>';
+    var draft = (typeof rfixDrafts !== 'undefined' && rfixDrafts[ii]) ? rfixDrafts[ii] : '';
+    var rfixBlock = '<span class="rfixwrap"><input class="rfix" id="rfix'+ii+'" value="'+escAttr(draft)+'" oninput="rfixDrafts['+ii+']=this.value" placeholder="'+rfixPlaceholder(currentCat)+'"><button class="rfixbtn" title="Tu as le bon texte : envoyer la correction (régénération auto)" onclick="submitCorrectionRequest('+ii+')">Corriger</button><button class="rfixbtn rpt" title="La voix répète ou bégaie ce mot — refaire ce bout (sans changer le texte)" onclick="submitRepeat('+ii+')">🔁 Re-générer</button><button class="rfixbtn" title="Atelier du son — tester la prononciation de ce mot" onclick="openAtelier('+ii+')">🎵 Atelier</button>'+phraseLink+listenBtn+approveBtn+'<span class="rfixstatus" id="rfixstatus'+ii+'"></span></span>';
     // Badge clair pour les flags REGLES (visibles seulement via le toggle
     // "afficher les corriges") : Hela sait quoi en penser sans deviner.
     var regleBadge = '';
@@ -481,8 +489,12 @@ function renderFlags(){
         + (autoResolved ? 'Le mot a ete corrige automatiquement (il a disparu ou ete remplace dans le texte)' : 'Tu as approuve cette correction apres re-ecoute')
         + '">\u2713 ' + (autoResolved ? 'corrige automatiquement' : 'corrige et approuve') + '</span>';
     }
-    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span>'+regleBadge+groupBadge+catSelect+'<span class="rc">'+hlFlag(d.context, d.word)+'</span><input placeholder="Note" value="'+(d.note||'').replace(/"/g,'&quot;')+'" oninput="if(window.viewingOtherReview)return;flags.get('+ii+').note=this.value;scheduleAutoSave()">'+reflagBtn+rfixBlock+'<button class="rm" onclick="if(window.viewingOtherReview)return;flags.delete('+ii+');'+groupIndicesStr+'.forEach(function(g){if(els[g]){els[g].classList.remove(\'flagged\',\'resolved\',\'approved\',\'grouped\',\'reflagged\')}});renderFlags();scheduleAutoSave()">\u2715</button>';
+    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span>'+regleBadge+groupBadge+catSelect+'<span class="rc">'+hlFlag(d.context, d.word)+'</span><input id="rnote'+ii+'" placeholder="Note" value="'+escAttr(d.note||'')+'" oninput="if(window.viewingOtherReview)return;flags.get('+ii+').note=this.value;scheduleAutoSave()">'+reflagBtn+rfixBlock+'<button class="rm" onclick="if(window.viewingOtherReview)return;flags.delete('+ii+');'+groupIndicesStr+'.forEach(function(g){if(els[g]){els[g].classList.remove(\'flagged\',\'resolved\',\'approved\',\'grouped\',\'reflagged\')}});renderFlags();scheduleAutoSave()">\u2715</button>';
     l.appendChild(el)})(sorted[k][0],sorted[k][1])}
+  if (focId) {
+    var back = document.getElementById(focId);
+    if (back) { back.focus(); if (focSel) { XGNet.essayer(function(){ back.setSelectionRange(focSel[0], focSel[1]); }, 'remettre le curseur'); } }
+  }
   // Re-applique les statuts de correction connus (renderFlags efface le DOM a chaque appel).
   applyCorrectionStatuses();
   if (!window._corrInit) { window._corrInit = true; pollCorrectionStatus(); }

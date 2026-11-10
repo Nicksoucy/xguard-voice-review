@@ -2,7 +2,10 @@
 // (page.route) pour rester deterministe et independant de la prod.
 import { defineConfig, devices } from '@playwright/test';
 
-const PORT = 8765;
+// Port dedie (pas 8765 : un autre site local l'occupait le 2026-11-10 et Playwright
+// « reutilisait » ce serveur etranger -> les 16 tests echouaient sur le mauvais site).
+// Surcharge possible : XG_TEST_PORT=9000 npx playwright test
+const PORT = Number(process.env.XG_TEST_PORT) || 8791;
 
 export default defineConfig({
   testDir: './tests',
@@ -21,7 +24,11 @@ export default defineConfig({
   webServer: {
     command: `python3 -m http.server ${PORT}`,
     port: PORT,
-    reuseExistingServer: !process.env.CI,
+    // Jamais reutiliser un serveur deja la : on ne sait pas quel dossier il sert.
+    reuseExistingServer: false,
     timeout: 30000,
+    // Le journal d'acces de http.server noie le resultat des tests.
+    stdout: 'ignore',
+    stderr: 'ignore',
   },
 });

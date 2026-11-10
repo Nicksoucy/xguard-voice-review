@@ -68,7 +68,7 @@
   <div class="panel-hint">Clique un mot qui sonne mal pour le <b>marquer</b>. Choisis ensuite ce qui cloche : <b>faute de frappe</b> (tape le bon mot, ex « manette ») ou <b>prononciation</b> (le mot est bon mais mal dit — écris le <b>son</b> dans la grande case, ex « grann »), puis clique <b>Corriger</b>. Le bouton <b>🔁</b> ne sert que si la voix <b>bégaie/répète</b> (sans rien taper). Pour changer <b>toute une phrase</b>, clique le crayon ✏️.</div>
   <div id="fl"><div class="empty">Clique sur les mots qui sonnent mal</div></div>
   <div class="acts">
-    <button class="btn br" onclick="saveReview(false)" title="Enregistre ta revue (les mots marqués). Les corrections envoyées via Corriger sont déjà parties.">Sauvegarder</button>
+    <button class="btn br" onclick="saveReview(false).catch(function(e){XGNet.signaler(e,'bouton sauvegarder voix')})" title="Enregistre ta revue (les mots marqués). Les corrections envoyées via Corriger sont déjà parties.">Sauvegarder</button>
     <button class="btn bApproveGreen" id="btnApproveGreens" onclick="approveAllGreens()" title="Valide les corrections déjà appliquées (mots en vert) après les avoir ré-écoutées">&#10003; Valider les corrections appliquées</button>
     <!-- Sortie de secours : s'affiche quand la voix a été refaite mais qu'aucune phrase
          n'est surlignée en vert. Sans lui, le bandeau réclame un geste impossible et
@@ -165,6 +165,7 @@
 <!-- Logique pure partagee (testee par vitest) — DOIT charger avant flags.js/loader.js/corrections.js -->
 <script src="lib/format-utils.js?v=20260621d"></script>
 <script src="lib/review-logic.js?v=20261030a"></script>
+<script src="lib/net.js?v=20261110a"></script>
 <script src="review/flags.js?v=20261104a"></script>
 <script src="review/loader.js?v=20260806b"></script>
 <script src="review/dom-builder.js?v=20260806a"></script>

@@ -28,6 +28,11 @@ var vid = null;        // <video> element
 var saveTimer = null;
 var dirty = false;
 var addFlagTimestamp = 0;
+// Verdict de la reviseuse sur la version COURANTE (chantier 03, 2026-11-10). Avant, chaque
+// autosauvegarde ecrivait approved=false, rejected=false, reject_reason=null : ajouter un
+// flag apres un rejet ANNULAIT le rejet. Le verdict vit maintenant ici, il est relu au
+// chargement et renvoye tel quel a chaque sauvegarde. Seul « J'ai fini cette video » le change.
+var verdict = { approved: false, rejected: false, reason: null };
 
 // Categories de flags video (centralisees)
 var FLAG_CATEGORIES = {
@@ -55,39 +60,32 @@ function fmtDate(iso) {
 function genId() { return 'f_' + Math.random().toString(36).slice(2, 8); }
 
 // === Resolve lesson ===
+// Une panne reseau n'appelle PAS cb : XGNet affiche le bandeau « Pas pu charger... » avec
+// « Réessayer ». Avant, elle tombait dans cb(null) et s'affichait « Lecon introuvable » ou
+// « Voiceover pas encore approuve » (review-video.js:76-79, 121 au 2026-11-10).
+function chargementEchoue() {
+  var t = document.getElementById('title');
+  if (t && t.textContent === 'Chargement...') t.textContent = '🎬 Chargement impossible pour le moment';
+}
 function resolveLesson(cb) {
   if (!lessonKey) { cb(null); return; }
-  fetch(API+'/lessons?lesson_key=eq.'+encodeURIComponent(lessonKey)+'&select=*', {headers:H})
-    .then(function(r){return r.json()})
+  XGNet.requete(API+'/lessons?lesson_key=eq.'+encodeURIComponent(lessonKey)+'&select=*', {headers:H}, {action:'charger la leçon'})
     .then(function(rows){ cb(rows[0] || null) })
-    .catch(function(err){
-      if (window.captureWithContext) captureWithContext(err, {action:'resolve_lesson', lesson_key:lessonKey});
-      cb(null);
-    });
+    .catch(chargementEchoue);
 }
 
 // === Resolve voice status (gating) ===
 function resolveVoiceStatus(cb) {
-  fetch(API+'/lesson_status?lesson_key=eq.'+encodeURIComponent(lessonKey)+'&select=status', {headers:H})
-    .then(function(r){return r.json()})
-    .then(function(rows){
-      cb(rows[0] ? rows[0].status : null);
-    })
-    .catch(function(err){
-      if (window.captureWithContext) captureWithContext(err, {action:'resolve_voice_status', lesson_key:lessonKey});
-      cb(null);
-    });
+  XGNet.requete(API+'/lesson_status?lesson_key=eq.'+encodeURIComponent(lessonKey)+'&select=status', {headers:H}, {action:'vérifier l’état de la voix'})
+    .then(function(rows){ cb(rows[0] ? rows[0].status : null); })
+    .catch(chargementEchoue);
 }
 
 // === Resolve video metadata ===
 function resolveVideoMetadata(cb) {
-  fetch(API+'/video_metadata?lesson_key=eq.'+encodeURIComponent(lessonKey)+'&select=*', {headers:H})
-    .then(function(r){return r.json()})
+  XGNet.requete(API+'/video_metadata?lesson_key=eq.'+encodeURIComponent(lessonKey)+'&select=*', {headers:H}, {action:'charger la vidéo'})
     .then(function(rows){ cb(rows[0] || null) })
-    .catch(function(err){
-      if (window.captureWithContext) captureWithContext(err, {action:'resolve_video_metadata', lesson_key:lessonKey});
-      cb(null);
-    });
+    .catch(chargementEchoue);
 }
 
 // === Init ===
@@ -273,7 +271,7 @@ function renderFlagsList() {
     html += '<div class="' + rowCls + '" onclick="jumpToFlag(\'' + f.id + '\')">' +
       '<span class="flag-time">' + fmtTime(f.time) + '</span>' +
       '<span class="flag-cat-pill">' + cat.emoji + ' ' + cat.label + '</span>' +
-      '<span class="flag-note">' + (f.note ? escapeHtml(f.note) : '<em style="color:#555">aucune note</em>') + '</span>' +
+      '<span class="flag-note">' + (f.note ? escapeHtml(f.note) : '<em style="color:#A3ACB9">aucune note</em>') + '</span>' +
       '<button class="flag-delete" onclick="event.stopPropagation();deleteFlag(\'' + f.id + '\')" title="Supprimer">&times;</button>' +
       '</div>';
   });
@@ -289,9 +287,12 @@ function escapeHtml(s) {
 // === Load existing review ===
 function loadExistingReview() {
   var rn = (localStorage.getItem('rn') || 'Anonyme').trim();
-  fetch(API+'/video_reviews?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&reviewer_name=eq.'+encodeURIComponent(rn)+'&select=*', {headers:H})
-    .then(function(r){return r.json()})
+  // Lecture seule tant que la revue n'est pas lue (reessais compris) : voir plus bas.
+  revueNonChargee = true;
+  XGNet.requete(API+'/video_reviews?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&reviewer_name=eq.'+encodeURIComponent(rn)+'&select=*', {headers:H},
+      {action:'charger ta revue de cette vidéo'})
     .then(function(rows){
+      revueNonChargee = false;
       if (rows && rows[0]) {
         // Nouvelle version produite depuis le dernier passage de la reviseuse ?
         // (audit 2026-06-10 : Hela confondait ancienne et nouvelle video.)
@@ -314,49 +315,102 @@ function loadExistingReview() {
           var nb = document.getElementById('new-version-banner');
           if (nb) {
             nb.innerHTML =
-              '<strong>🆕 NOUVELLE VIDEO — version ' + versionCourante + '</strong>' +
+              '<strong>🆕 NOUVELLE VIDÉO — version ' + versionCourante + '</strong>' +
               (VM.produced_at ? ', produite le <strong>' + fmtDate(VM.produced_at) + '</strong>' : '') + '<br>' +
-              'Tu avais regarde la version ' + versionRevue +
-              (rows[0].rejected ? ' et tu l\'avais refusee — la video a ete corrigee depuis.' : '.') +
-              ' Regarde celle-ci au complet, puis approuve ou refuse.';
+              'Tu avais regardé la version ' + versionRevue +
+              (rows[0].rejected ? ' et tu l\'avais renvoyée à corriger — la vidéo a été refaite depuis.' : '.') +
+              ' Regarde celle-ci au complet, puis clique « J\'ai fini cette vidéo ».';
             nb.classList.remove('hidden');
           }
-          // Les verdicts (approuvee/rejetee) concernent l'ANCIENNE version :
-          // on ne les affiche pas, ce serait trompeur sur la nouvelle.
+          // Les verdicts (approuvee/rejetee) concernent l'ANCIENNE version : on repart
+          // d'un verdict vide, ce serait trompeur sur la nouvelle.
         } else {
-          if (rows[0].approved) {
-            var banner = document.getElementById('approved-banner');
-            banner.innerHTML = '<strong>✓ Cette video est deja approuvee</strong><br>Approuvee par <strong>' + escapeHtml(rn) + '</strong> le <strong>' + fmtDate(rows[0].updated_at) + '</strong>';
-            banner.classList.remove('hidden');
-          }
-          if (rows[0].rejected) {
-            var banner2 = document.getElementById('recheck-banner');
-            banner2.innerHTML = '<strong>✗ Rejetée — 🔧 à refaire</strong><br>' + (rows[0].reject_reason ? '<em>"' + escapeHtml(rows[0].reject_reason) + '"</em><br>' : '') + '<span style="opacity:.75">En attente de re-production. Une nouvelle version apparaîtra ici une fois la vidéo refaite.</span>';
-            banner2.classList.remove('hidden');
-          }
+          verdict = { approved: !!rows[0].approved, rejected: !!rows[0].rejected, reason: rows[0].reject_reason || null };
+          verdictDate = rows[0].updated_at || null;
         }
       }
       renderFlagsList();
       renderMarkers();
+      afficherVerdict();
     })
-    .catch(function(err){
-      if (window.captureWithContext) captureWithContext(err, {action:'load_video_review', lesson_key:L.lesson_key});
+    .catch(function(){
+      // Le bandeau XGNet dit deja que la revue n'a pas pu etre chargee. On NE montre PAS une
+      // liste vide modifiable : une autosauvegarde ecraserait la vraie revue en base.
+      revueNonChargee = true;
+      var bt = document.getElementById('finish-btn'); if (bt) bt.disabled = true;
       renderFlagsList();
     });
+}
+var verdictDate = null;
+var revueNonChargee = false;
+
+// Flags qui empechent l'approbation : severite « bloquant » et pas deja repares par le robot.
+function flagsBloquants() {
+  return flags.filter(function(f){ return f.severity !== 'minor' && !f.resolved_at; });
+}
+
+// Bandeaux d'etat, recalcules a chaque changement (pas seulement au chargement).
+function afficherVerdict() {
+  var rn = (localStorage.getItem('rn') || 'Anonyme').trim();
+  var ok = document.getElementById('approved-banner');
+  var ko = document.getElementById('recheck-banner');
+  var st = document.getElementById('verdict-state');
+  var nbB = flagsBloquants().length;
+  ok.classList.add('hidden');
+  ko.classList.add('hidden');
+  var etat;
+  if (verdict.approved) {
+    ok.innerHTML = '<strong>✓ Tu as approuvé cette vidéo</strong><br>Approuvée par <strong>' + escapeHtml(rn) + '</strong>' +
+      (verdictDate ? ' le <strong>' + fmtDate(verdictDate) + '</strong>' : '');
+    ok.classList.remove('hidden');
+    etat = '✓ Approuvée';
+  } else if (verdict.rejected) {
+    ko.innerHTML = '<strong>✗ Renvoyée à corriger — 🔧 à refaire</strong><br>' +
+      (verdict.reason ? '<em>« ' + escapeHtml(verdict.reason) + ' »</em><br>' : '') +
+      '<span style="opacity:.85">Une nouvelle version apparaîtra ici une fois la vidéo refaite. ' +
+      'Tu peux encore ajouter des problèmes : ils partent avec le renvoi.</span>';
+    ko.classList.remove('hidden');
+    etat = '🔧 À corriger';
+  } else if (nbB > 0) {
+    etat = '● Revue en cours — ' + nbB + ' problème' + (nbB > 1 ? 's' : '') + ' bloquant' + (nbB > 1 ? 's' : '') +
+      '. Clique « J\'ai fini cette vidéo » pour l\'envoyer à corriger.';
+  } else {
+    etat = '● Revue en cours — clique « J\'ai fini cette vidéo » quand tu as tout regardé.';
+  }
+  if (st) st.textContent = etat;
+  checkPushToGhlVisibility();
 }
 
 // === Save review ===
 function scheduleAutoSave() {
+  if (revueNonChargee) {
+    var m0 = document.getElementById('msg');
+    if (m0) { m0.textContent = '✗ Ta revue n’est pas encore chargée : rien n’est sauvegardé. Clique « Réessayer » en haut.'; m0.style.color = '#FF8A7D'; }
+    return;
+  }
   dirty = true;
+  // Une video approuvee qui recoit un probleme bloquant n'est plus approuvee : on retire
+  // l'approbation (sans inventer un rejet) et le bandeau dit quoi faire. Un rejet, lui,
+  // reste un rejet quoi qu'on ajoute (c'etait le bogue : le flag de trop l'annulait).
+  if (verdict.approved && flagsBloquants().length > 0) {
+    verdict.approved = false;
+  }
+  afficherVerdict();
   if (saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(function(){ saveReview(false, false, true); }, 2000);
+  var msg = document.getElementById('msg');
+  if (msg) { msg.textContent = '● modifié — sauvegarde dans 2 s'; msg.style.color = '#94A3B8'; }
+  saveTimer = setTimeout(function(){ saveReview(true); }, 2000);
 }
 
-function saveReview(approved, rejected, isAuto, rejectReason) {
-  if (!L) return;
+// Ecrit la revue avec le verdict COURANT. Retourne une promesse : resolue seulement apres une
+// reponse 2xx du serveur, rejetee sinon (le bandeau XGNet propose alors « Réessayer »).
+function saveReview(isAuto, reessayer) {
+  if (!L) return Promise.reject(new Error('lecon absente'));
+  if (revueNonChargee) return Promise.reject(new Error('revue non chargee'));
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
   var rn = (localStorage.getItem('rn') || 'Anonyme').trim();
   if (!rn || rn === 'Anonyme') {
-    rn = prompt('Ton prenom (sera affiche dans la review) :', '') || 'Anonyme';
+    rn = prompt('Ton prénom (sera affiché dans la revue) :', '') || 'Anonyme';
     localStorage.setItem('rn', rn);
   }
 
@@ -367,82 +421,108 @@ function saveReview(approved, rejected, isAuto, rejectReason) {
     lesson_title: L.title,
     reviewer_name: rn,
     flags: flags,
-    approved: !!approved,
-    rejected: !!rejected,
-    reject_reason: rejectReason || null,
+    approved: !!verdict.approved,
+    rejected: !!verdict.rejected,
+    reject_reason: verdict.rejected ? (verdict.reason || null) : null,
     video_version: VM ? VM.version : null,
     updated_at: new Date().toISOString()
   };
+  var msg = document.getElementById('msg');
+  if (msg) { msg.textContent = 'Sauvegarde…'; msg.style.color = '#94A3B8'; }
 
-  fetch(API+'/video_reviews?on_conflict=lesson_key,reviewer_name', {
+  // Upsert idempotent (on_conflict) : on peut le reessayer sans risque de doublon.
+  return XGNet.requete(API+'/video_reviews?on_conflict=lesson_key,reviewer_name', {
     method: 'POST',
     headers: Object.assign({}, H, {
       'Content-Type': 'application/json',
       'Prefer': 'resolution=merge-duplicates,return=minimal'
     }),
     body: JSON.stringify(body)
-  })
-  .then(function(r){
-    if (r.ok || r.status === 201 || r.status === 204) {
-      dirty = false;
-      var msg = document.getElementById('msg');
-      if (msg) {
-        msg.textContent = isAuto ? '✓ Auto-sauvegarde' : '✓ Sauvegarde';
-        msg.style.color = '#27AE60';
-        setTimeout(function(){ msg.textContent = ''; }, 2000);
-      }
-    } else {
-      console.error('Save failed:', r.status);
-      if (window.captureWithContext) {
-        captureWithContext(new Error('Video review save HTTP ' + r.status), {
-          action: 'save_video_review',
-          lesson_key: L.lesson_key,
-          status: String(r.status),
-          flag_count: String(flags.length),
-          approved: String(!!approved),
-          rejected: String(!!rejected)
-        });
-      }
-      var msg2 = document.getElementById('msg');
-      if (msg2) {
-        msg2.textContent = '✗ Erreur sauvegarde — Nicolas a ete notifie';
-        msg2.style.color = '#E74C3C';
-      }
+  }, {
+    action: 'enregistrer ta revue (tes problèmes notés sont encore sur cette page, ne la ferme pas)',
+    cle: 'save-video-review',
+    essais: 3,
+    reessayer: reessayer || function(){ saveReview(false).catch(function(e){ XGNet.signaler(e, 'reessai save video'); }); }
+  }).then(function(){
+    dirty = false;
+    verdictDate = body.updated_at;
+    if (msg) {
+      msg.textContent = isAuto ? '✓ Sauvegardé automatiquement' : '✓ Sauvegardé';
+      msg.style.color = '#27AE60';
     }
-  })
-  .catch(function(e){
-    console.error('Save error:', e);
-    if (window.captureWithContext) {
-      captureWithContext(e, {
-        action: 'save_video_review_network',
-        lesson_key: L.lesson_key,
-        flag_count: String(flags.length)
-      });
-    }
-    var msg3 = document.getElementById('msg');
-    if (msg3) {
-      msg3.textContent = '✗ Erreur reseau — verifie ta connexion';
-      msg3.style.color = '#E74C3C';
-    }
+  }, function(e){
+    if (msg) { msg.textContent = '✗ Pas sauvegardé — voir le bandeau rouge en haut'; msg.style.color = '#E74C3C'; }
+    throw e;
   });
 }
 
-// === Approve / Reject modals ===
-function askApprove() {
-  document.getElementById('approve-modal-bg').classList.add('open');
+// === Fin de revue : UN seul bouton (chantier 03) ===
+// Avant : « Approuver » et « Renvoyer » separes. Des flags bloquants poses sans clic sur
+// « Renvoyer » restaient invisibles deux heures (migration 025, rejet implicite), puis le
+// robot les sautait. Maintenant « J'ai fini cette video » decide : aucun bloquant =
+// approuvee ; au moins un bloquant = a corriger, tout de suite.
+function resumeBloquants() {
+  return flagsBloquants().map(function(f){
+    var cat = FLAG_CATEGORIES[f.category] || {label: f.category};
+    return fmtTime(f.time) + ' ' + cat.label + (f.note ? ' — ' + f.note : '');
+  }).join(' | ');
 }
-function closeApproveModal() {
-  document.getElementById('approve-modal-bg').classList.remove('open');
+function askFinish() {
+  var bl = flagsBloquants();
+  var mineurs = flags.length - bl.length;
+  var titre = document.getElementById('finish-title');
+  var texte = document.getElementById('finish-text');
+  var champ = document.getElementById('finish-reason-wrap');
+  var bouton = document.getElementById('finish-confirm');
+  document.getElementById('finish-msg').textContent = '';
+  bouton.disabled = false;
+  if (bl.length === 0) {
+    titre.textContent = '✓ Approuver cette vidéo ?';
+    texte.innerHTML = 'Tu n\'as noté <strong>aucun problème bloquant</strong> : la vidéo sera <strong>approuvée</strong>' +
+      (mineurs ? ' (tes ' + mineurs + ' remarque' + (mineurs > 1 ? 's' : '') + ' mineure' + (mineurs > 1 ? 's' : '') + ' sont gardées pour les prochaines vidéos).' : '.');
+    champ.style.display = 'none';
+    bouton.textContent = 'Oui, approuver';
+    bouton.className = 'btn bg';
+  } else {
+    titre.textContent = '🔧 Envoyer cette vidéo à corriger ?';
+    texte.innerHTML = 'Tu as noté <strong>' + bl.length + ' problème' + (bl.length > 1 ? 's' : '') + ' bloquant' + (bl.length > 1 ? 's' : '') +
+      '</strong> : la vidéo part <strong>à corriger</strong> avec ta liste. Une nouvelle version reviendra ici.';
+    champ.style.display = 'block';
+    document.getElementById('finish-reason').value = verdict.rejected ? (verdict.reason || '') : '';
+    bouton.textContent = 'Envoyer à corriger';
+    bouton.className = 'btn br';
+  }
+  document.getElementById('finish-modal-bg').classList.add('open');
 }
-function confirmApprove() {
-  saveReview(true, false, false);
-  closeApproveModal();
-  setTimeout(function(){
-    // Apres approval, montrer le bouton Push to GHL
-    var btn = document.getElementById('lms-lesson-push-btn');
-    if (btn) btn.style.display = 'inline-block';
-    location.reload();
-  }, 800);
+function closeFinishModal() {
+  document.getElementById('finish-modal-bg').classList.remove('open');
+}
+function confirmFinish() {
+  var bl = flagsBloquants();
+  if (bl.length === 0) {
+    verdict = { approved: true, rejected: false, reason: null };
+  } else {
+    var resume = document.getElementById('finish-reason').value.trim();
+    verdict = { approved: false, rejected: true, reason: resume || (bl.length + ' problème(s) bloquant(s) : ' + resumeBloquants()).slice(0, 500) };
+  }
+  var bouton = document.getElementById('finish-confirm');
+  var fm = document.getElementById('finish-msg');
+  bouton.disabled = true;
+  fm.textContent = 'Envoi…';
+  fm.style.color = '#94A3B8';
+  afficherVerdict();
+  saveReview(false, confirmFinish).then(function(){
+    // Rechargement SEULEMENT apres la confirmation du serveur (avant : apres 800 ms quoi
+    // qu'il arrive, ce qui effacait un verdict jamais enregistre).
+    fm.textContent = '✓ Enregistré';
+    fm.style.color = '#27AE60';
+    setTimeout(function(){ location.reload(); }, 400);
+  }, function(){
+    bouton.disabled = false;
+    bouton.textContent = 'Réessayer';
+    fm.textContent = '✗ Pas envoyé : le serveur ne répond pas. Rien n\'est perdu tant que cette page reste ouverte — clique « Réessayer ».';
+    fm.style.color = '#E74C3C';
+  });
 }
 
 // Phase 3 : Push de cette lecon individuelle vers GHL
@@ -483,34 +563,8 @@ async function pushLessonToGhl() {
 
 // Show "Push to GHL" button if video is approved (or already approved on load)
 function checkPushToGhlVisibility() {
-  // Show only if approved banner is visible (means video.approved=true)
-  var approvedBanner = document.getElementById('approved-banner');
-  if (approvedBanner && !approvedBanner.classList.contains('hidden')) {
-    var btn = document.getElementById('lms-lesson-push-btn');
-    if (btn) btn.style.display = 'inline-block';
-  }
-}
-// Run after load
-window.addEventListener('load', function(){ setTimeout(checkPushToGhlVisibility, 1000); });
-function askReject() {
-  document.getElementById('reject-reason').value = '';
-  document.getElementById('reject-modal-bg').classList.add('open');
-}
-function closeRejectModal() {
-  document.getElementById('reject-modal-bg').classList.remove('open');
-}
-function confirmReject() {
-  var reason = document.getElementById('reject-reason').value.trim();
-  if (!reason) {
-    alert('Donne une raison globale (le problème principal).');
-    return;
-  }
-  if (flags.length === 0 && !confirm('Tu renvoies sans avoir marqué de moment précis (aucun flag).\n\nIdéalement, marque les moments qui clochent avec « ADD FLAG ICI » — ça donne la liste exacte à corriger à Nicolas.\n\nRenvoyer quand même ?')) {
-    return;
-  }
-  saveReview(false, true, false, reason);
-  closeRejectModal();
-  setTimeout(function(){ location.reload(); }, 800);
+  var btn = document.getElementById('lms-lesson-push-btn');
+  if (btn) btn.style.display = verdict.approved && !dirty ? 'inline-block' : 'none';
 }
 
 // === Copy review (text) ===
@@ -564,7 +618,7 @@ document.addEventListener('keydown', function(e) {
   // Ctrl+S = save
   if ((e.ctrlKey || e.metaKey) && e.key === 's') {
     e.preventDefault();
-    saveReview(false, false, false);
+    saveReview(false).catch(function(err){ XGNet.signaler(err, 'ctrl-s video'); });
     return;
   }
   // Ne pas trigger si modal ouverte
@@ -577,7 +631,7 @@ document.addEventListener('keydown', function(e) {
 });
 
 // Modal close on backdrop click
-['addflag-modal-bg', 'approve-modal-bg', 'reject-modal-bg'].forEach(function(id){
+['addflag-modal-bg', 'finish-modal-bg'].forEach(function(id){
   var el = document.getElementById(id);
   if (el) el.addEventListener('click', function(e){
     if (e.target === el) el.classList.remove('open');

@@ -68,7 +68,7 @@ export async function mockReviewPage(page, { sentenceFlags = [] } = {}) {
         let body = {};
         try {
           body = JSON.parse(req.postData() || '{}');
-        } catch (e) {}
+        } catch (e) { body = { _illisible: String(e) }; }
         state.posts.push(body);
         // Nouvelle demande = en file (applied=false, auto_status null), en tete (desc).
         state.flags.unshift({ id: state.nextId++, applied: false, auto_status: null, ...body });
@@ -78,7 +78,7 @@ export async function mockReviewPage(page, { sentenceFlags = [] } = {}) {
         let body = {};
         try {
           body = JSON.parse(req.postData() || '{}');
-        } catch (e) {}
+        } catch (e) { body = { _illisible: String(e) }; }
         const m = url.match(/[?&]id=eq\.(\d+)/);
         const id = m ? Number(m[1]) : null;
         state.patches.push({ id, body });

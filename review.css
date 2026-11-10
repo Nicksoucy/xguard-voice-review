@@ -1,9 +1,9 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#0A0E1A;color:#F0F0F0;padding:20px 24px;min-height:100vh;max-width:960px;margin:0 auto}
 .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px}
-h1{color:#E74C3C;font-size:14px}
+h1{color:#FF6B5B;font-size:17px}
 .nav{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.nav a,.nav span,.nav button{color:#94A3B8;font-size:12px;text-decoration:none;padding:5px 12px;border-radius:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);cursor:pointer;font-family:inherit}
+.nav a,.nav span,.nav button{color:#CBD5E1;font-size:14px;text-decoration:none;padding:5px 12px;border-radius:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);cursor:pointer;font-family:inherit}
 .nav a:hover,.nav button:hover{background:rgba(255,255,255,0.12);color:#fff}
 .nav .cur{color:#E74C3C;cursor:default}
 
@@ -14,15 +14,15 @@ h1{color:#E74C3C;font-size:14px}
 .info-bar strong{color:#FFFFFF}
 .info-bar .sep{color:#475569}
 
-.recheck-banner{background:rgba(231,76,60,0.14);border-left:4px solid #E74C3C;padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:12px;font-size:12px;color:#F8CACE;line-height:1.6}
-.recheck-banner strong{color:#fff;font-size:13px}
+.recheck-banner{background:rgba(231,76,60,0.14);border-left:4px solid #E74C3C;padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:12px;font-size:14px;color:#F8CACE;line-height:1.6}
+.recheck-banner strong{color:#fff;font-size:15px}
 .recheck-banner.hidden{display:none}
-.approved-banner{background:rgba(39,174,96,0.14);border-left:4px solid #27AE60;padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:12px;font-size:12px;color:#B9E8CB;line-height:1.6}
-.approved-banner strong{color:#fff;font-size:13px}
+.approved-banner{background:rgba(39,174,96,0.14);border-left:4px solid #27AE60;padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:12px;font-size:14px;color:#B9E8CB;line-height:1.6}
+.approved-banner strong{color:#fff;font-size:15px}
 .approved-banner.hidden{display:none}
 
 /* History panel (E1) */
-.history-panel{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:11px}
+.history-panel{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px}
 .history-panel.hidden{display:none}
 .history-header{color:#94A3B8;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
 .history-header:hover{color:#fff}
@@ -30,7 +30,7 @@ h1{color:#E74C3C;font-size:14px}
 .history-panel.open .history-list{display:block}
 .history-panel.open .history-arrow{transform:rotate(180deg)}
 .history-arrow{transition:transform .2s;display:inline-block}
-.history-row{padding:4px 0;color:#777;border-top:1px solid rgba(255,255,255,0.06)}
+.history-row{padding:4px 0;color:#B4BCC8;border-top:1px solid rgba(255,255,255,0.06)}
 .history-row strong{color:#94A3B8}
 
 .player{background:rgba(255,255,255,0.04);border-radius:8px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -38,91 +38,95 @@ h1{color:#E74C3C;font-size:14px}
 .pb:hover{background:#E74C3C}
 .pbar{flex:1;min-width:150px;height:6px;background:rgba(255,255,255,0.1);border-radius:3px;cursor:pointer}
 .pfill{height:100%;background:#C0392B;border-radius:3px;width:0%;pointer-events:none}
-.tm{color:#94A3B8;font-size:11px;font-family:monospace;min-width:80px;text-align:right}
-.spd{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:4px;padding:3px 7px;font-size:11px;cursor:pointer;font-family:inherit}
+.tm{color:#CBD5E1;font-size:13px;font-family:monospace;min-width:80px;text-align:right}
+.spd{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#CBD5E1;border-radius:4px;padding:4px 8px;font-size:13px;cursor:pointer;font-family:inherit}
 .spd.on{background:#C0392B;border-color:#C0392B;color:#fff}
-.fltb{background:rgba(39,174,96,0.12);border:1px solid rgba(39,174,96,0.35);color:#2ECC71;border-radius:4px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:none}
+.fltb{background:rgba(39,174,96,0.12);border:1px solid rgba(39,174,96,0.35);color:#2ECC71;border-radius:4px;padding:4px 10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:none}
 .fltb.on{background:#27AE60;border-color:#27AE60;color:#fff}
 .fltb:hover{background:rgba(39,174,96,0.22)}
 .fltb.on:hover{background:#2ECC71}
 
 /* Phrases cachees par le filtre regen : collapsed en ellipsis */
-.sentence-gap{display:inline-block;color:#444;font-size:10px;font-family:monospace;padding:2px 8px;margin:0 4px;background:rgba(255,255,255,0.02);border-radius:3px;cursor:pointer;user-select:none}
+.sentence-gap{display:inline-block;color:#94A3B8;font-size:13px;font-family:monospace;padding:2px 8px;margin:0 4px;background:rgba(255,255,255,0.02);border-radius:3px;cursor:pointer;user-select:none}
 .sentence-gap:hover{color:#94A3B8;background:rgba(255,255,255,0.05)}
-.stb{background:#E67E22;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
+.stb{background:#E67E22;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
 .stb:hover{background:#F39C12}.stb.flash{background:#27AE60}
 
-.wc{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px 14px;line-height:1.8;min-height:80px;max-height:60vh;overflow-y:auto}
-.w{display:inline;padding:1px 1px;border-radius:2px;cursor:pointer;font-size:11px;color:#444;transition:color .08s}
-.w.spoken{color:#999}.w.now{color:#fff;background:rgba(255,255,255,0.08);font-weight:600}
-.w.flagged{color:#E74C3C;border-bottom:2px solid #E74C3C;font-weight:600}
+/* Lisibilite du texte a reviser (chantier 03, 2026-11-10). Avant : 11 px, #444 sur #0A0E1A,
+   contraste 1,9:1 — Rawen lisait le texte en plissant les yeux. Maintenant 16 px, gris clair
+   (#C3CAD5 : 11:1 sur le fond du cadre), deja lu plus blanc, mot en cours blanc et gras.
+   Toutes les couleurs de mot ci-dessous depassent 4,5:1 (calcul WCAG, fond #111521). */
+.wc{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:14px 18px;line-height:1.9;min-height:80px;max-height:60vh;overflow-y:auto}
+.w{display:inline;padding:1px 1px;border-radius:2px;cursor:pointer;font-size:16px;color:#C3CAD5;transition:color .08s}
+.w.spoken{color:#E8ECF1}.w.now{color:#fff;background:rgba(255,255,255,0.14);font-weight:600}
+.w.flagged{color:#FF6B5B;border-bottom:2px solid #E74C3C;font-weight:600}
 .w.flagged.now{background:rgba(231,76,60,0.3)}.w:hover{background:rgba(255,255,255,0.05)}
-.w.resolved{color:#27AE60;border-bottom:2px solid #27AE60;font-weight:600}
+.w.resolved{color:#2ECC71;border-bottom:2px solid #27AE60;font-weight:600}
 .w.resolved.now{background:rgba(39,174,96,0.3)}
-.w.approved{color:#555;border-bottom:none;font-weight:400}
+.w.approved{color:#A3ACB9;border-bottom:none;font-weight:400}
 .w.approved.now{background:rgba(255,255,255,0.08)}
 /* Mots groupes ensemble via Ctrl+click : fond rougeatre subtil pour montrer le lien */
 .w.flagged.grouped{background:rgba(231,76,60,0.15);border-radius:3px}
 .w.resolved.grouped{background:rgba(39,174,96,0.15);border-radius:3px}
 /* Badge "groupe de N mots" dans la liste Mots mal prononces */
-.rg{background:rgba(155,89,182,0.18);color:#bb8fce;font-size:10px;font-weight:600;padding:2px 6px;border-radius:10px;margin-left:4px;font-family:inherit}
+.rg{background:rgba(155,89,182,0.18);color:#D2B4E6;font-size:12px;font-weight:600;padding:2px 6px;border-radius:10px;margin-left:4px;font-family:inherit}
 /* Surlignage vert pour les phrases regenerees (regenerated_sentence_indices).
    Permet de voir d'un coup d'oeil les corrections suite aux flags precedents. */
 .w.regenerated{background:rgba(39,174,96,0.18);color:#7AD79C;border-bottom:1px dotted rgba(39,174,96,0.5)}
 .w.regenerated.now{background:rgba(39,174,96,0.4);color:#fff}
 /* Si une phrase est ET regeneree ET re-flaggee, le rouge prevaut visuellement */
-.w.regenerated.flagged{color:#E74C3C;border-bottom:2px solid #E74C3C;background:rgba(231,76,60,0.06)}
+.w.regenerated.flagged{color:#FF6B5B;border-bottom:2px solid #E74C3C;background:rgba(231,76,60,0.06)}
 /* Reflag (violet) : correction appliquee mais l'employeur dit que c'est encore pas bon */
-.w.reflagged{color:#A855F7;border-bottom:2px solid #A855F7;font-weight:600}
+.w.reflagged{color:#C084FC;border-bottom:2px solid #A855F7;font-weight:600}
 .w.reflagged.now{background:rgba(168,85,247,0.3);color:#fff}
 .w.reflagged.grouped{background:rgba(168,85,247,0.15);border-radius:3px}
-.w.regenerated.reflagged{color:#A855F7;border-bottom:2px solid #A855F7;background:rgba(168,85,247,0.08)}
-.sm{display:inline-block;color:#333;font-size:9px;font-family:monospace;vertical-align:super;margin:0 2px;user-select:none}
+.w.regenerated.reflagged{color:#C084FC;border-bottom:2px solid #A855F7;background:rgba(168,85,247,0.08)}
+.sm{display:inline-block;color:#8C97A8;font-size:12px;font-family:monospace;vertical-align:super;margin:0 2px;user-select:none}
 
 .fp{background:rgba(231,76,60,0.06);border:1px solid rgba(231,76,60,0.15);border-radius:8px;padding:14px 18px;margin-top:12px}
-.sec{font-size:13px;font-weight:600;margin-bottom:8px}
+.sec{font-size:15px;font-weight:600;margin-bottom:8px}
 .sec.o{color:#E67E22}.sec.r{color:#E74C3C}
-.ri{display:flex;align-items:center;gap:6px;margin-bottom:5px;padding:5px 8px;border-radius:5px;flex-wrap:wrap;font-size:12px}
+.ri{display:flex;align-items:center;gap:6px;margin-bottom:6px;padding:7px 10px;border-radius:5px;flex-wrap:wrap;font-size:14px}
 .ri.g{background:rgba(230,126,34,0.08);border:1px solid rgba(230,126,34,0.2)}
 .ri.f{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)}
 .ri.ok{background:rgba(39,174,96,0.07);border:1px solid rgba(39,174,96,0.2)}
 .ri.ok .rw{color:#27AE60;text-decoration:line-through}
-.ri.ok .rc{color:#5a8a6e}
+.ri.ok .rc{color:#9CC9AE}
 .ri.ok::before{content:"\2713";color:#27AE60;font-weight:700;margin-right:4px}
 /* Flag reflagge (violet) : l'employeur a clique "Mal corrige" */
 .ri.reflag{background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.4)}
-.ri.reflag .rw{color:#A855F7;font-weight:600}
-.ri.reflag .rc{color:#9a7bb5}
+.ri.reflag .rw{color:#C084FC;font-weight:600}
+.ri.reflag .rc{color:#C9B3DD}
 .ri.reflag::before{content:"\26A0";color:#A855F7;font-weight:700;margin-right:4px}
 /* Bouton "Mal corrige" / reflag dans la liste des flags */
-.ri .rreflag{background:rgba(168,85,247,0.14);border:1px solid rgba(168,85,247,0.4);color:#C58BF7;border-radius:4px;padding:3px 8px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
+.ri .rreflag{background:rgba(168,85,247,0.14);border:1px solid rgba(168,85,247,0.4);color:#D6B0FA;border-radius:4px;padding:5px 10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
 .ri .rreflag:hover{background:rgba(168,85,247,0.3);color:#fff}
 .ri .rreflag.on{background:#A855F7;border-color:#A855F7;color:#fff}
 .ri .rreflag.on:hover{background:#B975F9}
-.ri .rt{color:#666;min-width:32px;cursor:pointer}
-.ri .rs{color:#E67E22;font-family:monospace;min-width:24px;font-size:11px}
-.ri .rw{color:#E74C3C;font-weight:600;min-width:80px}
-.ri .rc{color:#777;flex:1;min-width:120px}
-.ri input{max-width:180px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:4px;padding:3px 7px;color:#F0F0F0;font-size:11px;font-family:inherit}
-.ri input::placeholder{color:#555}
-.ri .rm{background:none;border:none;color:#666;font-size:14px;cursor:pointer;padding:2px 5px}
+.ri .rt{color:#A3ACB9;min-width:36px;cursor:pointer}
+.ri .rs{color:#F0A35E;font-family:monospace;min-width:28px;font-size:13px}
+.ri .rw{color:#FF6B5B;font-weight:600;min-width:80px}
+.ri .rc{color:#C3CAD5;flex:1;min-width:140px}
+.ri input{max-width:200px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.18);border-radius:4px;padding:5px 8px;color:#F0F0F0;font-size:14px;font-family:inherit}
+.ri input::placeholder{color:#8C97A8}
+.ri .rm{background:none;border:none;color:#A3ACB9;font-size:17px;cursor:pointer;padding:2px 6px}
 .ri .rm:hover{color:#E74C3C}
 /* Selecteur de categorie du flag (pronunciation / typo / rewrite) */
-.ri .rcat{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:4px;padding:2px 6px;color:#94A3B8;font-size:11px;font-family:inherit;cursor:pointer;max-width:140px}
+.ri .rcat{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.18);border-radius:4px;padding:4px 6px;color:#CBD5E1;font-size:13px;font-family:inherit;cursor:pointer;max-width:170px}
 .ri .rcat:focus{outline:1px solid rgba(231,76,60,0.5);color:#F0F0F0}
 .ri .rcat option{background:#1a1a1a;color:#F0F0F0}
 /* Demande de correction automatique (boucle Hela -> Nitro -> statut in-app) */
 .ri .rfixwrap{display:flex;align-items:center;gap:6px;flex-wrap:wrap;width:100%;margin-top:4px;padding-left:36px}
-.ri .rfix{flex:1;min-width:170px;max-width:280px;background:rgba(52,152,219,0.06);border:1px solid rgba(52,152,219,0.25);border-radius:4px;padding:3px 8px;color:#F0F0F0;font-size:11px;font-family:inherit}
+.ri .rfix{flex:1;min-width:200px;max-width:340px;background:rgba(52,152,219,0.08);border:1px solid rgba(52,152,219,0.4);border-radius:4px;padding:6px 9px;color:#F0F0F0;font-size:14px;font-family:inherit}
 .ri .rfix:focus{outline:none;border-color:#3498DB}
-.ri .rfix::placeholder{color:#557}
-.ri .rfixbtn{background:rgba(52,152,219,0.16);border:1px solid rgba(52,152,219,0.4);color:#5DADE2;border-radius:4px;padding:3px 11px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
+.ri .rfix::placeholder{color:#8EA3C0}
+.ri .rfixbtn{background:rgba(52,152,219,0.16);border:1px solid rgba(52,152,219,0.4);color:#8CC8EE;border-radius:4px;padding:5px 11px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
 .ri .rfixbtn:hover{background:rgba(52,152,219,0.32);color:#fff}
 .ri .rfixbtn.rpt{background:rgba(230,126,34,0.16);border-color:rgba(230,126,34,0.45);color:#E59866}
 .ri .rfixbtn.rpt:hover{background:rgba(230,126,34,0.32);color:#fff}
 .ri .rfixbtn.rphrase{background:rgba(155,89,182,0.16);border-color:rgba(155,89,182,0.45);color:#C49BDD}
 .ri .rfixbtn.rphrase:hover{background:rgba(155,89,182,0.32);color:#fff}
-.rfixstatus{font-size:10px;font-weight:600;font-family:inherit;white-space:nowrap}
+.rfixstatus{font-size:13px;font-weight:600;font-family:inherit;white-space:nowrap}
 .rfixstatus.pending{color:#E67E22}
 .rfixstatus.processing{color:#3498DB}
 .rfixstatus.done{color:#2ECC71}
@@ -132,20 +136,21 @@ h1{color:#E74C3C;font-size:14px}
 /* Libelles d'action (a trancher, garde-fou de saisie) : passage a la ligne permis (2026-10-21). */
 .rfixstatus.review,.rfixstatus.local{white-space:normal;flex-basis:100%}
 .acts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center}
-.btn{border:none;border-radius:5px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn{border:none;border-radius:5px;padding:9px 18px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
 .br{background:#C0392B;color:#fff}.br:hover{background:#E74C3C}
 .bg{background:#27AE60;color:#fff}.bg:hover{background:#2ECC71}
-.by{background:rgba(255,255,255,0.08);color:#aaa;border:1px solid rgba(255,255,255,0.12)}.by:hover{background:rgba(255,255,255,0.15)}
+.by{background:rgba(255,255,255,0.08);color:#D5DBE3;border:1px solid rgba(255,255,255,0.12)}.by:hover{background:rgba(255,255,255,0.15)}
 .bApproveGreen{background:#16a34a;color:#fff;display:none}.bApproveGreen:hover{background:#22c55e}
-.toggle-approved{background:none;border:none;color:#555;font-size:10px;cursor:pointer;font-family:inherit;text-decoration:underline;padding:4px 0;margin-left:8px}
+.toggle-approved{background:none;border:none;color:#A3ACB9;font-size:13px;cursor:pointer;font-family:inherit;text-decoration:underline;padding:4px 0;margin-left:8px}
 .toggle-approved:hover{color:#94A3B8}
-.msg{color:#27AE60;font-size:12px;margin-left:4px}
-.msg.saving{color:#94A3B8;font-style:italic}
-.empty{color:#555;font-style:italic;font-size:13px;padding:6px}
+.msg{color:#2ECC71;font-size:14px;margin-left:4px}
+.msg.saving{color:#CBD5E1;font-style:italic}
+.msg.error{color:#FF8A7D;font-weight:600}
+.empty{color:#A3ACB9;font-style:italic;font-size:14px;padding:6px}
 .err{color:#E74C3C;padding:20px;background:rgba(231,76,60,0.08);border-left:3px solid #E74C3C;border-radius:0 8px 8px 0;font-size:13px}
 
 /* Shortcuts help */
-.shortcuts-hint{color:#555;font-size:10px;font-family:monospace;margin-left:auto;text-align:right}
+.shortcuts-hint{color:#A3ACB9;font-size:12px;font-family:monospace;margin-left:auto;text-align:right}
 .shortcuts-hint span{background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:3px;margin:0 2px}
 
 /* Confirm modal (D5) */
@@ -153,42 +158,42 @@ h1{color:#E74C3C;font-size:14px}
 .modal-bg.open{display:flex}
 .modal{background:#0D1225;border:1px solid rgba(231,76,60,0.4);border-radius:10px;padding:24px;max-width:420px;width:90%}
 .modal h3{color:#2ECC71;font-size:16px;margin-bottom:10px}
-.modal p{color:#94A3B8;font-size:13px;line-height:1.5;margin-bottom:16px}
+.modal p{color:#CBD5E1;font-size:14px;line-height:1.5;margin-bottom:16px}
 .modal .acts{margin-top:0}
 
 /* Sentence flag modal (E6) — max-width plus grand */
 .modal.sentence-modal{max-width:560px;max-height:85vh;overflow-y:auto}
-.sentence-preview{background:rgba(255,255,255,0.04);border-left:3px solid #E67E22;padding:8px 12px;border-radius:0 4px 4px 0;font-style:italic;color:#F0F0F0;font-size:12px;line-height:1.5}
+.sentence-preview{background:rgba(255,255,255,0.04);border-left:3px solid #E67E22;padding:8px 12px;border-radius:0 4px 4px 0;font-style:italic;color:#F0F0F0;font-size:15px;line-height:1.5}
 .sentence-type-group{display:flex;flex-direction:column;gap:6px;margin:14px 0}
 .sentence-type-option{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid rgba(255,255,255,0.08);border-radius:6px;cursor:pointer;transition:background .12s,border-color .12s}
 .sentence-type-option:hover{background:rgba(255,255,255,0.04);border-color:rgba(46,204,113,0.35)}
 .sentence-type-option input[type="radio"]{margin-top:3px;flex-shrink:0;accent-color:#2ECC71;cursor:pointer}
 .sentence-type-option input[type="radio"]:checked ~ .sentence-type-label{color:#fff}
 .sentence-type-option:has(input:checked){background:rgba(46,204,113,0.08);border-color:#2ECC71}
-.sentence-type-label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:#94A3B8}
-.sentence-type-label strong{color:#F0F0F0;font-size:13px}
-.sentence-type-label em{font-style:normal;font-size:11px;color:#777;line-height:1.4}
+.sentence-type-label{display:flex;flex-direction:column;gap:3px;font-size:14px;color:#CBD5E1}
+.sentence-type-label strong{color:#F0F0F0;font-size:15px}
+.sentence-type-label em{font-style:normal;font-size:13px;color:#B4BCC8;line-height:1.4}
 .sentence-form-fields{margin:12px 0}
 .sentence-field{margin-bottom:10px}
-.sentence-field label{display:block;color:#94A3B8;font-size:11px;margin-bottom:4px}
-.sentence-field input,.sentence-field textarea{width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:4px;padding:7px 10px;color:#F0F0F0;font-size:12px;font-family:inherit;resize:vertical}
+.sentence-field label{display:block;color:#CBD5E1;font-size:13px;margin-bottom:4px}
+.sentence-field input,.sentence-field textarea{width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:4px;padding:8px 10px;color:#F0F0F0;font-size:15px;font-family:inherit;resize:vertical}
 .sentence-field input:focus,.sentence-field textarea:focus{outline:none;border-color:#2ECC71}
 .sentence-field textarea{min-height:60px}
 
 /* Legende des couleurs de flags */
-.panel-hint{font-size:11px;color:#94A3B8;line-height:1.5;margin:2px 0 9px;padding:7px 10px;background:rgba(52,152,219,0.06);border-left:2px solid rgba(52,152,219,0.35);border-radius:4px}
+.panel-hint{font-size:14px;color:#CBD5E1;line-height:1.5;margin:2px 0 9px;padding:7px 10px;background:rgba(52,152,219,0.06);border-left:2px solid rgba(52,152,219,0.35);border-radius:4px}
 .panel-hint b{color:#5DADE2}
-.flag-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:#94A3B8;margin:4px 0 8px}
+.flag-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:#CBD5E1;margin:4px 0 8px}
 .flag-legend span{display:flex;align-items:center;gap:4px}
 .flag-legend i{display:inline-block;width:10px;height:10px;border-radius:2px}
 
 /* Bouton flag phrase dans le texte */
-.sm-flag{display:inline-block;font-size:12px;cursor:pointer;margin:0 2px;padding:1px 3px;border-radius:3px;user-select:none;opacity:0.7}
+.sm-flag{display:inline-block;font-size:14px;cursor:pointer;margin:0 2px;padding:1px 3px;border-radius:3px;user-select:none;opacity:0.7}
 .sm-flag:hover{background:rgba(155,89,182,0.2);opacity:1}
 
 /* Badge de statut du crayon (sentence_flags) — audit 2026-07-02.
    Icone compacte a cote du ✏️ ; le detail complet vit dans le modal. */
-.sflag-badge{font-size:10px;margin-left:2px;cursor:pointer;vertical-align:super}
+.sflag-badge{font-size:12px;margin-left:2px;cursor:pointer;vertical-align:super}
 .sflag-badge.sflag-pending{color:#E67E22}
 .sflag-badge.sflag-processing{color:#3498DB}
 .sflag-badge.sflag-done{color:#2ECC71}

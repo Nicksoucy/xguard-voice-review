@@ -3,6 +3,13 @@ var correctionPollTimer = null;
 // Messages LOCAUX (garde-fou de saisie, « tape d'abord... ») : sans memoire, le polling des 20 s
 // les ecrasait avec le badge de l'ANCIENNE demande sur la meme phrase. On les garde 60 s.
 var localStatusUntil = {}; // phrase_index -> {t, until}
+// Texte tape dans la case « Corriger » de chaque flag, garde HORS du DOM (chantier 03).
+// renderFlags rebatit toute la liste : sans ca, cliquer un autre mot ou un flag qui passe au
+// vert effacait ce que la reviseuse etait en train d'ecrire.
+var rfixDrafts = {}; // index du flag -> texte en cours
+// Dernier signe de vie du robot des corrections de mots (watchdog_heartbeat). Sert a ne plus
+// promettre « refaite dans quelques minutes » quand le robot dort (Mac en veille).
+var robotCorrections = null;
 
 function submitCorrectionRequest(ii){
   if (!L) return;
@@ -64,14 +71,26 @@ function submitCorrectionRequest(ii){
     }).then(function(r){
       if (r.ok) {
         correctionStatuses[ii] = {status:'pending'};
-        applyCorrectionStatuses();
+        delete rfixDrafts[ii];
         if (input) input.value = '';
+        applyCorrectionStatuses();
         startCorrectionPolling();
       } else {
         r.text().then(function(t){ setCorrectionStatusEl(ii, 'error', '⚠ ' + r.status + ' : ' + t.slice(0,80)); });
       }
-    }).catch(function(e){ setCorrectionStatusEl(ii, 'error', '⚠ ' + e.message); });
-  }).catch(function(e){ setCorrectionStatusEl(ii, 'error', '⚠ ' + e.message); });
+    }).catch(function(e){ echecEnvoiCorrection(ii, e, function(){ submitCorrectionRequest(ii); }); });
+  }).catch(function(e){ echecEnvoiCorrection(ii, e, function(){ submitCorrectionRequest(ii); }); });
+}
+
+// Envoi impossible (reseau) : le statut de la ligne le dit, et le bandeau du haut propose
+// « Réessayer », qui refait l'envoi (le dedup empeche les doublons).
+function echecEnvoiCorrection(ii, e, refaire){
+  XGNet.signaler(e, 'envoi correction ' + ii);
+  setCorrectionStatusEl(ii, 'error', '⚠ Pas envoyée — pas de connexion. Ton texte est gardé : clique « Réessayer » en haut.');
+  XGNet.afficherErreur('correction-' + ii, XGNet.messageErreur('envoyer ta correction', e), function(){
+    XGNet.effacerErreur('correction-' + ii);
+    refaire();
+  });
 }
 
 // Bouton "Se répète" : la voix bégaie/répète ce mot. Le script étant correct, on refait juste
@@ -111,11 +130,22 @@ function submitRepeat(ii){
     } else {
       r.text().then(function(t){ setCorrectionStatusEl(ii, 'error', '⚠ ' + r.status + ' : ' + t.slice(0,80)); });
     }
-  }).catch(function(e){ setCorrectionStatusEl(ii, 'error', '⚠ ' + e.message); });
+  }).catch(function(e){ echecEnvoiCorrection(ii, e, function(){ submitRepeat(ii); }); });
 }
 
 // Libelle + classe CSS selon le statut Supabase.
-function correctionStatusLabel(s){ return XGReview.correctionStatusLabel(s); }
+function correctionStatusLabel(s){ return XGReview.correctionStatusLabel(s, robotCorrections); }
+
+// Lit le battement du robot des corrections. Silencieux (pas de bandeau) : c'est une info
+// d'ambiance ; si elle manque, le libelle dit simplement « en file d'attente ».
+function loadRobotCorrections(){
+  return XGNet.requete(API+'/watchdog_heartbeat?id=like.xguard-correction*&select=id,last_heartbeat', {headers:H},
+      {action:'lire l’état du robot des corrections', silencieux:true, essais:1})
+    .then(function(rows){
+      robotCorrections = XGNet.etatRobot(rows, 'xguard-correction', Date.now(), 15);
+      applyCorrectionStatuses();
+    }, function(){ robotCorrections = null; });
+}
 
 function setCorrectionStatusEl(ii, cls, text){
   if (cls === 'local') localStatusUntil[ii] = { t: text, until: Date.now() + 60000 };
@@ -186,18 +216,19 @@ function augmentResolvedFromCorrections(){
       }
     });
     if (grew) regenIndices = Array.from(set);
-    try { if (typeof buildWords === 'function') buildWords(); } catch (e) {}
-    try { if (typeof refreshFlagClasses === 'function') refreshFlagClasses(); } catch (e) {}
-    try { if (typeof renderFlags === 'function') renderFlags(); } catch (e) {}
-    try { if (typeof updateFilterBtnCount === 'function') updateFilterBtnCount(); } catch (e) {}
+    XGNet.essayer(buildWords, 'augment buildWords');
+    XGNet.essayer(refreshFlagClasses, 'augment refreshFlagClasses');
+    XGNet.essayer(renderFlags, 'augment renderFlags');
+    XGNet.essayer(updateFilterBtnCount, 'augment updateFilterBtnCount');
   }
 }
 
 // Lit les correction_requests de la lecon et met a jour les badges.
 function pollCorrectionStatus(){
   if (!L) return;
-  fetch(API+'/correction_requests?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=phrase_index,status,completed_at,reason,intent,applied_mode&order=created_at.desc', {headers:H})
-    .then(function(r){ return r.json(); })
+  loadRobotCorrections();
+  XGNet.requete(API+'/correction_requests?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=phrase_index,status,completed_at,reason,intent,applied_mode&order=created_at.desc', {headers:H},
+      {action:'lire l’état de tes corrections', reessayer: pollCorrectionStatus})
     .then(function(rows){
       if (!Array.isArray(rows)) return;
       var seen = {}, anyActive = false, justDone = false;
@@ -219,7 +250,7 @@ function pollCorrectionStatus(){
       if (justDone) refreshAfterRegen();
       if (anyActive) startCorrectionPolling();
       else if (correctionPollTimer) { clearInterval(correctionPollTimer); correctionPollTimer = null; }
-    }).catch(function(){});
+    }).catch(function(e){ XGNet.signaler(e, 'pollCorrectionStatus'); });
 }
 
 // Une correction vient d'aboutir : recharger l'audio frais + les phrases regenerees SANS recharger
@@ -230,12 +261,12 @@ function pollCorrectionStatus(){
 //  - loadRegenIndices() repasse la phrase corrigee au vert + active le filtre "a revoir".
 // Toast non bloquant pour prevenir Hela que la voix a change.
 function refreshAfterRegen(){
-  try { if (typeof loadStatus === 'function') loadStatus(); } catch (e) {}
+  XGNet.essayer(loadStatus, 'refreshAfterRegen loadStatus');
   // Recharge le TEXTE affiche (W) depuis le storage frais, pas seulement l'audio :
   // c'est ce qui manquait -> la correction approuvee apparait enfin dans la lecon.
-  try { if (typeof reloadWords === 'function') reloadWords(); } catch (e) {}
-  try { if (typeof loadRegenIndices === 'function') loadRegenIndices(); } catch (e) {}
-  try { if (typeof showMsg === 'function') showMsg('🔄 Une phrase vient d’être refaite — ré-écoute-la', 'saving'); } catch (e) {}
+  XGNet.essayer(reloadWords, 'refreshAfterRegen reloadWords');
+  XGNet.essayer(loadRegenIndices, 'refreshAfterRegen loadRegenIndices');
+  XGNet.essayer(function(){ showMsg('🔄 Une phrase vient d’être refaite — ré-écoute-la', 'saving'); }, 'refreshAfterRegen msg');
 }
 
 // Journal LISIBLE des corrections de cette lecon : quoi a ete flagge/corrige, le resultat, le
@@ -245,8 +276,8 @@ function refreshAfterRegen(){
 function corrlogEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 function loadCorrectionsLog(){
   if (!L) return;
-  fetch(API+'/correction_requests?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=correction_note,intent,status,applied_mode,completed_at,created_at,requested_by,sentence_index,reason&order=created_at.desc&limit=60', {headers:H})
-    .then(function(r){ return r.json(); })
+  XGNet.requete(API+'/correction_requests?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=correction_note,intent,status,applied_mode,completed_at,created_at,requested_by,sentence_index,reason&order=created_at.desc&limit=60', {headers:H},
+      {action:'charger le journal des corrections', reessayer: loadCorrectionsLog})
     .then(function(rows){
       var panel = document.getElementById('corrlog-panel');
       var list = document.getElementById('corrlog-list');
@@ -272,7 +303,7 @@ function loadCorrectionsLog(){
           + '<br><span style="color:#7681a0;font-size:11px">'+(when?fmtDate(when):'')+' · '+corrlogEsc(r.requested_by||'?')+'</span></div>';
       }).join('');
       panel.classList.remove('hidden');
-    }).catch(function(){});
+    }).catch(function(e){ XGNet.signaler(e, 'loadCorrectionsLog'); });
 }
 
 function startCorrectionPolling(){
@@ -366,7 +397,7 @@ function listenSentence(si){
   if (typeof au === 'undefined' || !au) return;
   var r = sentenceRanges[si];
   // Retirer un arrêt de segment précédent (si on clique une autre phrase).
-  if (window._segStop) { try { au.removeEventListener('timeupdate', window._segStop); } catch (e) {} window._segStop = null; }
+  if (window._segStop) { XGNet.essayer(function(){ au.removeEventListener('timeupdate', window._segStop); }, 'listenSentence'); window._segStop = null; }
   au.currentTime = Math.max(0, r.start);
   window._segStop = function(){
     if (!au) return;   // l'audio a pu etre remplace (reload) entre deux timeupdate

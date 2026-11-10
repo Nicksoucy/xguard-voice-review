@@ -1,20 +1,26 @@
+// Panne reseau au chargement : XGNet affiche « Pas pu charger la leçon » avec « Réessayer »
+// (avant : aucune gestion, « Chargement... » restait affiche pour toujours, loader.js:3-5).
+function chargementEchoue(){
+  var t = document.getElementById('title');
+  if (t && t.textContent === 'Chargement...') t.textContent = 'Chargement impossible pour le moment';
+  var wc = document.getElementById('wc');
+  if (wc && !els.length) wc.innerHTML = '<div class="err">La leçon n\'a pas pu être chargée. Utilise le bouton « Réessayer » du bandeau rouge en haut.</div>';
+}
 function resolveLesson(cb){
   if (lessonKey) {
-    fetch(API+'/lessons?lesson_key=eq.'+encodeURIComponent(lessonKey)+'&select=*',{headers:H})
-      .then(function(r){return r.json()})
-      .then(function(rows){ cb(rows[0] || null) });
+    XGNet.requete(API+'/lessons?lesson_key=eq.'+encodeURIComponent(lessonKey)+'&select=*',{headers:H},{action:'charger la leçon'})
+      .then(function(rows){ cb(rows[0] || null) }, chargementEchoue);
     return;
   }
   if (legacyIdx !== null && /^\d+$/.test(legacyIdx)) {
-    fetch(API+'/lesson_status?select=lesson_key&order=course_id.asc,sort_order.asc',{headers:H})
-      .then(function(r){return r.json()})
+    XGNet.requete(API+'/lesson_status?select=lesson_key&order=course_id.asc,sort_order.asc',{headers:H},{action:'charger la leçon'})
       .then(function(rows){
         var idx = parseInt(legacyIdx,10);
         if (idx >= 0 && idx < rows.length) {
           lessonKey = rows[idx].lesson_key;
           resolveLesson(cb);
         } else cb(null);
-      });
+      }, chargementEchoue);
     return;
   }
   cb(null);
@@ -27,9 +33,13 @@ function loadExistingReview(){
   // Charger TOUTES les reviews de la lecon (plus seulement la sienne). On prefere la sienne si elle
   // existe ; sinon on AFFICHE celle d'un autre reviseur (ex. Hela) pour que Nicolas voie son travail.
   // (Avant : filtre reviewer_name=eq.moi -> on ne voyait jamais les flags des autres.)
-  fetch(API+'/voice_reviews?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=*&order=updated_at.desc',{headers:H})
-    .then(function(r){return r.json()})
+  // Tant que la revue n'est pas lue, la page est en lecture seule (y compris pendant les
+  // reessais automatiques) : un clic ne doit jamais ecraser une revue qu'on n'a pas vue.
+  window.revueNonChargee = true;
+  XGNet.requete(API+'/voice_reviews?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=*&order=updated_at.desc',{headers:H},
+      {action:'charger ta revue (mots déjà marqués)', reessayer: function(){ location.reload(); }})
     .then(function(rows){
+      window.revueNonChargee = false;
       if (!Array.isArray(rows) || !rows.length) { window.viewingOtherReview = null; maybeOfferLocalRestore(null); return; }
       // SIMPLIFICATION (2026-07-01) : sans nom explicite, on ADOPTE le reviseur existant de la lecon.
       // Sinon Hela — dont la review est deja sous "héla" mais dont le navigateur n'a pas de nom
@@ -37,7 +47,7 @@ function loadExistingReview(){
       // d'approuver. (Nicolas garde la lecture seule seulement s'il a mis son propre nom.)
       if (!rnRaw && rows[0] && rows[0].reviewer_name) {
         rn = rows[0].reviewer_name.trim();
-        try { localStorage.setItem('rn', rn); } catch (e) {}
+        try { localStorage.setItem('rn', rn); } catch (e) { XGNet.signaler(e, 'localStorage rn'); }
       }
       var rnN = rn.toLowerCase();
       var mine = null, other = null;
@@ -53,7 +63,7 @@ function loadExistingReview(){
       // Si on a retrouve NOTRE review malgre une casse differente, aligner le nom local sur celui
       // enregistre -> on edite/sauvegarde la BONNE ligne (pas de doublon) et on n'est pas en lecture seule.
       if (mine && mine.reviewer_name && mine.reviewer_name !== rn) {
-        try { localStorage.setItem('rn', mine.reviewer_name); } catch (e) {}
+        try { localStorage.setItem('rn', mine.reviewer_name); } catch (e) { XGNet.signaler(e, 'localStorage rn'); }
         rn = mine.reviewer_name;
       }
       // Etat d'approbation persistant : seule MA propre review compte (pas celle d'un autre).
@@ -117,10 +127,11 @@ function loadExistingReview(){
       if (!window.viewingOtherReview) maybeOfferLocalRestore(rev);
     })
     .catch(function(e){
-      // Echec reseau/JSON : on degrade proprement (les mots sont deja affiches, la page reste
-      // utilisable) au lieu de laisser une promesse rejetee non geree.
-      if (typeof captureWithContext === 'function') captureWithContext(e, {action:'loadExistingReview', lesson_key: L && L.lesson_key});
-      else if (typeof console !== 'undefined') console.error('loadExistingReview failed', e);
+      // Echec reseau/JSON : le bandeau XGNet le dit et propose « Réessayer ». La page passe
+      // en LECTURE SEULE tant que la revue n'est pas chargee : sinon le premier clic sur un mot
+      // declenchait une autosauvegarde qui ECRASAIT en base la vraie revue par une liste vide.
+      window.revueNonChargee = true;
+      XGNet.signaler(e, 'loadExistingReview ' + (L && L.lesson_key));
     });
 }
 
@@ -142,7 +153,7 @@ function showViewingBanner(name){
 function maybeOfferLocalRestore(rev){
   if (window.viewingOtherReview) return;          // jamais par-dessus le travail d'un autre reviseur
   if (typeof backupKey !== 'function') return;    // player.js charge -> dispo au runtime
-  var raw; try { raw = localStorage.getItem(backupKey()); } catch (e) { return; }
+  var raw; try { raw = localStorage.getItem(backupKey()); } catch (e) { XGNet.signaler(e, 'lire backup local'); return; }
   if (!raw) return;
   var bak; try { bak = JSON.parse(raw); } catch (e) { clearLocalBackup(); return; }
   if (!bak || bak.lesson_key !== (L && L.lesson_key)) return;
@@ -162,8 +173,7 @@ function maybeOfferLocalRestore(rev){
 }
 
 function loadStatus(){
-  fetch(API+'/lesson_status?lesson_key=eq.'+encodeURIComponent(L.lesson_key),{headers:H})
-    .then(function(r){return r.json()})
+  XGNet.requete(API+'/lesson_status?lesson_key=eq.'+encodeURIComponent(L.lesson_key),{headers:H},{action:'charger l’état de la leçon'})
     .then(function(rows){
       if (!rows.length) return;
       var s = rows[0];
@@ -204,7 +214,8 @@ function loadStatus(){
             var tsUrl2 = tsBase + L.lesson_key + '/timestamps.json' + bust2;
             // Recharger depuis le bon chemin, garder le meilleur des 2
             Promise.all([tsUrl1, tsUrl2].map(function(u){
-              return fetch(u).then(function(r){return r.ok ? r.json() : null}).catch(function(){return null});
+              // Absent = normal (un des deux chemins n'existe pas) : null, sans bandeau.
+            return fetch(u).then(function(r){return r.ok ? r.json() : null}).catch(function(e){ XGNet.signaler(e, 'timestamps ' + u.split('?')[0]); return null; });
             })).then(function(res){
               // Prendre le premier valide avec sentenceIndex 0
               var fixed = null;
@@ -247,13 +258,12 @@ function loadStatus(){
           + 'Approuvee par ' + (s.latest_reviewer || 'Anonyme') + ' le ' + fmtDate(s.latest_review_at);
         document.getElementById('approved-banner').classList.remove('hidden');
       }
-    });
+    }, function(e){ XGNet.signaler(e, 'loadStatus'); });
 }
 
 // Load history (E1)
 function loadHistory(){
-  fetch(API+'/voice_review_history?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&order=archived_at.desc&limit=10',{headers:H})
-    .then(function(r){return r.json()})
+  XGNet.requete(API+'/voice_review_history?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&order=archived_at.desc&limit=10',{headers:H},{action:'charger l’historique des revues'})
     .then(function(rows){
       if (!rows.length) return;
       var panel = document.getElementById('history-panel');
@@ -265,10 +275,18 @@ function loadHistory(){
         return '<div class="history-row"><strong>'+fmtDate(r.archived_at)+'</strong> · '+r.reviewer_name+' · '+approved+'</div>';
       }).join('');
       panel.classList.remove('hidden');
-    }).catch(function(){});
+    }, function(e){ XGNet.signaler(e, 'loadHistory'); });
 }
 
-resolveLesson(function(lesson){
+// Demarrage APRES le chargement des 7 scripts de la page (chantier 03, 2026-11-10). Avant,
+// loader.js lancait la requete des son execution : si Supabase repondait avant que
+// dom-builder.js soit charge, buildWords n'existait pas encore et le texte ne s'affichait
+// JAMAIS (« buildWords is not defined », reproduit 4 fois sur 30 en test).
+function demarrerPageVoix(){ resolveLesson(apresLecon); }
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', demarrerPageVoix);
+else setTimeout(demarrerPageVoix, 0);
+
+function apresLecon(lesson){
   if (!lesson) {
     document.body.innerHTML = '<a href="index.html" style="color:#94A3B8">← Retour</a><div class="err">Lecon introuvable.</div>';
     return;
@@ -319,7 +337,7 @@ resolveLesson(function(lesson){
   // certains anciens timestamps.json sont corrompus (partiels, ne contiennent
   // qu'une sous-partie des phrases du voiceover).
   loadTimestamps();
-});
+}
 
 function loadTimestamps(){
   // Cache-buster pour eviter de servir un timestamps.json desync de la nouvelle MP3
@@ -336,14 +354,24 @@ function loadTimestamps(){
   ];
   var results = [];
   var done = 0;
+  var pannes = 0;
   urls.forEach(function(url, idx){
     fetch(url)
       .then(function(r){return r.ok ? r.json() : null})
-      .catch(function(){return null})
+      .catch(function(e){ pannes++; XGNet.signaler(e, 'timestamps ' + url.split('?')[0]); return null; })
       .then(function(data){
         results[idx] = data;
         done++;
-        if (done === urls.length) pickBestTimestamps(results);
+        if (done !== urls.length) return;
+        // Les 4 chemins en panne reseau : ce n'est pas « timestamps manquants », c'est la
+        // connexion. Bandeau + Réessayer au lieu d'accuser le fichier.
+        if (pannes === urls.length) {
+          XGNet.afficherErreur('timestamps', XGNet.messageErreur('charger le texte de la leçon', {status:0}), loadTimestamps);
+          chargementEchoue();
+          return;
+        }
+        XGNet.effacerErreur('timestamps');
+        pickBestTimestamps(results);
       });
   });
 }
@@ -363,13 +391,12 @@ function pickBestTimestamps(candidates){
     //  (a) lecon-conteneur SANS voiceover (brouillon, jamais produite) -> etat propre.
     //  (b) vraie lecon produite mais timestamps absents/corrompus -> vrai bug technique.
     // On tranche en regardant voiceover_uploaded_at en base (lesson_status).
-    fetch(API+'/lesson_status?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=voiceover_uploaded_at',{headers:H})
-      .then(function(r){return r.json()})
+    XGNet.requete(API+'/lesson_status?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=voiceover_uploaded_at',{headers:H},
+        {action:'vérifier si la leçon a une voix', reessayer: function(){ pickBestTimestamps(candidates); }})
       .then(function(rows){
         var hasVoice = rows && rows.length && rows[0].voiceover_uploaded_at;
         if (hasVoice) renderTimestampError(); else renderDraftState();
-      })
-      .catch(function(){ renderTimestampError(); });
+      }, chargementEchoue);
     return;
   }
   W = best;
@@ -378,13 +405,13 @@ function pickBestTimestamps(candidates){
   loadExistingReview();
   loadStatus();
   loadHistory();
-  try { if (typeof loadCorrectionsLog === 'function') loadCorrectionsLog(); } catch (e) {}
+  XGNet.essayer(function(){ if (typeof loadCorrectionsLog === 'function') loadCorrectionsLog(); }, 'loadCorrectionsLog');
   loadRegenIndices();
   // Declencheur FIABLE du statut des corrections : avant, pollCorrectionStatus n'etait
   // appele que depuis renderFlags (apres un return anticipe si aucun flag visible) -> souvent
   // jamais lance -> correctionStatuses vide -> ni "Corrigé", ni verdissement (bug Hela). On le
   // lance ici, dans la sequence de chargement, quoi qu'il arrive.
-  try { window._corrInit = true; if (typeof pollCorrectionStatus === 'function') pollCorrectionStatus(); } catch (e) {}
+  XGNet.essayer(function(){ window._corrInit = true; if (typeof pollCorrectionStatus === 'function') pollCorrectionStatus(); }, 'pollCorrectionStatus initial');
   checkCourseArchived();
 }
 
@@ -410,7 +437,7 @@ function reloadWords(){
   urls.forEach(function(url, idx){
     fetch(url)
       .then(function(r){ return r.ok ? r.json() : null; })
-      .catch(function(){ return null; })
+      .catch(function(e){ XGNet.signaler(e, 'reloadWords ' + url.split('?')[0]); return null; })
       .then(function(data){
         results[idx] = data;
         done++;
@@ -421,10 +448,10 @@ function reloadWords(){
         W_source = sel.source;
         computeSentenceRanges();
         buildWords();
-        try { if (typeof refreshFlagClasses === 'function') refreshFlagClasses(); } catch (e) {}
-        try { if (typeof applyCorrectionStatuses === 'function') applyCorrectionStatuses(); } catch (e) {}
+        XGNet.essayer(refreshFlagClasses, 'reloadWords refreshFlagClasses');
+        XGNet.essayer(applyCorrectionStatuses, 'reloadWords applyCorrectionStatuses');
         // Le texte vient de changer -> re-verifier quelles corrections sont visibles.
-        try { if (typeof augmentResolvedFromCorrections === 'function') augmentResolvedFromCorrections(); } catch (e) {}
+        XGNet.essayer(augmentResolvedFromCorrections, 'reloadWords augmentResolved');
       });
   });
 }
@@ -474,7 +501,7 @@ function checkCourseArchived(){
         document.body.insertBefore(b, document.body.firstChild);
       }
     })
-    .catch(function(){ /* non bloquant */ });
+    .catch(function(e){ XGNet.signaler(e, 'checkCourseArchived'); /* non bloquant */ });
 }
 
 // Calcule le range temporel de chaque phrase (start du premier mot, end du dernier mot)
@@ -508,7 +535,7 @@ function loadRegenIndices(){
       // (jamais un ecrasement), donc l'ordre d'arrivee des fetch n'a pas d'importance.
       // Cas frequent : regenerated_sentence_indices vide (fix par dico + regen complete) ->
       // seules les phrases des corrections done deviennent vertes.
-      try { augmentResolvedFromCorrections(); } catch (e) {}
+      XGNet.essayer(augmentResolvedFromCorrections, 'loadRegenIndices augmentResolved');
       if (!Array.isArray(indices) || indices.length === 0) return;
       // CRITICAL: refresh des classes des mots dans le texte des que regenIndices arrive,
       // peu importe l'etat du bouton filtre. Sinon les mots restent marques 'flagged'
@@ -557,7 +584,7 @@ function loadRegenIndices(){
               }
             });
         });
-    }).catch(function(){});
+    }).catch(function(e){ XGNet.signaler(e, 'loadRegenIndices'); });
 }
 
 // Met a jour le compteur du bouton filtre ("X a revoir") en temps reel.
@@ -641,13 +668,17 @@ function majBandeauRecheck(nbFlagsCorriges){
 function confirmerReecoute(){
   if (typeof roGuard === 'function' && roGuard()) return;
   var b = document.getElementById('btnRecheckDone');
-  if (b) { b.disabled = true; b.textContent = 'Enregistrement...'; }
-  saveReview(false);
-  setTimeout(function(){
-    if (b) { b.textContent = '✓ Enregistre'; }
+  if (b) { b.disabled = true; b.textContent = 'Enregistrement…'; }
+  // « ✓ Enregistré » SEULEMENT apres la reponse du serveur (chantier 03). Avant : affiche
+  // apres 900 ms sans condition, meme quand rien n'etait parti.
+  saveReview(false).then(function(ecrit){
+    if (!ecrit) { if (b) { b.disabled = false; b.textContent = '✓ J\'ai ré-écouté, c\'est bon'; } return; }
+    if (b) { b.textContent = '✓ Enregistré'; }
     var banniere = document.getElementById('recheck-banner');
     if (banniere) banniere.classList.add('hidden');
-  }, 900);
+  }, function(){
+    if (b) { b.disabled = false; b.textContent = '✓ J\'ai ré-écouté, c\'est bon'; }
+  });
 }
 
 // Re-applique les classes flagged/resolved sur tous les mots actuellement rendus.

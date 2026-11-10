@@ -483,10 +483,25 @@ describe('buildCorrection — le son tape dans « Note » au lieu de la grande c
 
 // ── 2026-10-30 (plainte de Rawen) : dire quand reecouter, et ou la correction s'applique ──
 describe('correctionStatusLabel — modes du 2026-10-30', () => {
-  it('pending ne parle plus de Nitro et dit que la voix sera refaite', () => {
+  // Chantier 03 (2026-11-10) : plus de « refaite dans quelques minutes » sans preuve que le
+  // robot tourne. Le libelle suit le dernier battement du robot des corrections.
+  it('pending sans info robot : « en file », aucune promesse de delai', () => {
     const l = correctionStatusLabel({ status: 'pending' });
     expect(l.t).not.toMatch(/Nitro/);
-    expect(l.t).toMatch(/voix sera refaite/);
+    expect(l.t).not.toMatch(/minutes/);
+    expect(l.t).toMatch(/Envoyée/);
+  });
+  it('pending + robot vivant : dit l’age du dernier signe de vie', () => {
+    const l = correctionStatusLabel({ status: 'pending' }, { connu: true, vivant: true, age: 'il y a 2 min' });
+    expect(l.t).toMatch(/actif/);
+    expect(l.t).toMatch(/il y a 2 min/);
+    expect(l.c).toBe('pending');
+  });
+  it('pending + robot muet : le dit, et dit quoi faire', () => {
+    const l = correctionStatusLabel({ status: 'pending' }, { connu: true, vivant: false, age: 'il y a 3 h' });
+    expect(l.t).toMatch(/ne répond plus/);
+    expect(l.t).toMatch(/il y a 3 h/);
+    expect(l.t).toMatch(/Passe à la suite/);
   });
   it('regle de phrase : « dans cette phrase », voix refaite', () => {
     const l = correctionStatusLabel({ status: 'done', applied_mode: 'dict-phrase', completed_at: '2026-10-30T15:00:00Z' });
