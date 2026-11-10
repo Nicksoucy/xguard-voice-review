@@ -5,17 +5,7 @@ var currentFlaggingSi = null; // sentenceIndex en cours d'edition
 // "d" + "'un" et isolent la ponctuation — la jointure par espaces produisait
 // "d 'un chantier ." et le worker ne retrouvait JAMAIS la phrase dans la
 // source (74 crayons coinces). On recolle apostrophes et ponctuation.
-function getSentenceText(si){
-  var parts = [];
-  for (var i=0; i<W.length; i++){
-    if (W[i].sentenceIndex === si) parts.push(W[i].word);
-  }
-  return parts.join(' ')
-    .replace(/\s+(['’])\s*/g, '$1')   // "d 'un" / "qu' est" -> "d'un" / "qu'est"
-    .replace(/\s+([.,;:!?…»%])/g, '$1') // ponctuation collee au mot precedent
-    .replace(/([«])\s+/g, '$1')       // guillemet ouvrant colle au mot suivant
-    .replace(/\s{2,}/g, ' ').trim();
-}
+function getSentenceText(si){ return XGReview.sentenceText(W, si); }
 
 // Ouvre le modal Flag phrase pour un sentenceIndex donne
 function openSentenceModal(si){
@@ -25,7 +15,9 @@ function openSentenceModal(si){
   document.getElementById('sentence-modal-preview').textContent = text;
   // Reset form
   document.querySelectorAll('input[name="flagType"]').forEach(function(r){r.checked = (r.value==='rewrite')});
-  document.getElementById('sentence-corrected').value = '';
+  // Prerempli avec la phrase actuelle (correctif 7, chantier 03), comme en/review.html : on
+  // corrige le mot fautif au lieu de retaper toute la phrase (et de risquer une autre faute).
+  document.getElementById('sentence-corrected').value = text;
   document.getElementById('sentence-partial-from').value = '';
   document.getElementById('sentence-partial-to').value = '';
   document.getElementById('sentence-note').value = '';

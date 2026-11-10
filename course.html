@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Voice Review</title>
+<title>Formation — révision</title>
 <!-- Sentry error tracking -->
 <script src="https://js.sentry-cdn.com/ab9916085bc6c9e93779c21fad74456f.min.js" crossorigin="anonymous"></script>
 <script src="sentry-init.js?v=20260509a"></script>
@@ -134,12 +134,12 @@ a{text-decoration:none}
       <strong style="color:#F0F0F0">Apres telechargement :</strong><br>
       1. Ouvre GHL Memberships → Import Courses<br>
       2. Upload le fichier .json telecharge<br>
-      3. Reviens ici et clique <strong>"Marquer comme pushed"</strong> pour mettre a jour le tracker
+      3. Reviens ici et clique <strong>« Marquer comme mise en ligne »</strong> pour mettre à jour le suivi
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
       <button onclick="closeLmsModal()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#94A3B8;padding:8px 16px;border-radius:5px;cursor:pointer;font-family:inherit">Annuler</button>
       <button onclick="downloadGhlPayload()" style="background:#8E44AD;border:1px solid #8E44AD;color:#fff;padding:8px 16px;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:600">⬇ Telecharger JSON</button>
-      <button id="lms-mark-pushed-btn" onclick="markCoursePushed()" style="background:#27AE60;border:1px solid #27AE60;color:#fff;padding:8px 16px;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:600;display:none">✓ Marquer comme pushed</button>
+      <button id="lms-mark-pushed-btn" onclick="markCoursePushed()" style="background:#27AE60;border:1px solid #27AE60;color:#fff;padding:8px 16px;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:600;display:none">✓ Marquer comme mise en ligne</button>
     </div>
     <p id="lms-modal-msg" style="margin-top:10px;font-size:11px;color:#94A3B8"></p>
   </div>
@@ -154,6 +154,8 @@ a{text-decoration:none}
 </div>
 
 <script>
+// Echappement HTML des valeurs de la base (correctif 13, chantier 03).
+function escCours(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 var SUPA_URL = window.SUPA_URL_OVERRIDE || 'https://ctjsdpfegpsfpwjgusyi.supabase.co';
 var SUPA_KEY = window.SUPA_KEY_OVERRIDE || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN0anNkcGZlZ3BzZnB3amd1c3lpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2MDU2NDQsImV4cCI6MjA4OTE4MTY0NH0.Uv2pbxbmvcbXhyDa7Y_M0HqkLuV7uJaNxl1N01q5wMo';
 var API = SUPA_URL + '/rest/v1';
@@ -309,7 +311,7 @@ resolveCourseId(function(courseId){
       '<strong style="color:#F0F0F0">'+globalStats.approved+' / '+total+' approuvees</strong>'
       + (globalStats.needs_recheck ? ' · <span style="color:#E74C3C">'+globalStats.needs_recheck+' a revoir</span>' : '')
       + (globalStats.flagged ? ' · <span style="color:#F39C12">'+globalStats.flagged+' flaggees</span>' : '')
-      + (newFlagsCount ? ' · <span style="color:#FF6B5B;font-weight:700">🔴 '+newFlagsCount+' NEW (post-regen)</span>' : '')
+      + (newFlagsCount ? ' · <span style="color:#FF6B5B;font-weight:700">🔴 '+newFlagsCount+' nouveau(x) depuis la voix refaite</span>' : '')
       + (globalStats.not_reviewed ? ' · <span style="color:#94A3B8">'+globalStats.not_reviewed+' a faire</span>' : '');
     document.getElementById('cph-bar').innerHTML = buildBar(globalStats, total);
     document.getElementById('course-progress-header').style.display = 'block';
@@ -366,19 +368,19 @@ resolveCourseId(function(courseId){
         var metaR = '';
         if (l.duration_seconds) metaR += '<span class="tag-duration">'+fmtDuration(l.duration_seconds)+'</span>';
         if (regenCounts[l.lesson_key] && l.status === 'needs_recheck') {
-          metaR += '<span class="tag-regen" title="Phrases regenerees depuis ta derniere review">🔄 '+regenCounts[l.lesson_key]+' a revoir</span>';
+          metaR += '<span class="tag-regen" title="Phrases refaites depuis ta dernière révision">🔄 '+regenCounts[l.lesson_key]+' à revoir</span>';
         }
         // Affichage flags : utilise nb de flags ACTIFS (non auto_resolved, non approved_after_regen)
         // et tient compte du statut approved de la lecon.
         var activeCount = activeFlagsByLesson[l.lesson_key] || 0;
         if (activeCount > 0 && !approvedByLesson[l.lesson_key]) {
           if (hasNewFlags(l.lesson_key)) {
-            metaR += '<span class="tag-flags-new" title="Review faite APRES la derniere regen — flags actifs a traiter">🔴 '+activeCount+' NEW</span>';
+            metaR += '<span class="tag-flags-new" title="Mots notés APRÈS la dernière voix refaite — à traiter">🔴 '+activeCount+' nouveau(x)</span>';
           } else {
-            metaR += '<span class="tag-flags-old" title="Review faite AVANT la derniere regen — flags deja traites par regen">'+activeCount+' (deja regen)</span>';
+            metaR += '<span class="tag-flags-old" title="Mots notés AVANT la dernière voix refaite — déjà repris dans la nouvelle voix">'+activeCount+' (voix déjà refaite)</span>';
           }
         }
-        if (l.latest_reviewer) metaR += '<span class="tag-reviewer">'+l.latest_reviewer+'</span>';
+        if (l.latest_reviewer) metaR += '<span class="tag-reviewer">'+escCours(l.latest_reviewer)+'</span>';
 
         // Garde-fou BROUILLON : une lecon-conteneur (scaffold) n'a pas de voiceover produit
         // (voiceover_uploaded_at null). Avant, elle s'affichait comme une lecon cliquable 🎙 --
@@ -401,7 +403,7 @@ resolveCourseId(function(courseId){
         // Voice button : toujours actif, vert si approved
         var voiceCls = 'action-btn voice' + (l.status === 'approved' ? ' done' : '');
         var voiceLabel = l.status === 'approved' ? '🎙 ✓' : '🎙 ' + (badgeText(l.status));
-        voiceBtn = '<a href="review.html?key='+encodeURIComponent(l.lesson_key)+'" class="'+voiceCls+'" title="Voiceover review">'+voiceLabel+'</a>';
+        voiceBtn = '<a href="review.html?key='+encodeURIComponent(l.lesson_key)+'" class="'+voiceCls+'" title="Réviser la voix">'+voiceLabel+'</a>';
 
         // Video button : disabled si voice ≠ approved OU pas de video
         var videoCls = 'action-btn video';
@@ -421,7 +423,7 @@ resolveCourseId(function(courseId){
           // Libelle en MOTS (audit 2026-06-10) : le ↻ etait le meme symbole que
           // « voix a re-reviser », Hela ne comprenait pas le badge orange.
           videoCls += ' redo';
-          videoTitle = 'La voix de cette lecon a ete refaite apres le montage de la video. Nicolas va re-produire la video. Rien a faire de ton cote.';
+          videoTitle = 'La voix de cette leçon a été refaite après le montage : la vidéo sera remontée avec la nouvelle voix et reviendra ici. Rien à faire pour l’instant.';
           videoLabel = '🎬 sera refaite';
         } else if (l.video_status === 'approved') {
           videoCls += ' done';
@@ -430,10 +432,10 @@ resolveCourseId(function(courseId){
         } else if (l.video_status === 'rejected') {
           // Rejetee par Hela (renvoyee pour correction) -> ROUGE, pas vert : a refaire.
           videoCls += ' rejected';
-          videoTitle = 'Tu as refuse cette video (' + (l.video_flags_count || 0) + ' probleme(s) signale(s)). Nicolas la corrige — rien a faire en attendant.';
+          videoTitle = 'Tu as envoyé cette vidéo à corriger (' + (l.video_flags_count || 0) + ' problème(s) noté(s)). Elle sera refaite et reviendra ici en nouvelle version. Tu peux passer à la suivante.';
           videoLabel = '🎬 ✗ refusée';
         } else if (l.video_status === 'in_review') {
-          videoTitle = 'Revision commencee — ' + (l.video_flags_count || 0) + ' note(s) posee(s), pense a approuver ou refuser a la fin';
+          videoTitle = 'Révision commencée — ' + (l.video_flags_count || 0) + ' problème(s) noté(s). Clique « J’ai fini cette vidéo » quand tu as tout regardé.';
           videoLabel = '🎬 en cours (' + (l.video_flags_count || 0) + ')';
         } else {
           // not_reviewed mais video prete (ou nouvelle version produite depuis
@@ -444,11 +446,12 @@ resolveCourseId(function(courseId){
             : 'Nouvelle video prete — a regarder';
           videoLabel = (l.video_version > 1) ? '🎬 NOUVELLE v' + l.video_version : '🎬 NOUVELLE';
         }
-        var videoBtn = '<a href="'+videoHref+'" class="'+videoCls+'" title="'+videoTitle+'">'+videoLabel+'</a>';
+        var videoBtn = '<a href="'+videoHref+'" class="'+videoCls+'" title="'+escCours(videoTitle)+'">'+videoLabel+'</a>';
 
+        // Correctif 13 : titre et numero viennent de la base -> echappes.
         item.innerHTML =
-          '<span class="n">'+l.lesson_index+'</span>'
-          + '<span class="t">'+(l.short_title || l.title)+'</span>'
+          '<span class="n">'+escCours(l.lesson_index)+'</span>'
+          + '<span class="t">'+escCours(l.short_title || l.title)+'</span>'
           + '<span class="meta-r">'+metaR+'</span>'
           + '<span class="item-actions">'+voiceBtn+videoBtn+'</span>';
         list.appendChild(item);
@@ -542,7 +545,7 @@ async function markCoursePushed() {
   msg.innerHTML = 'Marquage en cours...';
   try {
     var result = await GhlPayload.markCoursePushed(lmsCurrentCourseId, 'ghl');
-    msg.innerHTML = '✓ ' + result.count + ' lecons marquees comme pushed (par ' + result.pushed_by + ').';
+    msg.innerHTML = '✓ ' + result.count + ' leçons marquées comme mises en ligne (par ' + escCours(result.pushed_by) + ').';
     setTimeout(function(){ closeLmsModal(); location.reload(); }, 1500);
   } catch (e) {
     msg.innerHTML = '<span style="color:#E74C3C">Erreur : ' + e.message + '</span>';

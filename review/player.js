@@ -57,7 +57,7 @@ function saveReview(approved, isAuto, force){
   // on_conflict lesson_key+reviewer_name) -> elle n'ecrase JAMAIS le travail de l'autre reviseur. Donc
   // Nicolas peut approuver une lecon meme en regardant la review d'Hela (bug : avant, ca ne faisait rien).
   if (!XGReview.shouldWriteReview(window.viewingOtherReview, force)) {
-    if (!isAuto) showMsg('\u{1F441}\u{FE0F} Lecture seule — c\'est la review de ' + window.viewingOtherReview, '');
+    if (!isAuto) showMsg('\u{1F441}\u{FE0F} Lecture seule — c\'est la revue de ' + window.viewingOtherReview, '');
     return Promise.resolve(false);
   }
   if (window.revueNonChargee) {
@@ -98,6 +98,7 @@ function saveReview(approved, isAuto, force){
   }).then(function(){
     lessonApproved = aPersister;
     dirty = false;
+    if (approved) leconSuivanteVoix();
     clearLocalBackup();   // le serveur a la version -> le backup local n'est plus necessaire
     showMsg(approved ? '✓ Leçon approuvée' : (isAuto ? '✓ Sauvegardé automatiquement' : '✓ Sauvegardé'));
     return true;
@@ -108,6 +109,12 @@ function saveReview(approved, isAuto, force){
     showMsg('✗ Pas enregistré — voir le bandeau rouge en haut', 'error');
     throw e;
   });
+}
+
+// Apres une approbation (ou une lecon deja approuvee) : lien vers la prochaine voix a reviser.
+function leconSuivanteVoix(){
+  return XGNet.afficherLeconSuivante({ api: API, headers: H, lecon: L, stages: ['voice_review', 'voice_recheck'],
+    page: 'review.html', idLien: 'next-lesson', texte: 'Voix suivante à réviser →' });
 }
 
 // Confirm approve modal (D5)
@@ -126,7 +133,7 @@ function confirmApprove(){
 }
 
 function copyReview(){if(!L)return;var t='Lecon: '+(L.short_title||L.title)+'\n';
-  if(glitches.length){t+='\nStutters:\n';for(var i=0;i<glitches.length;i++){var g=glitches[i];t+='- ['+g.time+'] #'+g.sentenceIndex+' "'+((g.context||'').replace(/\*\*/g,''))+'"';if(g.note)t+=' \u2192 '+g.note;t+='\n'}}
+  if(glitches.length){t+='\nAccrocs :\n';for(var i=0;i<glitches.length;i++){var g=glitches[i];t+='- ['+g.time+'] #'+g.sentenceIndex+' "'+((g.context||'').replace(/\*\*/g,''))+'"';if(g.note)t+=' \u2192 '+g.note;t+='\n'}}
   var sf=Array.from(flags.values()).sort(function(a,b){return a.index-b.index});
   if(sf.length){t+='\nMots:\n';for(var j=0;j<sf.length;j++){var f=sf[j];t+='- ['+f.time+'] #'+f.sentenceIndex+' "'+((f.context||'').replace(/\*\*/g,''))+'"';if(f.note)t+=' \u2192 '+f.note;t+='\n'}}
   navigator.clipboard.writeText(t);showMsg('Copie!')}

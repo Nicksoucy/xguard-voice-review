@@ -34,16 +34,26 @@ var addFlagTimestamp = 0;
 // chargement et renvoye tel quel a chaque sauvegarde. Seul « J'ai fini cette video » le change.
 var verdict = { approved: false, rejected: false, reason: null };
 
-// Categories de flags video (centralisees)
+// Defauts video (correctif 8, chantier 03) : des defauts CONCRETS, que l'equipe sait
+// corriger. Les anciennes cles (visual, transition, animation_jitter) restent pour afficher
+// les flags deja poses, mais ne sont plus proposees.
 var FLAG_CATEGORIES = {
-  visual:           {label:'Visuel',     emoji:'👀'},
-  audio_sync:       {label:'Audio sync', emoji:'🔊'},
-  transition:       {label:'Transition', emoji:'⚡'},
-  text_cut:         {label:'Texte coupe',emoji:'✂'},
-  animation_jitter: {label:'Animation',  emoji:'📺'},
-  typo:             {label:'Typo',       emoji:'✏'},
-  other:            {label:'Autre',      emoji:'❓'}
+  text_overlap:          {label:'Texte par-dessus un autre texte', emoji:'🔤'},
+  text_cut:              {label:'Texte coupé ou qui déborde',      emoji:'✂'},
+  typo:                  {label:'Faute à l’écran',                 emoji:'✏'},
+  screen_voice_mismatch: {label:'L’écran ne dit pas la même chose que la voix', emoji:'↔'},
+  number_sync:           {label:'Numéro qui ne suit pas la voix',  emoji:'🔢'},
+  audio_sync:            {label:'Écran en retard sur la voix',     emoji:'⏱'},
+  frozen_screen:         {label:'Écran vide ou figé',              emoji:'⏸'},
+  wrong_image:           {label:'Mauvaise image',                  emoji:'🖼'},
+  other:                 {label:'Autre',                           emoji:'❓'},
+  // Anciennes cles (affichage seulement)
+  visual:                {label:'Visuel (ancien)',                 emoji:'👀'},
+  transition:            {label:'Transition (ancien)',             emoji:'⚡'},
+  animation_jitter:      {label:'Animation (ancien)',              emoji:'📺'}
 };
+var VOICE_STORAGE = SUPA_URL + '/storage/v1/object/public/voiceovers';
+var motsVoix = null; // timestamps de la voix de la lecon (charges au premier « Problème de voix »)
 
 // Utils
 function fmtTime(s) {
@@ -91,7 +101,7 @@ function resolveVideoMetadata(cb) {
 // === Init ===
 resolveLesson(function(lesson) {
   if (!lesson) {
-    document.body.innerHTML = '<a href="index.html" style="color:#94A3B8">&larr; Retour</a><div class="err" style="color:#E74C3C;padding:20px">Lecon introuvable.</div>';
+    document.body.innerHTML = '<a href="index.html" style="color:#94A3B8">&larr; Retour</a><div class="err" style="color:#E74C3C;padding:20px">Leçon introuvable.</div>';
     return;
   }
   L = lesson;
@@ -110,8 +120,8 @@ resolveLesson(function(lesson) {
   // Nav
   document.getElementById('nav').innerHTML =
     '<a href="course.html?course='+encodeURIComponent(L.course_id)+'">← Cours</a>' +
-    '<a href="review.html?key='+encodeURIComponent(L.lesson_key)+'">🎙 Voice</a>' +
-    '<a href="index.html">Index</a>';
+    '<a href="review.html?key='+encodeURIComponent(L.lesson_key)+'">🎙 Voix</a>' +
+    '<a href="index.html">Accueil</a>';
 
   // Verifier voice status
   resolveVoiceStatus(function(voiceStatus) {
@@ -133,6 +143,7 @@ resolveLesson(function(lesson) {
       initVideoPlayer();
       loadExistingReview();
       loadHistory();
+      loadVoiceRequests();
     });
   });
 });
@@ -140,9 +151,21 @@ resolveLesson(function(lesson) {
 function initVideoPlayer() {
   vid = document.getElementById('vid');
   // Build URL : VM.video_path peut etre soit absolu soit relatif au bucket
-  var videoUrl = VM.video_path.indexOf('http') === 0
-    ? VM.video_path
-    : STORAGE + '/' + VM.video_path.replace(/^videos\//, '') + '?v=' + encodeURIComponent(VM.produced_at || Date.now());
+  // Correctif 13 : une adresse absolue n'est acceptee que si elle pointe vers NOTRE stockage
+  // Supabase en https (avant : n'importe quel http:// passait tel quel dans la page).
+  var vp = String(VM.video_path || '');
+  var videoUrl;
+  if (/^https?:\/\//i.test(vp)) {
+    if (vp.indexOf(SUPA_URL + '/storage/') !== 0) {
+      XGNet.signaler(new Error('video_path refuse : ' + vp), 'video_path hors stockage');
+      document.getElementById('video-wrapper').innerHTML =
+        '<div style="color:#FF8A7D;padding:40px;text-align:center;font-size:15px">Adresse de la vidéo invalide — signale-le à Nicolas.</div>';
+      return;
+    }
+    videoUrl = vp;
+  } else {
+    videoUrl = STORAGE + '/' + vp.replace(/^videos\//, '').split('/').map(encodeURIComponent).join('/') + '?v=' + encodeURIComponent(VM.produced_at || Date.now());
+  }
   vid.src = videoUrl;
 
   vid.addEventListener('loadedmetadata', function() {
@@ -159,7 +182,7 @@ function initVideoPlayer() {
   });
   vid.addEventListener('error', function() {
     document.getElementById('video-wrapper').innerHTML =
-      '<div style="color:#E74C3C;padding:40px;text-align:center;font-size:13px">Impossible de charger la video.<br><small>' + escapeHtml(videoUrl) + '</small></div>';
+      '<div style="color:#FF8A7D;padding:40px;text-align:center;font-size:15px">Impossible de charger la vidéo (connexion, ou fichier absent). Recharge la page dans un moment.<br><small>' + escapeHtml(videoUrl) + '</small></div>';
   });
 }
 
@@ -198,9 +221,11 @@ function renderMarkers() {
   if (!vid || !vid.duration) { container.innerHTML = ''; return; }
   var html = '';
   flags.forEach(function(f) {
-    var pct = (f.time / vid.duration) * 100;
+    var pct = (Number(f.time) / vid.duration) * 100;
     var cls = 'timeline-marker' + (f.severity === 'minor' ? ' minor' : '');
-    html += '<div class="' + cls + '" style="left:' + pct + '%" data-flag-id="' + f.id + '" title="' + (f.note || FLAG_CATEGORIES[f.category].label) + '" onclick="jumpToFlag(\'' + f.id + '\')"></div>';
+    var cat = FLAG_CATEGORIES[f.category] || {label: f.category || '?'};
+    // Correctif 13 : note et id viennent de la base -> echappes (avant : injectes tels quels).
+    html += '<div class="' + cls + '" style="left:' + pct + '%" data-flag-id="' + escapeHtml(f.id) + '" title="' + escapeHtml(f.note || cat.label) + '" onclick="jumpToFlag(this.getAttribute(\'data-flag-id\'))"></div>';
   });
   container.innerHTML = html;
 }
@@ -214,6 +239,7 @@ function openAddFlagModal() {
   document.getElementById('addflag-note').value = '';
   // Reset radios
   document.querySelectorAll('input[name="flagCat"]').forEach(function(r) { r.checked = false; });
+  onFlagCatChange();
   document.querySelectorAll('input[name="flagSev"]').forEach(function(r) { r.checked = (r.value === 'blocker'); });
   document.getElementById('addflag-msg').textContent = '';
   document.getElementById('addflag-modal-bg').classList.add('open');
@@ -221,20 +247,77 @@ function openAddFlagModal() {
 function closeAddFlagModal() {
   document.getElementById('addflag-modal-bg').classList.remove('open');
 }
+// Adapte le formulaire au defaut choisi : « Problème de voix » montre le choix de la phrase
+// et demande de dire ce qui cloche ; « Autre » exige une description.
+function onFlagCatChange() {
+  var cat = document.querySelector('input[name="flagCat"]:checked');
+  var v = cat ? cat.value : null;
+  var label = document.getElementById('addflag-note-label');
+  var note = document.getElementById('addflag-note');
+  document.getElementById('addflag-voice').style.display = v === 'voice' ? 'block' : 'none';
+  document.getElementById('addflag-severity').style.display = v === 'voice' ? 'none' : 'flex';
+  if (v === 'voice') {
+    label.textContent = 'Ce qui cloche (obligatoire) : quel mot, comment il devrait sonner';
+    note.placeholder = 'Ex. : « CNESST » est dit lettre par lettre trop vite';
+    chargerPhrasesVoix();
+  } else if (v === 'other') {
+    label.textContent = 'Décris le problème (obligatoire) :';
+    note.placeholder = 'Ce que tu vois, et ce qu’il faudrait à la place';
+  } else {
+    label.textContent = 'Ce que tu vois (facultatif) :';
+    note.placeholder = 'Ex. : le titre cache la 2e ligne de la liste';
+  }
+}
+
+// Propose la phrase dite a cet instant (+ celle d'avant et d'apres : le montage peut decaler
+// de quelques dixiemes). Les timestamps viennent du meme bucket que la page voix.
+function chargerPhrasesVoix() {
+  var boite = document.getElementById('addflag-voice-phrases');
+  function afficher() {
+    var si = XGReview.sentenceAtTime(motsVoix, addFlagTimestamp);
+    var choix = [si - 1, si, si + 1].filter(function(i){ return i >= 0 && XGReview.sentenceText(motsVoix, i); });
+    if (!choix.length) {
+      boite.innerHTML = '<em>Phrase introuvable. Signale-le plutôt dans la <a href="review.html?key=' + encodeURIComponent(L.lesson_key) + '" style="color:#85C1E9">page voix</a>.</em>';
+      return;
+    }
+    boite.innerHTML = choix.map(function(i){
+      return '<label><input type="radio" name="voicePhrase" value="' + i + '"' + (i === si ? ' checked' : '') + '><span>' +
+        escapeHtml(XGReview.sentenceText(motsVoix, i)) + '</span></label>';
+    }).join('');
+  }
+  if (motsVoix) { afficher(); return; }
+  boite.innerHTML = '<em>Chargement des phrases…</em>';
+  var bust = '?v=' + Date.now();
+  var urls = ['/preview/' + L.lesson_key + '/voiceover-timestamps.json', '/preview/' + L.lesson_key + '/timestamps.json',
+              '/' + L.lesson_key + '/voiceover-timestamps.json', '/' + L.lesson_key + '/timestamps.json'];
+  Promise.all(urls.map(function(u){
+    return fetch(VOICE_STORAGE + u + bust).then(function(r){ return r.ok ? r.json() : null; })
+      .catch(function(e){ XGNet.signaler(e, 'timestamps voix ' + u); return null; });
+  })).then(function(res){
+    var sel = XGReview.pickBestTimestamps(res);
+    motsVoix = sel && sel.words ? sel.words : [];
+    afficher();
+  });
+}
+
 function submitFlag() {
   var catEl = document.querySelector('input[name="flagCat"]:checked');
-  if (!catEl) {
-    document.getElementById('addflag-msg').textContent = 'Choisis une categorie.';
-    document.getElementById('addflag-msg').style.color = '#E74C3C';
+  var msg = document.getElementById('addflag-msg');
+  msg.style.color = '#FF8A7D';
+  if (!catEl) { msg.textContent = 'Choisis ce qui ne va pas.'; return; }
+  var note = document.getElementById('addflag-note').value.trim();
+  if ((catEl.value === 'voice' || catEl.value === 'other') && !note) {
+    msg.textContent = catEl.value === 'voice' ? 'Dis ce qui cloche dans la voix : la refaire à l’identique ne changerait rien.' : 'Décris le problème.';
     return;
   }
+  if (catEl.value === 'voice') { envoyerCoteVoix(note); return; }
   var sevEl = document.querySelector('input[name="flagSev"]:checked');
   flags.push({
     id: genId(),
     time: addFlagTimestamp,
     category: catEl.value,
     severity: sevEl ? sevEl.value : 'blocker',
-    note: document.getElementById('addflag-note').value.trim(),
+    note: note,
     created_at: new Date().toISOString()
   });
   // Sort by time
@@ -244,6 +327,60 @@ function submitFlag() {
   renderFlagsList();
   scheduleAutoSave();
 }
+
+// « Problème de voix » : une demande dans sentence_flags (type regen + note), exactement ce
+// que fait le crayon « Voix bizarre » de la page voix. Elle n'entre PAS dans les flags de la
+// video : elle ne rejette pas la video et n'empeche pas le robot de reparer les autres flags.
+function envoyerCoteVoix(note) {
+  var msg = document.getElementById('addflag-msg');
+  var ph = document.querySelector('input[name="voicePhrase"]:checked');
+  if (!ph) { msg.textContent = 'Choisis la phrase concernée.'; return; }
+  var si = parseInt(ph.value, 10);
+  var rn = (localStorage.getItem('rn') || 'Anonyme').trim();
+  var corps = {
+    lesson_key: L.lesson_key,
+    sentence_index: si,
+    flag_type: 'regen',
+    original_text: XGReview.sentenceText(motsVoix, si),
+    note: '[depuis la vidéo à ' + fmtTime(addFlagTimestamp) + '] ' + note,
+    reviewer_name: rn
+  };
+  msg.style.color = '#94A3B8';
+  msg.textContent = 'Envoi…';
+  XGNet.requete(API+'/sentence_flags', {
+    method: 'POST',
+    headers: Object.assign({}, H, {'Content-Type':'application/json','Prefer':'return=minimal'}),
+    body: JSON.stringify(corps)
+  }, {action: 'envoyer ta demande côté voix', cle: 'voix-depuis-video', reessayer: function(){ envoyerCoteVoix(note); }})
+    .then(function(){
+      msg.style.color = '#2ECC71';
+      msg.textContent = '✓ Envoyé côté voix';
+      loadVoiceRequests();
+      setTimeout(closeAddFlagModal, 900);
+    }, function(){
+      msg.style.color = '#FF8A7D';
+      msg.textContent = '✗ Pas envoyé — voir le bandeau rouge en haut';
+    });
+}
+
+// Demandes cote voix de la lecon (crayon + « Problème de voix »), avec leur etat reel.
+function loadVoiceRequests() {
+  var boite = document.getElementById('voice-requests');
+  if (!boite || !L) return;
+  XGNet.requete(API+'/sentence_flags?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+
+      '&select=id,sentence_index,flag_type,applied,applied_at,auto_status,skip_reason,note,created_at&order=created_at.desc&limit=10', {headers:H},
+      {action: 'lire tes demandes côté voix', reessayer: loadVoiceRequests})
+    .then(function(rows){
+      if (!rows || !rows.length) { boite.innerHTML = ''; return; }
+      boite.innerHTML = '<div class="sec" style="color:#85C1E9;margin-top:12px">🎙 Demandes côté voix sur cette leçon (' + rows.length + ')</div>' +
+        rows.map(function(f){
+          var st = XGReview.sentenceFlagStatusLabel(f);
+          return '<div class="voice-req">Phrase #' + escapeHtml(f.sentence_index) + ' — ' + escapeHtml(f.note || f.flag_type) +
+            ' <span class="rfixstatus ' + st.c + '">' + escapeHtml(st.t) + '</span></div>';
+        }).join('');
+    }, function(e){ XGNet.signaler(e, 'loadVoiceRequests'); });
+}
+
 function deleteFlag(id) {
   flags = flags.filter(function(f){ return f.id !== id; });
   renderMarkers();
@@ -259,20 +396,20 @@ function jumpToFlag(id) {
 
 function renderFlagsList() {
   var container = document.getElementById('flags-list');
-  document.getElementById('flags-section-title').innerHTML = '🚩 Issues flaggees (' + flags.length + ')';
+  document.getElementById('flags-section-title').innerHTML = '🚩 Problèmes notés (' + flags.length + ')';
   if (flags.length === 0) {
-    container.innerHTML = '<div class="empty">Clique sur "ADD FLAG ICI" pendant la lecture pour signaler un probleme.</div>';
+    container.innerHTML = '<div class="empty">Clique « Problème ici » pendant la lecture pour noter un problème.</div>';
     return;
   }
   var html = '';
   flags.forEach(function(f) {
     var cat = FLAG_CATEGORIES[f.category] || {label:f.category, emoji:'❓'};
     var rowCls = 'flag-row' + (f.severity === 'minor' ? ' minor' : '');
-    html += '<div class="' + rowCls + '" onclick="jumpToFlag(\'' + f.id + '\')">' +
+    html += '<div class="' + rowCls + '" data-flag-id="' + escapeHtml(f.id) + '" onclick="jumpToFlag(this.getAttribute(\'data-flag-id\'))">' +
       '<span class="flag-time">' + fmtTime(f.time) + '</span>' +
-      '<span class="flag-cat-pill">' + cat.emoji + ' ' + cat.label + '</span>' +
+      '<span class="flag-cat-pill">' + cat.emoji + ' ' + escapeHtml(cat.label) + '</span>' +
       '<span class="flag-note">' + (f.note ? escapeHtml(f.note) : '<em style="color:#A3ACB9">aucune note</em>') + '</span>' +
-      '<button class="flag-delete" onclick="event.stopPropagation();deleteFlag(\'' + f.id + '\')" title="Supprimer">&times;</button>' +
+      '<button class="flag-delete" onclick="event.stopPropagation();deleteFlag(this.parentNode.getAttribute(\'data-flag-id\'))" title="Supprimer">&times;</button>' +
       '</div>';
   });
   container.innerHTML = html;
@@ -289,10 +426,20 @@ function loadExistingReview() {
   var rn = (localStorage.getItem('rn') || 'Anonyme').trim();
   // Lecture seule tant que la revue n'est pas lue (reessais compris) : voir plus bas.
   revueNonChargee = true;
-  XGNet.requete(API+'/video_reviews?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&reviewer_name=eq.'+encodeURIComponent(rn)+'&select=*', {headers:H},
+  // Correctif 12 : on charge TOUTES les revues de la lecon et on retrouve la sienne sans tenir
+  // compte de la casse ni des espaces (« Rawen » = « rawen »), comme la page voix
+  // (loader.js). Avant : filtre exact reviewer_name=eq.<nom> -> une majuscule de difference
+  // et la reviseuse repartait d'une revue vide, puis l'autosauvegarde creait un doublon.
+  XGNet.requete(API+'/video_reviews?lesson_key=eq.'+encodeURIComponent(L.lesson_key)+'&select=*&order=updated_at.desc', {headers:H},
       {action:'charger ta revue de cette vidéo'})
-    .then(function(rows){
+    .then(function(toutes){
       revueNonChargee = false;
+      var rows = (toutes || []).filter(function(r){ return XGReview.memeReviseur(r.reviewer_name, rn); });
+      if (rows[0] && rows[0].reviewer_name !== rn) {
+        // Aligner le nom local sur celui enregistre : on reecrit la MEME ligne (pas de doublon).
+        rn = rows[0].reviewer_name;
+        try { localStorage.setItem('rn', rn); } catch (e) { XGNet.signaler(e, 'localStorage rn video'); }
+      }
       if (rows && rows[0]) {
         // Nouvelle version produite depuis le dernier passage de la reviseuse ?
         // (audit 2026-06-10 : Hela confondait ancienne et nouvelle video.)
@@ -342,11 +489,12 @@ function loadExistingReview() {
     });
 }
 var verdictDate = null;
+var leconSuivanteCherchee = false;
 var revueNonChargee = false;
 
 // Flags qui empechent l'approbation : severite « bloquant » et pas deja repares par le robot.
 function flagsBloquants() {
-  return flags.filter(function(f){ return f.severity !== 'minor' && !f.resolved_at; });
+  return flags.filter(function(f){ return f.severity !== 'minor' && !f.resolved_at && f.category !== 'voice'; });
 }
 
 // Bandeaux d'etat, recalcules a chaque changement (pas seulement au chargement).
@@ -379,6 +527,12 @@ function afficherVerdict() {
   }
   if (st) st.textContent = etat;
   checkPushToGhlVisibility();
+  // Revue finie (approuvee ou renvoyee) : lien vers la prochaine video a reviser du cours.
+  if ((verdict.approved || verdict.rejected) && !leconSuivanteCherchee) {
+    leconSuivanteCherchee = true;
+    XGNet.afficherLeconSuivante({ api: API, headers: H, lecon: L, stages: ['video_review'],
+      page: 'review-video.html', idLien: 'next-lesson', texte: 'Vidéo suivante à réviser →' });
+  }
 }
 
 // === Save review ===
@@ -529,7 +683,7 @@ function confirmFinish() {
 async function pushLessonToGhl() {
   if (!L) return;
   var msg = document.getElementById('msg');
-  msg.textContent = 'Generation payload...';
+  msg.textContent = 'Préparation du fichier GHL…';
   msg.style.color = '#bb8fce';
 
   try {
@@ -537,18 +691,18 @@ async function pushLessonToGhl() {
     var slug = L.lesson_key.split('/').pop();
     var filename = slug + '-ghl-import-' + new Date().toISOString().split('T')[0] + '.json';
     GhlPayload.downloadAsFile(payload, filename);
-    msg.innerHTML = '✓ <strong>' + filename + '</strong> telecharge. Upload dans GHL puis confirme.';
+    msg.innerHTML = '✓ <strong>' + escapeHtml(filename) + '</strong> téléchargé. Téléverse-le dans GHL, puis confirme.';
     msg.style.color = '#27AE60';
 
     // Ask if user wants to mark as pushed
     setTimeout(function() {
-      if (confirm('As-tu uploade le fichier dans GHL ?\n\nClique OK pour marquer cette lecon comme "pushed" dans le tracker.')) {
+      if (confirm('As-tu téléversé le fichier dans GHL ?\n\nClique OK pour marquer cette leçon comme « mise en ligne ».')) {
         GhlPayload.markPushed(L.lesson_key, 'ghl').then(function() {
-          msg.textContent = '✓ Lecon marquee comme pushed';
+          msg.textContent = '✓ Leçon marquée comme mise en ligne';
           msg.style.color = '#27AE60';
           setTimeout(function(){ location.reload(); }, 1500);
         }).catch(function(e) {
-          msg.textContent = 'Erreur mark pushed : ' + e.message;
+          msg.textContent = 'Pas pu marquer la leçon comme mise en ligne : ' + e.message;
           msg.style.color = '#E74C3C';
           if (window.captureWithContext) captureWithContext(e, {action:'mark_lesson_pushed', lesson_key:L.lesson_key});
         });
@@ -571,18 +725,18 @@ function checkPushToGhlVisibility() {
 function copyReview() {
   if (!flags.length) {
     var msg = document.getElementById('msg');
-    msg.textContent = 'Aucun flag a copier.';
+    msg.textContent = 'Aucun problème à copier.';
     msg.style.color = '#94A3B8';
     return;
   }
-  var lines = ['VIDEO REVIEW : ' + (L.short_title || L.title) + ' (v' + (VM.version||1) + ')', ''];
+  var lines = ['RÉVISION VIDÉO : ' + (L.short_title || L.title) + ' (v' + (VM.version||1) + ')', ''];
   flags.forEach(function(f){
     var cat = FLAG_CATEGORIES[f.category] || {label:f.category, emoji:''};
     lines.push('[' + fmtTime(f.time) + '] ' + cat.emoji + ' ' + cat.label + (f.severity==='minor'?' (mineur)':'') + (f.note ? ' — ' + f.note : ''));
   });
   navigator.clipboard.writeText(lines.join('\n')).then(function(){
     var msg = document.getElementById('msg');
-    msg.textContent = '✓ Copie dans le presse-papier';
+    msg.textContent = '✓ Copié dans le presse-papier';
     msg.style.color = '#27AE60';
     setTimeout(function(){ msg.textContent = ''; }, 2000);
   });
@@ -596,11 +750,11 @@ function loadHistory() {
       if (!rows || rows.length === 0) return;
       var panel = document.getElementById('history-panel');
       var list = document.getElementById('history-list');
-      document.getElementById('history-title').textContent = 'Historique (' + rows.length + ' revisions archivees)';
+      document.getElementById('history-title').textContent = 'Historique (' + rows.length + ' révisions archivées)';
       list.innerHTML = rows.map(function(r){
         return '<div class="history-row">' +
           '<strong>v' + (r.video_version||1) + '</strong> — ' + fmtDate(r.archived_at) +
-          ' — ' + (r.flags ? r.flags.length : 0) + ' flags' +
+          ' — ' + (r.flags ? r.flags.length : 0) + ' problème(s)' +
           (r.approved ? ' <span style="color:#27AE60">✓</span>' : '') +
           (r.rejected ? ' <span style="color:#E74C3C">✗</span>' : '') +
           '</div>';

@@ -298,14 +298,16 @@ function flagStutter(){
   var t=au.currentTime;var i=0;for(var j=0;j<W.length;j++){if(W[j].start<=t)i=j}
   glitches.unshift({time:fmt(t),timeSec:t,context:getCtx(i),sentenceIndex:gsi(i),note:''});
   var b=document.getElementById('stb');b.classList.add('flash');b.textContent='\u2713';
-  setTimeout(function(){b.classList.remove('flash');b.textContent='\u26a1 Stutter'},700);
+  setTimeout(function(){b.classList.remove('flash');b.textContent='\u26a1 Accroc'},700);
   renderGlitches();
   scheduleAutoSave();
 }
 
 // Echappement pour un attribut HTML (value="..."). Les valeurs viennent de la base ou de la saisie.
 function escAttr(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
-function hl(ctx){return (ctx||'').replace(/\*\*(.+?)\*\*/g,'<b style="color:#E74C3C">$1</b>')}
+// Correctif 13 : le contexte vient de la base -> on l'echappe AVANT de poser le gras
+// (les marqueurs ** ne contiennent aucun caractere HTML, ils survivent a l'echappement).
+function hl(ctx){return escAttr(ctx||'').replace(/\*\*(.+?)\*\*/g,'<b style="color:#FF6B5B">$1</b>')}
 
 // Tokens nus du contexte (les mots de W joints par espaces, marqueurs ** retires).
 function ctxTokens(ctx){ return (ctx||'').replace(/\*\*/g,'').split(' '); }
@@ -360,7 +362,7 @@ function renderGlitches(){
     if (resolvedCount > 0) {
       l.innerHTML='<div class="empty">'+resolvedCount+' stutter'+(resolvedCount>1?'s':'')+' auto-resolu'+(resolvedCount>1?'s':'')+' (apres regen). <a href="#" onclick="toggleShowApproved();return false" style="color:#888;text-decoration:underline">Afficher</a></div>';
     } else {
-      l.innerHTML='<div class="empty">Appuie \u26a1 Stutter pendant l\'ecoute (raccourci: S)</div>';
+      l.innerHTML='<div class="empty">Appuie sur \u26a1 Accroc pendant l\'écoute (raccourci : S)</div>';
     }
     return;
   }
@@ -372,7 +374,7 @@ function renderGlitches(){
       var d=document.createElement('div');
       d.className='ri g' + (g.auto_resolved ? ' ok' : '');
       if (g.auto_resolved) d.style.opacity = '0.55';
-      d.innerHTML='<span class="rt" onclick="jmp('+g.timeSec+')">'+g.time+'</span><span class="rs">#'+g.sentenceIndex+'</span><span class="rc">'+hl(g.context)+'</span><input placeholder="Note" value="'+(g.note||'').replace(/"/g,'&quot;')+'" oninput="if(window.viewingOtherReview)return;glitches['+ii+'].note=this.value;scheduleAutoSave()"><button class="rm" onclick="if(window.viewingOtherReview)return;glitches.splice('+ii+',1);renderGlitches();scheduleAutoSave()">\u2715</button>';
+      d.innerHTML='<span class="rt" onclick="jmp('+(Number(g.timeSec)||0)+')">'+escAttr(g.time)+'</span><span class="rs">#'+escAttr(g.sentenceIndex)+'</span><span class="rc">'+hl(g.context)+'</span><input placeholder="Note" value="'+escAttr(g.note||'')+'" oninput="if(window.viewingOtherReview)return;glitches['+ii+'].note=this.value;scheduleAutoSave()"><button class="rm" onclick="if(window.viewingOtherReview)return;glitches.splice('+ii+',1);renderGlitches();scheduleAutoSave()">\u2715</button>';
       l.appendChild(d);
     })(g,gi);
   }
@@ -489,7 +491,7 @@ function renderFlags(){
         + (autoResolved ? 'Le mot a ete corrige automatiquement (il a disparu ou ete remplace dans le texte)' : 'Tu as approuve cette correction apres re-ecoute')
         + '">\u2713 ' + (autoResolved ? 'corrige automatiquement' : 'corrige et approuve') + '</span>';
     }
-    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+d.time+'</span><span class="rs">#'+(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+d.word+'</span>'+regleBadge+groupBadge+catSelect+'<span class="rc">'+hlFlag(d.context, d.word)+'</span><input id="rnote'+ii+'" placeholder="Note" value="'+escAttr(d.note||'')+'" oninput="if(window.viewingOtherReview)return;flags.get('+ii+').note=this.value;scheduleAutoSave()">'+reflagBtn+rfixBlock+'<button class="rm" onclick="if(window.viewingOtherReview)return;flags.delete('+ii+');'+groupIndicesStr+'.forEach(function(g){if(els[g]){els[g].classList.remove(\'flagged\',\'resolved\',\'approved\',\'grouped\',\'reflagged\')}});renderFlags();scheduleAutoSave()">\u2715</button>';
+    el.innerHTML='<span class="rt" onclick="jmp('+(W[ii]?W[ii].start:0)+')">'+escAttr(d.time)+'</span><span class="rs">#'+escAttr(d.sentenceIndex!=null?d.sentenceIndex:'?')+'</span><span class="rw">'+escAttr(d.word)+'</span>'+regleBadge+groupBadge+catSelect+'<span class="rc">'+hlFlag(d.context, d.word)+'</span><input id="rnote'+ii+'" placeholder="Note" value="'+escAttr(d.note||'')+'" oninput="if(window.viewingOtherReview)return;flags.get('+ii+').note=this.value;scheduleAutoSave()">'+reflagBtn+rfixBlock+'<button class="rm" onclick="if(window.viewingOtherReview)return;flags.delete('+ii+');'+groupIndicesStr+'.forEach(function(g){if(els[g]){els[g].classList.remove(\'flagged\',\'resolved\',\'approved\',\'grouped\',\'reflagged\')}});renderFlags();scheduleAutoSave()">\u2715</button>';
     l.appendChild(el)})(sorted[k][0],sorted[k][1])}
   if (focId) {
     var back = document.getElementById(focId);

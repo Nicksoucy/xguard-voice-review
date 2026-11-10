@@ -123,7 +123,7 @@ function roGuard() {
     return true;
   }
   if (!XGReview.canEditReview(window.viewingOtherReview)) {
-    if (typeof showMsg === 'function') showMsg('\u{1F441}\u{FE0F} Lecture seule — review de ' + window.viewingOtherReview, '');
+    if (typeof showMsg === 'function') showMsg('\u{1F441}\u{FE0F} Lecture seule — revue de ' + window.viewingOtherReview, '');
     return true;
   }
   return false;

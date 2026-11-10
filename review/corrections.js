@@ -284,7 +284,7 @@ function loadCorrectionsLog(){
       if (!panel || !list) return;
       if (!Array.isArray(rows) || !rows.length) { panel.classList.add('hidden'); return; }
       document.getElementById('corrlog-title').textContent = 'Corrections faites (' + rows.length + ')';
-      var STAT = { done:'✅ corrigé', pending:'⏳ en file', processing:'⚙️ en cours', needs_review:'👁️ à trancher (Nicolas)', error:'⚠️ erreur' };
+      var STAT = { done:'✅ corrigé', pending:'⏳ en file', processing:'⚙️ en cours', needs_review:'⏸ mise de côté', error:'⚠️ erreur' };
       var MODE = { 'dict-global':'dico (partout)', 'contextual':'cette phrase', 'accent-unique':'accent', glitch:'re-génération' };
       list.innerHTML = rows.map(function(r){
         var raw = r.correction_note || '';

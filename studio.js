@@ -107,7 +107,7 @@ function go(){
     created_by: (localStorage.getItem('rn')||'Anonyme').trim()
   };
   if (LESSON_KEY) { payload.lesson_key = LESSON_KEY; payload.sentence_index = SENTENCE_INDEX; }
-  setStatus('⏳ Envoi au worker… (génération en cours)', 'pending');
+  setStatus('⏳ Envoyé au robot de l’Atelier… (génération en cours)', 'pending');
   $('variants').innerHTML = '';
   $('decision').innerHTML = '';
   var poster = function(body){
@@ -146,7 +146,7 @@ function poll(){
     var w = (res[0]||[])[0]; var variants = res[1]||[];
     if (!w) return;
     if (typeof w.is_homograph === 'boolean') renderScopeBanner($('word').value); // (deja affiche, on garde)
-    if (w.status === 'error'){ setStatus('⚠ Erreur du worker : '+esc(w.error||''), 'error'); if (pollTimer) clearInterval(pollTimer); return; }
+    if (w.status === 'error'){ setStatus('⚠ Erreur du robot de l’Atelier : '+esc(w.error||''), 'error'); if (pollTimer) clearInterval(pollTimer); return; }
     if (variants.length) renderVariants(variants);
     if (w.status === 'done'){
       if (pollTimer){ clearInterval(pollTimer); pollTimer = null; }
@@ -210,7 +210,7 @@ function choose(variantId, spelling, voice){
       var intro = (scope==='global')
         ? '✅ Choix enregistré : « '+esc(word)+' » se dira « '+esc(spelling)+' » PARTOUT dans les formations.'
         : '✅ Choix enregistré : « '+esc(word)+' » est un mot courant — « '+esc(spelling)+' » sera posé SEULEMENT dans ta phrase (pas dans les autres leçons).';
-      $('decision').innerHTML = '<div class="banner '+(scope==='global'?'ok':'homograph')+'">'+intro+'</div><div id="decstatus" class="substatus">⏳ en attente du worker…</div>';
+      $('decision').innerHTML = '<div class="banner '+(scope==='global'?'ok':'homograph')+'">'+intro+'</div><div id="decstatus" class="substatus">⏳ en attente du robot de l’Atelier…</div>';
       pollDecision(did);
     })
     .catch(function(e){ $('decision').innerHTML = '<div class="banner error">⚠ '+esc(e.message)+'</div>'; });

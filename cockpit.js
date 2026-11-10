@@ -52,7 +52,12 @@ var DATA = null, CT = {};
 
 document.getElementById('name').value = localStorage.getItem('rn') || '';
 
-Promise.all([
+// Chargement des donnees, relance toutes les 2 minutes et au retour sur l'onglet
+// (correctif 11, chantier 03) : avant, le cockpit restait fige sur l'etat de l'ouverture.
+var dernierChargement = 0;
+function chargerCockpit(){
+  dernierChargement = Date.now();
+  return Promise.all([
   window.XG.api('courses?visible=eq.true&order=sort_order.asc'),
   // apiAll et non api : la vue depasse 1000 lignes depuis le 2026-08-29 et PostgREST
   // tronque silencieusement au-dela — les cours les plus recents disparaissaient des files.
@@ -78,9 +83,21 @@ Promise.all([
   // Voix encore en écoute, par cours : sert à dire POURQUOI une vidéo ne bouge pas.
   DATA.pendingVoices = XGCockpit.voicesPendingByCourse(DATA.lessons);
   render();
+  var maj = document.getElementById('maj-cockpit');
+  if (maj) maj.textContent = 'Mis à jour à ' + new Date().toLocaleTimeString('fr-CA', {hour:'2-digit', minute:'2-digit'});
 }).catch(function(err){
-  document.getElementById('view').innerHTML = '<div class="err">Erreur de chargement: '+esc(err.message)+'</div>';
+  // Premier chargement rate : message dans la page. Rafraichissement rate : on garde
+  // l'affichage precedent et on le dit en haut, sans effacer ce qui etait la.
+  if (!DATA) document.getElementById('view').innerHTML = '<div class="err">Erreur de chargement : '+esc(err.message)+' — la page réessaie toute seule dans 2 minutes.</div>';
+  var maj = document.getElementById('maj-cockpit');
+  if (maj) maj.textContent = '⚠ Pas pu mettre à jour (connexion ?) — nouvel essai dans 2 min';
   console.error(err);
+});
+}
+chargerCockpit();
+setInterval(function(){ if (document.visibilityState === 'visible') chargerCockpit(); }, 120000);
+document.addEventListener('visibilitychange', function(){
+  if (document.visibilityState === 'visible' && Date.now() - dernierChargement > 30000) chargerCockpit();
 });
 
 // ───────────────────────── Helpers partagés ─────────────────────────
@@ -315,7 +332,10 @@ function renderReviewCards(taskStages, pc, emptyMsg){
     var tasks = byCourse[c.id].slice().sort(function(a,b){
       return taskStages[a.pipeline_stage]-taskStages[b.pipeline_stage] || (a.sort_order||0)-(b.sort_order||0);
     });
-    var n = tasks.length;
+    // Correctif 11 : « à faire » = ce qui demande un geste. Les videos en fabrication
+    // s'affichent a part (« en fabrication »), elles ne sont pas du travail pour elle.
+    var n = tasks.filter(function(l){ return taskStages !== VIDEO_STAGES || XGCockpit.estActionnableVideo(l.pipeline_stage); }).length;
+    var enFab = tasks.length - n;
     var bar = STAGE_ORDER.map(function(k){
       var p = t ? s[k]/t*100 : 0;
       return p>0 ? '<span style="width:'+p+'%;background:'+STAGE[k].color+'" title="'+STAGE[k].label+': '+s[k]+'"></span>' : '';
@@ -330,7 +350,8 @@ function renderReviewCards(taskStages, pc, emptyMsg){
       +   ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();toggleRevCard(\''+c.id+'\')}">'
       +   chev
       +   '<span class="revtitle">'+esc(c.title)+'</span>'
-      +   '<span class="revbadge">'+n+' à faire</span>'
+      +   (n ? '<span class="revbadge">'+n+' à faire</span>' : '<span class="revbadge" style="opacity:.7">rien à faire</span>')
+      +   (enFab ? '<span class="revbadge" style="background:rgba(148,163,184,0.18);color:#CBD5E1">'+enFab+' en fabrication</span>' : '')
       + '</div>'
       + '<div class="stagebar revbar">'+bar+'</div>'
       + '<div class="revsub">Voix <b>'+XGCockpit.voiceDoneCount(s)+'/'+t+'</b> · Vidéo <b>'+s.done+'/'+t+'</b></div>'

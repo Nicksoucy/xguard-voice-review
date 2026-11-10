@@ -221,8 +221,8 @@
   border-color: #E74C3C;
 }
 .cat-option strong {
-  display: block;
-  font-size: 13px;
+  display: inline;
+  font-size: 14px;
   color: #F0F0F0;
   margin-bottom: 2px;
 }
@@ -252,7 +252,8 @@
 .addflag-severity {
   margin-top: 10px;
   display: flex;
-  gap: 16px;
+  flex-direction: column;
+  gap: 6px;
 }
 .addflag-severity label {
   display: inline-flex;
@@ -310,3 +311,13 @@
 /* Le bandeau « nouvelle version » n'avait pas de regle .hidden : une barre orange VIDE
    s'affichait en haut de chaque video (constate le 2026-11-10). */
 #new-version-banner.hidden{display:none}
+
+/* Correctif 8 (chantier 03) : question, choix « voix » distinct, choix de phrase. */
+.addflag-modal{max-width:620px;max-height:90vh;overflow-y:auto}
+.addflag-q{color:#F0F0F0 !important;font-size:15px !important;margin:6px 0 0 !important}
+.cat-option.cat-voice{border-color:rgba(52,152,219,0.45)}
+.cat-option.cat-voice:has(input:checked){background:rgba(52,152,219,0.14);border-color:#3498DB}
+.addflag-voice{background:rgba(52,152,219,0.08);border-left:3px solid #3498DB;border-radius:0 6px 6px 0;padding:10px 12px;margin-bottom:6px}
+.addflag-voice p{color:#D6EAF8 !important;margin-bottom:8px !important}
+.addflag-voice label{display:flex;gap:8px;align-items:flex-start;font-size:14px;color:#E8ECF1;margin:6px 0;cursor:pointer;line-height:1.4}
+.voice-req{font-size:14px;color:#CBD5E1;padding:6px 0;border-top:1px solid rgba(255,255,255,0.06)}

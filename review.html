@@ -6,7 +6,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <title>Voice Review</title>
+  <title>Révision voix</title>
   <!-- Sentry error tracking -->
   <script src="https://js.sentry-cdn.com/ab9916085bc6c9e93779c21fad74456f.min.js" crossorigin="anonymous"></script>
   <script src="sentry-init.js?v=20260509a"></script>
@@ -48,16 +48,16 @@
   <button class="spd on" onclick="setSpd(1,this)">1x</button>
   <button class="spd" onclick="setSpd(.75,this)">.75x</button>
   <button class="spd" onclick="setSpd(.5,this)">.5x</button>
-  <button class="stb" id="stb" onclick="flagStutter()">&#9889; Stutter</button>
+  <button class="stb" id="stb" onclick="flagStutter()" title="La voix accroche ou bégaie à cet instant (raccourci : S)">&#9889; Accroc</button>
   <button class="fltb" id="filterBtn" onclick="toggleFilterMode()" title="Afficher uniquement les phrases regenerees">&#128269; Filtrer</button>
-  <span class="shortcuts-hint"><span>Space</span> play &middot; <span>J/K</span> -10s/+10s &middot; <span>S</span> stutter &middot; <span>F</span> filtre &middot; <span>Ctrl+S</span> save</span>
+  <span class="shortcuts-hint"><span>Espace</span> lecture &middot; <span>J/K</span> -10/+10 s &middot; <span>S</span> accroc &middot; <span>F</span> filtre &middot; <span>Ctrl+S</span> sauvegarder</span>
 </div>
 
 <div class="wc" id="wc"><div style="color:#94A3B8;text-align:center;padding:30px">Chargement...</div></div>
 
 <div class="fp">
-  <div class="sec o">&#9889; Stutters / Glitches</div>
-  <div id="gl"><div class="empty">Appuie &#9889; Stutter pendant l'ecoute (raccourci: S)</div></div>
+  <div class="sec o">&#9889; Accrocs de la voix (bégaiement, coupure)</div>
+  <div id="gl"><div class="empty">Appuie sur &#9889; Accroc pendant l'écoute (raccourci : S)</div></div>
   <div style="height:10px"></div>
   <div class="sec r">&#128308; Mots mal prononces</div>
   <div class="flag-legend">
@@ -77,6 +77,7 @@
     <button class="btn bg" onclick="askApprove()" title="Approuve toute la leçon — la voix passe en prêt">&#10003; Approuver la leçon</button>
     <button class="btn by" onclick="copyReview()">Copier texte</button>
     <button class="toggle-approved" id="toggleApproved" onclick="toggleShowApproved()" style="display:none"></button>
+    <a class="btn bg" id="next-lesson" style="display:none;text-decoration:none" href="#">Leçon suivante →</a>
     <span class="msg" id="msg"></span>
   </div>
 </div>
@@ -84,8 +85,8 @@
 <!-- Confirm approve modal -->
 <div class="modal-bg" id="modal-bg">
   <div class="modal">
-    <h3>&#10003; Approuver cette lecon ?</h3>
-    <p>Cette lecon passera en status <strong>approved</strong>. Si son voiceover est regenere plus tard, elle passera automatiquement en <strong>needs_recheck</strong>.</p>
+    <h3>&#10003; Approuver cette leçon ?</h3>
+    <p>La voix de cette leçon sera <strong>approuvée</strong> : la vidéo peut être montée. Si la voix est refaite plus tard, la leçon te reviendra en <strong>« à ré-écouter »</strong>.</p>
     <div class="acts">
       <button class="btn bg" onclick="confirmApprove()">Oui, approuver</button>
       <button class="btn by" onclick="closeModal()">Annuler</button>
@@ -136,18 +137,18 @@
 
     <div class="sentence-form-fields">
       <div class="sentence-field" id="field-corrected" style="display:none">
-        <label>Nouveau texte :</label>
+        <label>Nouveau texte (la phrase actuelle est déjà là : corrige seulement ce qui ne va pas) :</label>
         <textarea id="sentence-corrected" rows="3" placeholder="Tape la phrase reformulee..."></textarea>
       </div>
       <div class="sentence-field" id="field-partial" style="display:none">
-        <label>Morceau a chercher :</label>
-        <input type="text" id="sentence-partial-from" placeholder="ex: grace a ca">
+        <label>Morceau à chercher :</label>
+        <input type="text" id="sentence-partial-from" placeholder="ex. : grâce à ça">
         <label>Morceau de remplacement :</label>
-        <input type="text" id="sentence-partial-to" placeholder="ex: a cause de ca">
+        <input type="text" id="sentence-partial-to" placeholder="ex. : à cause de ça">
       </div>
       <div class="sentence-field">
         <label>Note (optionnel) :</label>
-        <input type="text" id="sentence-note" placeholder="Contexte ou raison du flag">
+        <input type="text" id="sentence-note" placeholder="Contexte ou raison de la demande">
       </div>
     </div>
 

@@ -426,20 +426,25 @@ describe('needsReviewLabel — dire a la reviseure quoi faire (Rawen 2026-10-21)
     expect(l.t).toContain('Non retenue');
     expect(l.c).toBe('error');
     // Raison reelle decided_by=claude-cli : une correction EST demandee ici.
-    expect(L("Homographe : « La cause de l'ignition » est correct. Correction requise seulement ici")).toContain('En attente');
-    expect(L("'l'agent' (minuscule) est correct en milieu de phrase")).toContain('En attente');
+    expect(L("Homographe : « La cause de l'ignition » est correct. Correction requise seulement ici")).toContain('Mise de côté');
+    expect(L("'l'agent' (minuscule) est correct en milieu de phrase")).toContain('Mise de côté');
   });
 
   it('panne apres plusieurs essais : panne technique, rien a refaire', () => {
     expect(L('abandon auto apres 5 tentatives — a trancher a la main')).toContain('Panne technique');
   });
 
-  it('gabarits qui ne disent pas quoi faire a la reviseure : en attente de Nicolas', () => {
+  // Chantier 03, correctif 10 : plus de « decision de Nicolas » ; on dit quoi essayer.
+  it('gabarits qui ne disent pas quoi faire a la reviseure : mise de cote + geste possible', () => {
     for (const r of [
       'regle dico refusee — garde-fou dico: ecriture de pronunciation-dictionary.json invalide — 1 erreur(s) : ; corriger le mot dans la SOURCE .md',
       "correction NON ecrite dans la source : « blablou » n'existe dans aucune lecon (vrai mot nouveau -> l'ecrire a la main)",
       're-tirage sans effet : meme texte, meme dico — soit ajouter une regle de prononciation, soit reformuler',
-    ]) expect(L(r), r).toContain('En attente');
+    ]) {
+      expect(L(r), r).toContain('Mise de côté');
+      expect(L(r), r).toContain('corriger la phrase');
+      expect(L(r), r).not.toContain('Nicolas');
+    }
     expect(review.correctionStatusLabel({ status: 'needs_review' }).c).toBe('review');
   });
 
@@ -515,5 +520,27 @@ describe('correctionStatusLabel — modes du 2026-10-30', () => {
   });
   it('done classique inchange', () => {
     expect(correctionStatusLabel({ status: 'done', applied_mode: 'dict-global' }).t).toMatch(/^✅ Corrigé/);
+  });
+});
+
+// Chantier 03, correctif 11 : bouton « leçon suivante » apres approbation.
+describe('prochaineLecon', () => {
+  const p = review.prochaineLecon;
+  const rows = [
+    { lesson_key: 'c/a', sort_order: 1, pipeline_stage: 'voice_review' },
+    { lesson_key: 'c/b', sort_order: 2, pipeline_stage: 'done' },
+    { lesson_key: 'c/c', sort_order: 3, pipeline_stage: 'video_review' },
+    { lesson_key: 'c/d', sort_order: 4, pipeline_stage: 'voice_recheck' },
+  ];
+  it('la suivante dans l ordre du cours, de la bonne etape', () => {
+    expect(p(rows, 'c/b', ['voice_review', 'voice_recheck'])).toBe('c/d');
+    expect(p(rows, 'c/a', ['video_review'])).toBe('c/c');
+  });
+  it('reprend au debut du cours', () => {
+    expect(p(rows, 'c/d', ['voice_review', 'voice_recheck'])).toBe('c/a');
+  });
+  it('jamais la lecon courante ; null quand plus rien', () => {
+    expect(p(rows, 'c/c', ['video_review'])).toBe(null);
+    expect(p([], 'c/c', ['video_review'])).toBe(null);
   });
 });

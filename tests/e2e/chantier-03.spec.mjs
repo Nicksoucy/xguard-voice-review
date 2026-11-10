@@ -13,11 +13,14 @@ const MP4 = readFileSync(new URL('../fixtures/mini.mp4', import.meta.url));
 // ── Mock de la page video, AVEC MEMOIRE : les POST video_reviews sont gardes et relus au
 // rechargement, comme le ferait PostgREST (upsert lesson_key + reviewer_name).
 async function mockVideo(page, { coupe = () => false } = {}) {
-  const etat = { reviews: [], posts: [] };
+  const etat = { reviews: [], posts: [], sentence_flags: [] };
   await page.route('**/js.sentry-cdn.com/**', (r) => r.abort());
   await page.route('**/storage/v1/**', (route) => {
     if (route.request().url().includes('.mp4')) {
       return route.fulfill({ status: 200, contentType: 'video/mp4', body: MP4 });
+    }
+    if (route.request().url().includes('voiceovers') && route.request().url().includes('timestamps')) {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(WORDS) });
     }
     return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
   });
@@ -33,14 +36,18 @@ async function mockVideo(page, { coupe = () => false } = {}) {
       else etat.reviews.push(body);
       return route.fulfill({ status: 201, body: '' });
     }
+    if (url.includes('/sentence_flags') && req.method() === 'POST') {
+      etat.sentence_flags.push(JSON.parse(req.postData() || '{}'));
+      return route.fulfill({ status: 201, body: '' });
+    }
     let data = [];
     if (url.includes('/lessons?')) data = [LESSON];
+    else if (url.includes('/sentence_flags?')) data = etat.sentence_flags.map((f, i) => ({ id: i + 1, applied: false, auto_status: null, ...f }));
     else if (url.includes('/lesson_status?')) data = [{ status: 'approved' }];
     else if (url.includes('/video_metadata?')) data = [{ lesson_key: LESSON.lesson_key, video_path: 'demo/v1.mp4', version: 1, produced_at: '2026-11-09T10:00:00Z' }];
     else if (url.includes('/video_reviews?')) {
-      const m = url.match(/reviewer_name=eq\.([^&]+)/);
-      const nom = m ? decodeURIComponent(m[1]) : null;
-      data = etat.reviews.filter((r) => !nom || r.reviewer_name === nom);
+      // La page lit toutes les revues de la lecon et retrouve la sienne sans la casse.
+      data = etat.reviews;
     }
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
   });
@@ -49,7 +56,7 @@ async function mockVideo(page, { coupe = () => false } = {}) {
 
 const URL_VIDEO = '/review-video.html?key=' + encodeURIComponent(LESSON.lesson_key);
 
-async function ajouterFlag(page, categorie = 'visual') {
+async function ajouterFlag(page, categorie = 'text_overlap') {
   await page.locator('.add-flag-btn').click();
   await page.locator(`input[name="flagCat"][value="${categorie}"]`).check();
   await page.locator('#addflag-modal-bg button:has-text("Ajouter")').click();
@@ -163,6 +170,8 @@ test('voix : coupure réseau pendant « Approuver » → message qui reste + Ré
   await expect.poll(() => etat.voice_reviews.at(-1)?.approved, { timeout: 8000 }).toBe(true);
   await expect(page.locator('#msg')).toContainText('Leçon approuvée');
   await expect(barre).toBeHidden();
+  // Correctif 11 : apres l'approbation, un lien pour continuer (ici : plus rien -> le cours).
+  await expect(page.locator('#next-lesson')).toBeVisible();
 });
 
 test('voix : le texte tapé dans la case de correction reste après un clic sur un autre mot', async ({ page }) => {
@@ -218,4 +227,65 @@ test('voix : le texte à réviser a un contraste d’au moins 4,5:1 (axe, règle
   expect(r.violations.flatMap((v) => v.nodes.map((n) => n.target.join(' ') + ' : ' + n.failureSummary))).toEqual([]);
   const taille = await page.locator('.w').first().evaluate((el) => getComputedStyle(el).fontSize);
   expect(taille).toBe('16px');
+});
+
+test('vidéo : « Problème de voix » part côté voix (sentence_flags), pas en rejet vidéo', async ({ page }) => {
+  const etat = await mockVideo(page);
+  await page.addInitScript(() => localStorage.setItem('rn', 'Rawen'));
+  await page.goto(URL_VIDEO);
+  await expect(page.locator('#finish-btn')).toBeVisible();
+
+  await page.locator('.add-flag-btn').click();
+  await page.locator('input[name="flagCat"][value="voice"]').check();
+  // La phrase dite a cet instant est proposee, cochee.
+  await expect(page.locator('input[name="voicePhrase"]:checked')).toHaveCount(1);
+  await expect(page.locator('#addflag-voice-phrases')).toContainText('Bonjour monde');
+  // Sans dire ce qui cloche : refuse (refaire a l'identique ne changerait rien).
+  await page.locator('#addflag-modal-bg button:has-text("Ajouter")').click();
+  await expect(page.locator('#addflag-msg')).toContainText('Dis ce qui cloche');
+  await page.locator('#addflag-note').fill('« monde » est avalé');
+  await page.locator('#addflag-modal-bg button:has-text("Ajouter")').click();
+
+  await expect.poll(() => etat.sentence_flags.length).toBe(1);
+  expect(etat.sentence_flags[0]).toMatchObject({ flag_type: 'regen', sentence_index: 0, original_text: 'Bonjour monde' });
+  expect(etat.sentence_flags[0].note).toContain('avalé');
+  await expect(page.locator('#voice-requests')).toContainText('avalé');
+  // Rien dans les flags de la video : elle n'est ni rejetee, ni bloquee.
+  await expect(page.locator('.flag-row')).toHaveCount(0);
+  await page.locator('#finish-btn').click();
+  await expect(page.locator('#finish-confirm')).toHaveText('Oui, approuver');
+});
+
+test('vidéo : la revue est retrouvée même si le nom n’a pas la même casse', async ({ page }) => {
+  const etat = await mockVideo(page);
+  etat.reviews.push({ lesson_key: LESSON.lesson_key, reviewer_name: 'Rawen', flags: [], approved: false, rejected: true, reject_reason: 'texte coupé', video_version: 1, updated_at: '2026-11-09T10:00:00Z' });
+  await page.addInitScript(() => localStorage.setItem('rn', 'rawen'));
+  await page.goto(URL_VIDEO);
+  await expect(page.locator('#recheck-banner')).toContainText('texte coupé');
+  expect(await page.evaluate(() => localStorage.getItem('rn'))).toBe('Rawen');
+});
+
+test('voix : une valeur piégée venue de la base est affichée comme du texte (échappement)', async ({ page }) => {
+  await page.route('**/js.sentry-cdn.com/**', (r) => r.abort());
+  await page.route('**/storage/v1/**', (route) =>
+    route.request().url().includes('timestamps')
+      ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(WORDS) })
+      : route.fulfill({ status: 404, body: '{}' }),
+  );
+  const piege = '<img src=x id=piege>';
+  await page.route('**/rest/v1/**', (route) => {
+    const url = route.request().url();
+    if (route.request().method() === 'POST') return route.fulfill({ status: 201, body: '' });
+    let data = [];
+    if (url.includes('/lessons?')) data = [LESSON];
+    else if (url.includes('/voice_reviews?')) data = [{ lesson_key: LESSON.lesson_key, reviewer_name: 'Rawen', approved: false, glitches: [],
+      flags: [{ index: 0, word: piege, context: '**' + piege + '** monde', time: piege, sentenceIndex: 0, note: '" onmouseover="x' }] }];
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
+  });
+  await page.addInitScript(() => localStorage.setItem('rn', 'Rawen'));
+  await page.goto(URL_VOIX);
+  await expect(page.locator('#fl .ri')).toHaveCount(1);
+  await expect(page.locator('#piege')).toHaveCount(0);
+  await expect(page.locator('#fl .rw')).toHaveText(piege);
+  await expect(page.locator('#rnote0')).toHaveValue('" onmouseover="x');
 });

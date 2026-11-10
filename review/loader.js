@@ -56,7 +56,7 @@ function loadExistingReview(){
         // Match INSENSIBLE a la casse/aux espaces : "Héla" / "héla" / "hela " = la meme personne.
         // Avant, une simple difference de casse bloquait Hela en LECTURE SEULE sur sa PROPRE review
         // (« je ne peux pas approuver », 2026-07-01).
-        if (rname.toLowerCase() === rnN) { if (!mine) mine = rows[i]; }
+        if (XGReview.memeReviseur(rname, rn)) { if (!mine) mine = rows[i]; }
         else if (!other && Array.isArray(rows[i].flags) && rows[i].flags.length) other = rows[i];
       }
       var rev = mine || other || rows[0];
@@ -68,6 +68,7 @@ function loadExistingReview(){
       }
       // Etat d'approbation persistant : seule MA propre review compte (pas celle d'un autre).
       lessonApproved = !!(mine && mine.approved);
+      if (lessonApproved && typeof leconSuivanteVoix === 'function') leconSuivanteVoix();
       // Mode LECTURE si on affiche la review d'un AUTRE reviseur : on ne sauvegarde pas sous son nom.
       if (rev && rev.reviewer_name !== rn) {
         window.viewingOtherReview = rev.reviewer_name;
@@ -141,7 +142,8 @@ function loadExistingReview(){
 function showViewingBanner(name){
   var el = document.getElementById('viewing-banner');
   if (!el) return;
-  el.innerHTML = '<strong>\u{1F441}️ Tu regardes la review de ' + (name || '?') + '</strong><br>'
+  // Correctif 13 : le nom vient de la base -> echappe.
+  el.innerHTML = '<strong>\u{1F441}️ Tu regardes la revue de ' + escAttr(name || '?') + '</strong><br>'
     + 'Lecture seule : tu vois ses mots flaggés et, dans « Corrections faites », ce qui a été corrigé. '
     + 'Tes clics ne sont pas enregistrés (pour ne pas écraser son travail).';
   el.classList.remove('hidden');
@@ -235,7 +237,7 @@ function loadStatus(){
         }
       }
       if (s.voiceover_version && s.voiceover_version > 1) parts.push('Version <strong>'+s.voiceover_version+'</strong>');
-      if (s.regen_source) parts.push('Source : <strong>'+s.regen_source+'</strong>');
+      if (s.regen_source) parts.push('Source : <strong>'+escAttr(s.regen_source)+'</strong>');
       if (parts.length) {
         infoBar.innerHTML = parts.join('<span class="sep">·</span>');
         infoBar.style.display = 'flex';
@@ -255,7 +257,7 @@ function loadStatus(){
       } else if (s.status === 'approved') {
         document.getElementById('approved-banner').innerHTML =
           '<strong>✓ Cette lecon est deja approuvee</strong><br>'
-          + 'Approuvee par ' + (s.latest_reviewer || 'Anonyme') + ' le ' + fmtDate(s.latest_review_at);
+          + 'Approuvée par ' + escAttr(s.latest_reviewer || 'Anonyme') + ' le ' + fmtDate(s.latest_review_at);
         document.getElementById('approved-banner').classList.remove('hidden');
       }
     }, function(e){ XGNet.signaler(e, 'loadStatus'); });
@@ -272,7 +274,7 @@ function loadHistory(){
       list.innerHTML = rows.map(function(r){
         var flagsCnt = Array.isArray(r.flags) ? r.flags.length : 0;
         var approved = r.approved ? '<span style="color:#2ECC71">✓ approuvee</span>' : (flagsCnt+' flags');
-        return '<div class="history-row"><strong>'+fmtDate(r.archived_at)+'</strong> · '+r.reviewer_name+' · '+approved+'</div>';
+        return '<div class="history-row"><strong>'+fmtDate(r.archived_at)+'</strong> · '+escAttr(r.reviewer_name)+' · '+approved+'</div>';
       }).join('');
       panel.classList.remove('hidden');
     }, function(e){ XGNet.signaler(e, 'loadHistory'); });

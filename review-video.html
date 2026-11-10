@@ -6,7 +6,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <title>Video Review</title>
+  <title>Révision vidéo</title>
   <!-- Sentry error tracking -->
   <script src="https://js.sentry-cdn.com/ab9916085bc6c9e93779c21fad74456f.min.js" crossorigin="anonymous"></script>
   <script src="sentry-init.js?v=20260509a"></script>
@@ -33,14 +33,14 @@
 <div id="new-version-banner" class="hidden" style="background:rgba(243,156,18,0.12);border:1px solid rgba(243,156,18,0.45);border-left:4px solid #F39C12;border-radius:6px;padding:12px 16px;margin-bottom:10px;font-size:13px;line-height:1.6;color:#FDEBD0"></div>
 
 <div id="voice-not-approved-banner" class="recheck-banner hidden">
-  <strong>&#9888; Voiceover pas encore approuve</strong><br>
-  Le voiceover de cette lecon doit etre approuve avant de pouvoir reviewer la video.
-  <a id="back-to-voice-link" href="#" style="color:#F8CACE;text-decoration:underline">Aller au voice review &rarr;</a>
+  <strong>&#9888; La voix n'est pas encore approuvée</strong><br>
+  La voix de cette leçon doit être approuvée avant de pouvoir réviser la vidéo.
+  <a id="back-to-voice-link" href="#" style="color:#F8CACE;text-decoration:underline">Aller réviser la voix &rarr;</a>
 </div>
 
 <div id="no-video-banner" class="recheck-banner hidden">
-  <strong>&#9888; Video pas encore produite</strong><br>
-  Cette lecon n'a pas encore de video assemblee. Reviens plus tard.
+  <strong>&#9888; Vidéo pas encore produite</strong><br>
+  Cette leçon n'a pas encore de vidéo montée. Reviens plus tard.
 </div>
 
 <div id="recheck-banner" class="recheck-banner hidden"></div>
@@ -69,25 +69,25 @@
     </div>
   </div>
   <div class="actions-row">
-    <button class="add-flag-btn" onclick="openAddFlagModal()" title="Ajouter un flag a la position courante (raccourci: F)">
-      &#128205; ADD FLAG ICI
+    <button class="add-flag-btn" onclick="openAddFlagModal()" title="Noter un problème à cet instant de la vidéo (raccourci : F)">
+      &#128205; Problème ici
     </button>
-    <button class="seek-btn" onclick="seekRel(-10)" title="Reculer de 10s (J)">&#9194; -10s</button>
-    <button class="seek-btn" onclick="seekRel(10)" title="Avancer de 10s (K)">+10s &#9193;</button>
+    <button class="seek-btn" onclick="seekRel(-10)" title="Reculer de 10 s (J)">&#9194; -10 s</button>
+    <button class="seek-btn" onclick="seekRel(10)" title="Avancer de 10 s (K)">+10 s &#9193;</button>
     <span class="shortcuts-hint">
-      <span>Espace</span> play &middot;
-      <span>F</span> flag &middot;
-      <span>J/K</span> -10/+10s &middot;
-      <span>Ctrl+S</span> save
+      <span>Espace</span> lecture &middot;
+      <span>F</span> problème &middot;
+      <span>J/K</span> -10/+10 s &middot;
+      <span>Ctrl+S</span> sauvegarder
     </span>
   </div>
 </div>
 
 <!-- Flags panel -->
 <div class="fp" id="flags-panel" style="display:none">
-  <div class="sec r" id="flags-section-title">&#128681; Issues flaggees (0)</div>
+  <div class="sec r" id="flags-section-title">&#128681; Problèmes notés (0)</div>
   <div id="flags-list">
-    <div class="empty">Clique sur "ADD FLAG ICI" pendant la lecture pour signaler un probleme.</div>
+    <div class="empty">Clique « Problème ici » pendant la lecture pour noter un problème.</div>
   </div>
   <div class="acts">
     <!-- UN seul bouton de fin (chantier 03) : approuvee s'il n'y a aucun probleme bloquant,
@@ -95,40 +95,51 @@
     <button class="btn bg" id="finish-btn" onclick="askFinish()">&#10003; J'ai fini cette vidéo</button>
     <button class="btn by" onclick="saveReview(false).catch(function(e){XGNet.signaler(e,'bouton sauvegarder video')})" title="La revue se sauvegarde toute seule 2 s après chaque changement">Sauvegarder</button>
     <button class="btn by" onclick="copyReview()">Copier liste</button>
-    <button class="btn" id="lms-lesson-push-btn" onclick="pushLessonToGhl()" style="background:rgba(155,89,182,0.15);color:#bb8fce;border:1px solid rgba(155,89,182,0.4);display:none">🚀 Push to GHL</button>
+    <button class="btn" id="lms-lesson-push-btn" onclick="pushLessonToGhl()" style="background:rgba(155,89,182,0.15);color:#bb8fce;border:1px solid rgba(155,89,182,0.4);display:none">🚀 Préparer pour GHL</button>
+    <a class="btn bg" id="next-lesson" style="display:none;text-decoration:none" href="#">Vidéo suivante →</a>
     <span class="msg" id="msg"></span>
   </div>
   <div class="verdict-state" id="verdict-state"></div>
+  <div id="voice-requests"></div>
 </div>
 
 <!-- Modal: Add Flag -->
 <div class="modal-bg" id="addflag-modal-bg">
   <div class="modal addflag-modal">
-    <h3>&#128205; Flag a <span id="addflag-time">0:00</span></h3>
+    <h3>&#128205; Problème à <span id="addflag-time">0:00</span></h3>
 
+    <!-- Defauts CONCRETS a choisir (correctif 8, chantier 03). Avant : 7 categories vagues
+         avec une description grise sous chacune (« Image floue, bug graphique ») que la
+         reviseuse recopiait dans la note : 502 flags sur 1 113 disaient cette phrase et
+         personne ne savait quoi corriger. Plus de texte gris a recopier : le libelle EST le
+         defaut. Les cles audio_sync, text_cut et typo sont gardees (process-video-flags
+         repare seul les audio_sync). -->
+    <p class="addflag-q">Qu'est-ce qui ne va pas à cet instant ?</p>
     <div class="addflag-categories">
-      <label class="cat-option"><input type="radio" name="flagCat" value="visual">
-        <span><strong>&#128064; Visuel</strong><em>Image floue, bug graphique</em></span></label>
-      <label class="cat-option"><input type="radio" name="flagCat" value="audio_sync">
-        <span><strong>&#128266; Audio sync</strong><em>Voix decalee de l'image</em></span></label>
-      <label class="cat-option"><input type="radio" name="flagCat" value="transition">
-        <span><strong>&#9889; Transition</strong><em>Cut sec, fondu rate</em></span></label>
-      <label class="cat-option"><input type="radio" name="flagCat" value="text_cut">
-        <span><strong>&#9986; Texte coupe</strong><em>Sous-titre tronque</em></span></label>
-      <label class="cat-option"><input type="radio" name="flagCat" value="animation_jitter">
-        <span><strong>&#128250; Animation</strong><em>Mouvement saccade</em></span></label>
-      <label class="cat-option"><input type="radio" name="flagCat" value="typo">
-        <span><strong>&#9999; Typo</strong><em>Faute dans le texte affiche</em></span></label>
-      <label class="cat-option"><input type="radio" name="flagCat" value="other">
-        <span><strong>&#10067; Autre</strong><em>Autre probleme</em></span></label>
+      <label class="cat-option"><input type="radio" name="flagCat" value="text_overlap" onchange="onFlagCatChange()"><span><strong>Texte par-dessus un autre texte</strong></span></label>
+      <label class="cat-option"><input type="radio" name="flagCat" value="text_cut" onchange="onFlagCatChange()"><span><strong>Texte coupé ou qui déborde</strong></span></label>
+      <label class="cat-option"><input type="radio" name="flagCat" value="typo" onchange="onFlagCatChange()"><span><strong>Faute d'orthographe à l'écran</strong></span></label>
+      <label class="cat-option"><input type="radio" name="flagCat" value="screen_voice_mismatch" onchange="onFlagCatChange()"><span><strong>L'écran ne dit pas la même chose que la voix</strong></span></label>
+      <label class="cat-option"><input type="radio" name="flagCat" value="number_sync" onchange="onFlagCatChange()"><span><strong>Numéro ou étape qui ne suit pas la voix</strong></span></label>
+      <label class="cat-option"><input type="radio" name="flagCat" value="audio_sync" onchange="onFlagCatChange()"><span><strong>L'écran arrive en retard (ou en avance) sur la voix</strong></span></label>
+      <label class="cat-option"><input type="radio" name="flagCat" value="frozen_screen" onchange="onFlagCatChange()"><span><strong>Écran vide ou figé</strong></span></label>
+      <label class="cat-option"><input type="radio" name="flagCat" value="wrong_image" onchange="onFlagCatChange()"><span><strong>Mauvaise image (hors sujet, mauvaise pratique)</strong></span></label>
+      <label class="cat-option cat-voice"><input type="radio" name="flagCat" value="voice" onchange="onFlagCatChange()"><span><strong>Problème de voix (mot mal dit, voix bizarre)</strong></span></label>
+      <label class="cat-option"><input type="radio" name="flagCat" value="other" onchange="onFlagCatChange()"><span><strong>Autre chose</strong></span></label>
+    </div>
+
+    <!-- Problème de voix : ça part côté VOIX (comme le crayon « Voix bizarre »), pas en rejet vidéo. -->
+    <div class="addflag-voice" id="addflag-voice" style="display:none">
+      <p>Ça part <strong>côté voix</strong> (pas un rejet de la vidéo). Quelle phrase ?</p>
+      <div id="addflag-voice-phrases"></div>
     </div>
 
     <div class="addflag-fields">
-      <label>Note (optionnel) :</label>
-      <textarea id="addflag-note" rows="2" placeholder="Decris le probleme..."></textarea>
-      <div class="addflag-severity">
-        <label><input type="radio" name="flagSev" value="blocker" checked> &#128308; Bloquant</label>
-        <label><input type="radio" name="flagSev" value="minor"> &#128993; Mineur</label>
+      <label id="addflag-note-label">Ce que tu vois (facultatif) :</label>
+      <textarea id="addflag-note" rows="2" placeholder="Ex. : le titre cache la 2e ligne de la liste"></textarea>
+      <div class="addflag-severity" id="addflag-severity">
+        <label><input type="radio" name="flagSev" value="blocker" checked> &#128308; Bloquant — à corriger avant de publier</label>
+        <label><input type="radio" name="flagSev" value="minor"> &#128993; Mineur — à noter pour les prochaines vidéos</label>
       </div>
     </div>
 
