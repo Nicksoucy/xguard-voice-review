@@ -307,3 +307,6 @@
 
 /* Etat de la revue sous les boutons (chantier 03) : la reviseuse voit toujours ou elle en est. */
 .verdict-state{margin-top:10px;font-size:14px;color:#CBD5E1;line-height:1.5}
+/* Le bandeau « nouvelle version » n'avait pas de regle .hidden : une barre orange VIDE
+   s'affichait en haut de chaque video (constate le 2026-11-10). */
+#new-version-banner.hidden{display:none}
