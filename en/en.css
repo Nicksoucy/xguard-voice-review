@@ -38,3 +38,10 @@ h2{font-size:16px;margin:0 0 8px}
 .chip.recheck{background:rgba(243,156,18,0.22);color:#F8C471}
 .recheck-card{border-color:rgba(243,156,18,0.45)}
 .recheck-card h2{color:#F8C471}
+/* Onglets de l'accueil (memes 5 que le cockpit francais). */
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:10px}
+.tabs button{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#cfd6e4;border-radius:7px;padding:8px 12px;font:inherit;font-size:14px;cursor:pointer;display:flex;align-items:center;gap:7px}
+.tabs button.on{background:#C0392B;border-color:#C0392B;color:#fff}
+.tabs .tcount{background:rgba(255,255,255,0.18);border-radius:10px;padding:0 7px;font-size:12px;font-weight:700}
+.tabs .tcount.zero{opacity:.55}
+.allgood h2{color:#F0F0F0}

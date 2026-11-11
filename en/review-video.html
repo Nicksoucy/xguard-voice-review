@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Video review — XGuard Academy</title>
+<link rel="stylesheet" href="en.css?v=4d8ca5a">
+<style>
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;margin-top:10px}
+@media (max-width:820px){.layout{grid-template-columns:1fr}}
+video{width:100%;background:#000;border-radius:8px;display:block}
+.vbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.side h2{font-size:15px;margin:4px 0 8px}
+.f{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:13.5px}
+.f.minor{opacity:.8}
+.f .rm{float:right;border:none;background:none;color:#B4BFCF;cursor:pointer;font-size:15px}
+.f .when{border:none;background:none;color:#AED6F1;cursor:pointer;font:inherit;font-weight:700;padding:0}
+.f .note{color:#B4BFCF;font-size:13px;margin-top:3px}
+.acts{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.btn:disabled{opacity:.6;cursor:default}
+.msg{font-size:13.5px;color:#7DCEA0;min-height:18px}
+.msg.err{color:#F5B7B1}
+.banner{border-radius:8px;padding:10px 14px;margin:8px 0;font-size:14px;line-height:1.5}
+.banner.ok{background:rgba(39,174,96,0.15);color:#7DCEA0}
+.banner.warn{background:rgba(243,156,18,0.15);color:#F8C471}
+.banner.info{background:rgba(52,152,219,0.15);color:#AED6F1}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
+.modal-bg.on{display:flex}
+.modal{background:#141A2B;border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:18px;max-width:560px;width:100%;max-height:90vh;overflow:auto}
+.modal h3{margin-bottom:8px}
+.modal label{display:block;font-size:14px;margin:5px 0;cursor:pointer}
+.modal textarea{width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:5px;padding:6px 8px;font:inherit;font-size:13.5px;margin-top:4px}
+.modal .row-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+</style>
+</head>
+<body>
+<!--
+  Revision VIDEO de l'edition anglaise (2026-11-12), pendant de review-video.html (francais).
+  Meme contrat que le francais, pour que lesson_status_full et l'outillage lisent pareil :
+    video_reviews (flags {id, time, category, severity, note, created_at}, approved, rejected,
+    reject_reason, video_version), upsert lesson_key + reviewer_name.
+  « Problem with the voice » part dans sentence_flags (regen), comme le francais : c'est le
+  robot anglais (pipeline/scripts/process-edition-anglaise.mjs) qui refait la phrase.
+  Les flags video, eux, ne sont repris par AUCUN robot pour l'anglais (les demons video
+  francais ignorent les cours -en) : l'equipe les traite en session. La page le dit.
+  Au 2026-11-12, aucune video anglaise n'existe : la page dit alors simplement pourquoi.
+-->
+<div class="top">
+  <div>
+    <h1 id="title">Loading…</h1>
+    <div class="sub" id="subtitle"></div>
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <a class="navlink" href="index.html#video">← Video review</a>
+    <a class="navlink" id="voice-link" hidden>🎙️ Voice of this lesson</a>
+  </div>
+</div>
+<div id="banner-name"></div>
+<div id="banner"></div>
+
+<div class="layout" id="layout" hidden>
+  <div>
+    <video id="vid" controls preload="metadata" playsinline></video>
+    <div class="vbar">
+      <button class="btn red" id="badd" onclick="ouvrirProbleme()">+ Note a problem at this moment</button>
+      <span class="counts" id="tm"></span>
+    </div>
+  </div>
+  <div class="side">
+    <h2>Problems noted <span class="counts" id="nflags"></span></h2>
+    <div id="flags"><div class="empty">Pause the video where something is wrong, then click “Note a problem”.</div></div>
+    <div class="acts">
+      <button class="btn green" id="bfinish" onclick="finir()">I'm done with this video</button>
+      <span class="msg" id="msg"></span>
+    </div>
+    <p class="help" style="margin-top:10px">With no blocking problem, the video is approved. With at least one, it goes back to the team to be fixed, and a new version comes back here.</p>
+  </div>
+</div>
+
+<div class="modal-bg" id="m-probleme">
+  <div class="modal">
+    <h3>What is wrong at <span id="p-temps"></span>?</h3>
+    <div id="p-cats"></div>
+    <div id="p-voix" hidden>
+      <p class="help" style="margin-top:8px">Which sentence? The robot will redo it.</p>
+      <div id="p-phrases"></div>
+    </div>
+    <div id="p-sev" style="margin-top:8px">
+      <label><input type="radio" name="sev" value="blocker" checked> Blocking: the video cannot go out like this</label>
+      <label><input type="radio" name="sev" value="minor"> Minor: a remark for the next videos</label>
+    </div>
+    <textarea id="p-note" rows="3" placeholder="What you see, and what it should be instead"></textarea>
+    <div class="msg" id="p-msg"></div>
+    <div class="row-btns">
+      <button class="btn ghost" onclick="fermer('m-probleme')">Cancel</button>
+      <button class="btn red" id="p-ok" onclick="ajouterProbleme()">Add</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="m-fin">
+  <div class="modal">
+    <h3 id="fin-titre"></h3>
+    <p class="help" id="fin-texte"></p>
+    <textarea id="fin-raison" rows="3" placeholder="In a few words, what must be fixed (optional)" hidden></textarea>
+    <div class="msg" id="fin-msg"></div>
+    <div class="row-btns">
+      <button class="btn ghost" onclick="fermer('m-fin')">Cancel</button>
+      <button class="btn green" id="fin-ok" onclick="confirmerFin()"></button>
+    </div>
+  </div>
+</div>
+
+<script src="https://js.sentry-cdn.com/ab9916085bc6c9e93779c21fad74456f.min.js" crossorigin="anonymous"></script>
+<script src="../sentry-init.js?v=4d8ca5a"></script>
+<script src="../lib/app-config.js?v=4d8ca5a"></script>
+<script src="../lib/review-logic.js?v=4d8ca5a"></script>
+<script src="../lib/net.js?v=4d8ca5a"></script>
+<script>
+var XG = window.XG, API = XG.API, H = XG.H;
+var VIDEOS = XG.SUPA_URL + '/storage/v1/object/public/videos';
+var VOIX = XG.SUPA_URL + '/storage/v1/object/public/voiceovers';
+var cle = new URLSearchParams(location.search).get('key') || '';
+var L = null, VM = null, mots = [];
+var flags = [], verdict = { approved: false, rejected: false, reason: null };
+var revueChargee = false, minuterie = null, tempsProbleme = 0;
+
+// Memes cles que le francais (FLAG_CATEGORIES de review-video.js), libelles en anglais.
+var CATS = [
+  ['text_overlap', 'Text on top of other text'],
+  ['text_cut', 'Text cut off or overflowing'],
+  ['typo', 'Spelling mistake on screen'],
+  ['screen_voice_mismatch', 'The screen does not say what the voice says'],
+  ['number_sync', 'A number or step does not follow the voice'],
+  ['audio_sync', 'The screen comes too late (or too early) for the voice'],
+  ['frozen_screen', 'Blank or frozen screen'],
+  ['wrong_image', 'Wrong image (off topic, or showing bad practice)'],
+  ['voice', 'Problem with the voice (word said badly, odd voice)'],
+  ['other', 'Something else'],
+];
+function libelleCat(k){ var c = CATS.filter(function(x){ return x[0] === k; })[0]; return c ? c[1] : k; }
+
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function fmt(s){ s = s || 0; return Math.floor(s/60) + ':' + ('0' + Math.floor(s%60)).slice(-2); }
+function jour(iso){ var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('en-CA', { month: 'long', day: 'numeric' }); }
+function nom(){ try { return (localStorage.getItem('rn') || '').trim(); } catch (e) { console.warn('localStorage unavailable', e); return ''; } }
+function msg(t, erreur){ var m = document.getElementById('msg'); m.textContent = t; m.classList.toggle('err', !!erreur); }
+function ouvrir(id){ document.getElementById(id).classList.add('on'); }
+function fermer(id){ document.getElementById(id).classList.remove('on'); }
+function banniere(cls, html){ document.getElementById('banner').innerHTML = html ? '<div class="banner ' + cls + '">' + html + '</div>' : ''; }
+
+if (!XG.estAnglais(cle)) {
+  document.getElementById('title').textContent = 'This lesson is not part of the English edition.';
+  throw new Error('cle non anglaise : ' + cle);
+}
+if (!nom()) {
+  document.getElementById('banner-name').innerHTML = '<div class="banner warn">Please type your name on the <a class="navlink" href="index.html">home page</a> before you start. It signs your review.</div>';
+}
+
+var lire = function(q, action){ return XGNet.requete(API + '/' + q, { headers: H }, { action: action }); };
+var k = encodeURIComponent(cle);
+Promise.all([
+  lire('lesson_status_full?lesson_key=eq.' + k + '&select=*', 'load the lesson'),
+  lire('video_metadata?lesson_key=eq.' + k + '&select=*', 'load the video'),
+  lire('video_reviews?lesson_key=eq.' + k + '&select=*&order=updated_at.desc', 'load your review'),
+]).then(function(r){
+  L = r[0][0];
+  if (!L) throw new Error('lesson not found');
+  VM = r[1][0] || null;
+  document.title = L.title + ' — Video review';
+  document.getElementById('title').textContent = L.title;
+  document.getElementById('subtitle').textContent = 'Module ' + L.module_index + ', lesson ' + L.lesson_index + (VM && VM.version ? ' · video version ' + VM.version : '');
+  var vl = document.getElementById('voice-link');
+  vl.href = 'review.html?key=' + k; vl.hidden = false;
+
+  if (!VM || !VM.video_path) {
+    banniere('info', '<b>No video yet for this lesson.</b> Each English video is made after the voice of its lesson is approved'
+      + (L.latest_approved ? '. This voice is approved: its video is next.' : '. This voice is not approved yet: <a class="navlink" href="review.html?key=' + k + '">review the voice first</a>.'));
+    return;
+  }
+  if (!L.latest_approved) banniere('warn', 'The voice of this lesson is not approved yet. You can watch the video, but the voice may still change.');
+
+  // Sa revue a elle (meme reviseuse sans tenir compte de la casse), et seulement si elle
+  // porte sur CETTE version : un flag horodate sur un autre montage ne veut plus rien dire.
+  var moi = (r[2] || []).filter(function(x){ return XGReview.memeReviseur(x.reviewer_name, nom()); })[0];
+  if (moi) {
+    var vRevue = moi.video_version || 1, vCour = VM.version || 1;
+    if (vCour > vRevue) {
+      banniere('info', '<b>New video, version ' + vCour + '</b>' + (VM.produced_at ? ', made on ' + esc(jour(VM.produced_at)) : '') + '. You had watched version ' + vRevue + '. Please watch this one in full.');
+    } else {
+      flags = (moi.flags || []).slice().sort(function(a, b){ return a.time - b.time; });
+      verdict = { approved: !!moi.approved, rejected: !!moi.rejected, reason: moi.reject_reason || null };
+      if (verdict.approved) banniere('ok', 'You approved this video on ' + esc(jour(moi.updated_at)) + '.');
+      else if (verdict.rejected) banniere('warn', 'You sent this video back to be fixed on ' + esc(jour(moi.updated_at)) + '. A new version will come back here.');
+    }
+  }
+  revueChargee = true;
+  var vp = String(VM.video_path);
+  if (/^https?:\/\//i.test(vp) && vp.indexOf(XG.SUPA_URL + '/storage/') !== 0) throw new Error('video address refused');
+  document.getElementById('vid').src = /^https?:\/\//i.test(vp) ? vp
+    : VIDEOS + '/' + vp.replace(/^videos\//, '').split('/').map(encodeURIComponent).join('/') + '?v=' + encodeURIComponent(VM.produced_at || Date.now());
+  document.getElementById('layout').hidden = false;
+  rendreFlags();
+  chargerMots();
+}).catch(function(e){
+  XGNet.signaler(e, 'en video chargement');
+  document.getElementById('title').textContent = 'This video could not be loaded';
+});
+
+var vid = document.getElementById('vid');
+vid.addEventListener('timeupdate', function(){ document.getElementById('tm').textContent = fmt(vid.currentTime) + ' / ' + fmt(vid.duration); });
+vid.addEventListener('error', function(){
+  XGNet.signaler(new Error('video illisible ' + vid.src), 'en video lecture');
+  XGNet.afficherErreur('video', 'The video could not be played. Please check your internet, then try again.');
+});
+
+// Phrases de la voix (pour « Problem with the voice ») : memes fichiers que la page voix.
+function chargerMots(){
+  var essais = ['/' + cle + '/voiceover-timestamps.json', '/preview/' + cle + '/voiceover-timestamps.json'];
+  (function essai(i){
+    if (i >= essais.length) return;
+    fetch(VOIX + essais[i] + '?v=' + Date.now()).then(function(r){ return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
+      .then(function(j){ mots = Array.isArray(j) ? j : (j && j.words) || []; })
+      .catch(function(e){ console.info('timestamps voix : essai suivant', e.message); essai(i + 1); });
+  })(0);
+}
+
+function rendreFlags(){
+  document.getElementById('nflags').textContent = flags.length ? '(' + flags.length + ')' : '';
+  document.getElementById('flags').innerHTML = flags.length ? flags.map(function(f, i){
+    return '<div class="f' + (f.severity === 'minor' ? ' minor' : '') + '"><button class="rm" title="Remove" onclick="retirer(' + i + ')">✕</button>'
+      + '<button class="when" onclick="vid.currentTime=' + (+f.time || 0) + ';vid.play()">' + fmt(f.time) + '</button> '
+      + esc(libelleCat(f.category)) + (f.severity === 'minor' ? ' <span class="counts">(minor)</span>' : '')
+      + (f.note ? '<div class="note">' + esc(f.note) + '</div>' : '') + '</div>';
+  }).join('') : '<div class="empty">Pause the video where something is wrong, then click “Note a problem”.</div>';
+}
+function retirer(i){ flags.splice(i, 1); rendreFlags(); plusTard(); }
+
+function ouvrirProbleme(){
+  if (!revueChargee) return;
+  vid.pause();
+  tempsProbleme = vid.currentTime || 0;
+  document.getElementById('p-temps').textContent = fmt(tempsProbleme);
+  document.getElementById('p-cats').innerHTML = CATS.map(function(c){
+    return '<label><input type="radio" name="cat" value="' + c[0] + '" onchange="changerCat()"> ' + esc(c[1]) + '</label>';
+  }).join('');
+  document.getElementById('p-note').value = '';
+  document.getElementById('p-msg').textContent = '';
+  document.getElementById('p-voix').hidden = true;
+  document.getElementById('p-sev').hidden = false;
+  ouvrir('m-probleme');
+}
+function changerCat(){
+  var c = document.querySelector('input[name="cat"]:checked').value;
+  var voix = c === 'voice';
+  document.getElementById('p-voix').hidden = !voix;
+  document.getElementById('p-sev').hidden = voix;
+  document.getElementById('p-note').placeholder = voix ? 'What sounds wrong (required): which word, how it should sound'
+    : c === 'other' ? 'Describe the problem (required)' : 'What you see, and what it should be instead (optional)';
+  if (voix) {
+    // La phrase dite a cet instant, et ses voisines : le montage peut decaler un peu.
+    var si = XGReview.sentenceAtTime ? XGReview.sentenceAtTime(mots, tempsProbleme) : null;
+    var choix = si == null ? [] : [si - 1, si, si + 1].filter(function(x){ return x >= 0 && XGReview.sentenceText(mots, x); });
+    document.getElementById('p-phrases').innerHTML = choix.length ? choix.map(function(x){
+      return '<label><input type="radio" name="phr" value="' + x + '"' + (x === si ? ' checked' : '') + '> ' + esc(XGReview.sentenceText(mots, x)) + '</label>';
+    }).join('') : '<div class="help">The sentences of the voice could not be loaded. Use the voice page instead.</div>';
+  }
+}
+function ajouterProbleme(){
+  var c = document.querySelector('input[name="cat"]:checked');
+  var pm = document.getElementById('p-msg');
+  pm.classList.add('err');
+  if (!c) { pm.textContent = 'Choose what is wrong.'; return; }
+  var note = document.getElementById('p-note').value.trim();
+  if ((c.value === 'voice' || c.value === 'other') && !note) { pm.textContent = c.value === 'voice' ? 'Say what sounds wrong.' : 'Describe the problem.'; return; }
+  if (c.value === 'voice') return envoyerVoix(note);
+  flags.push({ id: 'f' + Date.now().toString(36), time: tempsProbleme, category: c.value,
+    severity: document.querySelector('input[name="sev"]:checked').value, note: note, created_at: new Date().toISOString() });
+  flags.sort(function(a, b){ return a.time - b.time; });
+  // Un probleme bloquant retire l'approbation (sans inventer un renvoi).
+  if (verdict.approved && c.value !== 'voice' && document.querySelector('input[name="sev"]:checked').value === 'blocker') verdict.approved = false;
+  fermer('m-probleme');
+  rendreFlags();
+  plusTard();
+}
+// « Problem with the voice » : une demande de re-tirage au robot anglais (sentence_flags),
+// pas un flag video — comme le francais.
+function envoyerVoix(note){
+  var ph = document.querySelector('input[name="phr"]:checked');
+  var pm = document.getElementById('p-msg');
+  if (!ph) { pm.textContent = 'Choose the sentence.'; return; }
+  var si = +ph.value;
+  pm.classList.remove('err'); pm.textContent = 'Sending…';
+  XGNet.requete(API + '/sentence_flags', {
+    method: 'POST',
+    headers: Object.assign({}, H, { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+    body: JSON.stringify({ lesson_key: cle, sentence_index: si, flag_type: 'regen', original_text: XGReview.sentenceText(mots, si),
+      note: '[from the video at ' + fmt(tempsProbleme) + '] ' + note, reviewer_name: nom() || 'Anonymous' }),
+  }, { action: 'send the voice problem', cle: 'voix-' + si, json: false }).then(function(){
+    pm.textContent = '✓ Sent to the fix robot. It will redo this sentence; the video follows the new voice.';
+    setTimeout(function(){ fermer('m-probleme'); }, 1400);
+  }, function(){ pm.classList.add('err'); pm.textContent = 'Not sent yet. Use Try again at the top of the page.'; });
+}
+
+function bloquants(){ return flags.filter(function(f){ return f.severity !== 'minor' && f.category !== 'voice'; }); }
+
+function plusTard(){ clearTimeout(minuterie); minuterie = setTimeout(function(){ sauver(); }, 2000); msg('Unsaved changes…'); }
+// Rend une promesse resolue seulement apres une reponse 2xx du serveur.
+function sauver(){
+  if (!L || !revueChargee) return Promise.reject(new Error('revue non chargee'));
+  var rn = nom();
+  if (!rn) { msg('Type your name on the home page first.', true); return Promise.reject(new Error('sans nom')); }
+  clearTimeout(minuterie); minuterie = null;
+  msg('Saving…');
+  return XGNet.requete(API + '/video_reviews?on_conflict=lesson_key,reviewer_name', {
+    method: 'POST',
+    headers: Object.assign({}, H, { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal' }),
+    body: JSON.stringify({
+      lesson_key: L.lesson_key, course_id: L.course_id, lesson_id: L.lesson_key.split('/').slice(1).join('/'), lesson_title: L.title,
+      reviewer_name: rn, flags: flags, approved: !!verdict.approved, rejected: !!verdict.rejected,
+      reject_reason: verdict.rejected ? (verdict.reason || null) : null, video_version: VM ? VM.version : null,
+      updated_at: new Date().toISOString(),
+    }),
+  }, { action: 'save your video review', cle: 'sauver-video', essais: 3, json: false, reessayer: function(){ sauver(); } })
+    .then(function(){ msg('✓ Saved'); return true; }, function(e){ msg('Not saved yet. Use Try again at the top of the page.', true); throw e; });
+}
+
+// « I'm done » decide : aucun probleme bloquant = approuvee ; sinon = a corriger.
+function finir(){
+  var bl = bloquants();
+  var ok = document.getElementById('fin-ok');
+  document.getElementById('fin-msg').textContent = '';
+  ok.disabled = false;
+  if (!bl.length) {
+    document.getElementById('fin-titre').textContent = '✓ Approve this video?';
+    document.getElementById('fin-texte').textContent = 'You noted no blocking problem: the video will be approved.';
+    document.getElementById('fin-raison').hidden = true;
+    ok.textContent = 'Yes, approve'; ok.className = 'btn green';
+  } else {
+    document.getElementById('fin-titre').textContent = '🔧 Send this video back to be fixed?';
+    document.getElementById('fin-texte').textContent = 'You noted ' + bl.length + ' blocking problem' + (bl.length > 1 ? 's' : '') + '. The video goes back to the team with your list, and a new version will come back here.';
+    document.getElementById('fin-raison').hidden = false;
+    ok.textContent = 'Send back'; ok.className = 'btn red';
+  }
+  ouvrir('m-fin');
+}
+function confirmerFin(){
+  var bl = bloquants();
+  var avant = verdict;
+  verdict = !bl.length ? { approved: true, rejected: false, reason: null }
+    : { approved: false, rejected: true, reason: (document.getElementById('fin-raison').value.trim()
+        || bl.map(function(f){ return fmt(f.time) + ' ' + libelleCat(f.category) + (f.note ? ' — ' + f.note : ''); }).join(' | ')).slice(0, 500) };
+  var ok = document.getElementById('fin-ok');
+  ok.disabled = true;
+  document.getElementById('fin-msg').textContent = 'Sending…';
+  sauver().then(function(){
+    fermer('m-fin');
+    banniere(verdict.approved ? 'ok' : 'warn', verdict.approved ? '✓ Video approved. Thank you!' : 'Sent back to be fixed. A new version will come back here.');
+  }, function(){
+    verdict = avant; // rien n'est annonce tant que le serveur n'a pas dit oui
+    ok.disabled = false;
+    document.getElementById('fin-msg').textContent = 'Not sent yet. Use Try again at the top of the page.';
+  });
+}
+
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape') { fermer('m-probleme'); fermer('m-fin'); }
+});
+window.addEventListener('beforeunload', function(e){
+  if (!minuterie) return;
+  sauver().catch(function(err){ XGNet.signaler(err, 'en video sauvegarde fermeture'); });
+  e.preventDefault(); e.returnValue = '';
+});
+</script>
+</body>
+</html>

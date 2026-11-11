@@ -7,7 +7,10 @@
 //  4. Accueil : section « Listen again » en tete.
 // Tout tourne sur un Supabase SIMULE (page.route) : zero appel a la base de production.
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import { WORDS } from '../fixtures/review.mjs';
+
+const MP4 = readFileSync(new URL('../fixtures/mini.mp4', import.meta.url));
 
 const CLE = 'demo-en/module-01/01-demo';
 const URL_REVUE = '/en/review.html?key=' + encodeURIComponent(CLE);
@@ -21,10 +24,11 @@ function lecon(over = {}) {
 }
 
 // Mock AVEC MEMOIRE : les POST voice_reviews sont gardes et relus au rechargement (upsert).
-async function mockEn(page, { coupe = () => false, lesson = lecon(), review = null, demandes = [], metadata = [], battements = [] } = {}) {
-  const etat = { posts: [], review, demandes: [...demandes] };
+async function mockEn(page, { coupe = () => false, lesson = lecon(), review = null, demandes = [], metadata = [], battements = [], video = null } = {}) {
+  const etat = { posts: [], review, demandes: [...demandes], videoPosts: [], voix: [] };
   await page.route('**/js.sentry-cdn.com/**', (r) => r.abort());
   await page.route('**/storage/v1/**', (route) => {
+    if (route.request().url().includes('.mp4')) return route.fulfill({ status: 200, contentType: 'video/mp4', body: MP4 });
     if (route.request().url().includes('timestamps')) {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(WORDS) });
     }
@@ -40,12 +44,22 @@ async function mockEn(page, { coupe = () => false, lesson = lecon(), review = nu
       etat.review = body;
       return route.fulfill({ status: 201, body: '' });
     }
+    if (url.includes('/video_reviews') && req.method() === 'POST') {
+      etat.videoPosts.push(JSON.parse(req.postData() || '{}'));
+      return route.fulfill({ status: 201, body: '' });
+    }
+    if (url.includes('/sentence_flags') && req.method() === 'POST') {
+      etat.voix.push(JSON.parse(req.postData() || '{}'));
+      return route.fulfill({ status: 201, body: '' });
+    }
     if (url.includes('/correction_requests') && req.method() === 'POST') {
       etat.demandes.push({ ...JSON.parse(req.postData() || '{}'), status: 'pending' });
       return route.fulfill({ status: 201, body: '' });
     }
     let data = [];
     if (url.includes('/correction_requests?')) data = etat.demandes;
+    else if (url.includes('/video_metadata?')) data = video ? [video] : metadata;
+    else if (url.includes('/video_reviews?')) data = [];
     else if (url.includes('/voiceover_metadata?')) data = metadata;
     else if (url.includes('/watchdog_heartbeat?')) data = battements;
     else if (url.includes('/lesson_status_full')) data = [lesson];
@@ -170,4 +184,68 @@ test('anglais : un refus du robot se lit, avec sa raison', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('rn', 'Rachelle'));
   await page.goto(URL_REVUE);
   await expect(page.locator('.f .st')).toHaveText('⏸ Noted for the team.');
+});
+
+// ── Onglets et revision video (2026-11-12) ─────────────────────────────
+test('anglais : l’accueil a les 5 onglets du français, et un onglet vide dit pourquoi', async ({ page }) => {
+  await mockEn(page, { lesson: lecon({ pipeline_stage: 'voice_review', module_id: 'm1' }) });
+  await page.goto('/en/index.html');
+  const onglets = page.locator('#tabs button');
+  await expect(onglets).toHaveCount(5);
+  await expect(onglets).toContainText(['Audio review', 'Video review', 'Production', 'Finished courses', 'GHL import']);
+  await onglets.filter({ hasText: 'Video review' }).click();
+  await expect(page.locator('#view')).toContainText('No video to watch yet');
+  await expect(page.locator('#view')).toContainText('0 of 1 English voices are approved');
+  await onglets.filter({ hasText: 'Production' }).click();
+  await expect(page.locator('#view')).toContainText('Voice to review');
+  await onglets.filter({ hasText: 'GHL import' }).click();
+  await expect(page.locator('#view')).toContainText('Nothing to import yet');
+  // L'onglet choisi survit au rechargement.
+  await page.reload();
+  await expect(page.locator('#tabs button.on')).toContainText('GHL import');
+});
+
+test('anglais : l’onglet vidéo liste les vidéos à regarder', async ({ page }) => {
+  await mockEn(page, { lesson: lecon({ pipeline_stage: 'video_review', module_id: 'm1', latest_approved: true }) });
+  await page.goto('/en/index.html#video');
+  await expect(page.locator('#view a.row')).toHaveAttribute('href', 'review-video.html?key=' + encodeURIComponent(CLE));
+});
+
+test('anglais : page vidéo sans vidéo -> explique pourquoi', async ({ page }) => {
+  await mockEn(page);
+  await page.addInitScript(() => localStorage.setItem('rn', 'Rachelle'));
+  await page.goto('/en/review-video.html?key=' + encodeURIComponent(CLE));
+  await expect(page.locator('#banner')).toContainText('No video yet for this lesson');
+  await expect(page.locator('#layout')).toBeHidden();
+});
+
+test('anglais : vidéo -> un problème bloquant la renvoie, un problème de voix part au robot', async ({ page }) => {
+  const etat = await mockEn(page, {
+    lesson: lecon({ latest_approved: true, pipeline_stage: 'video_review' }),
+    video: { lesson_key: CLE, video_path: 'demo-en/v1.mp4', version: 1, produced_at: '2026-11-12T10:00:00Z' },
+  });
+  await page.addInitScript(() => localStorage.setItem('rn', 'Rachelle'));
+  await page.goto('/en/review-video.html?key=' + encodeURIComponent(CLE));
+  await expect(page.locator('#layout')).toBeVisible();
+  // Probleme de voix -> sentence_flags regen, pas un flag video.
+  await page.locator('#badd').click();
+  await page.locator('input[name="cat"][value="voice"]').check();
+  await page.locator('#p-note').fill('monde sounds odd');
+  await page.locator('#p-ok').click();
+  await expect(page.locator('#p-msg')).toContainText('Sent to the fix robot');
+  expect(etat.voix[0]).toMatchObject({ lesson_key: CLE, flag_type: 'regen', sentence_index: 0 });
+  await expect(page.locator('#m-probleme')).not.toHaveClass(/on/);
+  // Probleme d'ecran bloquant -> « I'm done » renvoie la video.
+  await page.locator('#badd').click();
+  await page.locator('input[name="cat"][value="typo"]').check();
+  await page.locator('#p-note').fill('Recieve on screen');
+  await page.locator('#p-ok').click();
+  await expect(page.locator('#flags .f')).toHaveCount(1);
+  await page.locator('#bfinish').click();
+  await expect(page.locator('#fin-titre')).toContainText('Send this video back');
+  await page.locator('#fin-ok').click();
+  await expect(page.locator('#banner')).toContainText('Sent back to be fixed');
+  const dernier = etat.videoPosts.at(-1);
+  expect(dernier).toMatchObject({ lesson_key: CLE, rejected: true, approved: false, video_version: 1 });
+  expect(dernier.flags[0]).toMatchObject({ category: 'typo', severity: 'blocker', note: 'Recieve on screen' });
 });
