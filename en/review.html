@@ -50,6 +50,20 @@
 .modal .orig{color:#cfd6e4;font-size:14px;background:rgba(255,255,255,0.05);padding:8px 10px;border-radius:6px;margin-bottom:10px}
 .modal label{display:block;font-size:14px;margin:6px 0;cursor:pointer}
 .modal .row-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+/* Phrases dont la voix a ete refaite par le robot : a re-ecouter. */
+.s.green{background:rgba(39,174,96,0.13);border-left:3px solid #27AE60;padding-left:8px;border-radius:4px}
+.text.filtre .s:not(.green){display:none}
+.st{font-size:13px;margin-top:2px;line-height:1.4}
+.st.pending,.f .st.pending{color:#AED6F1}
+.st.processing,.f .st.processing{color:#F8C471}
+.st.done,.f .st.done{color:#7DCEA0}
+.st.review,.f .st.review{color:#F5B7B1}
+.f.fixed{border-color:rgba(39,174,96,0.6);background:rgba(39,174,96,0.08)}
+.f .fixrow{display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap}
+.f .fixrow .btn{padding:6px 12px}
+.robot{font-size:13px;color:#A8B3C4;margin:10px 0 0}
+.robot.on::before{content:'● ';color:#27AE60}
+.robot.off::before{content:'● ';color:#E67E22}
 </style>
 </head>
 <body>
@@ -58,9 +72,13 @@
   Ecrit dans les MEMES tables que l'app francaise, au MEME format, pour que la vue
   lesson_status_full et l'outillage de production les lisent pareil :
     voice_reviews (flags, glitches, approved) et sentence_flags (reecriture de phrase).
-  Difference voulue : aucun bouton qui declenche un robot. Les demons francais ignorent les
-  cours <id>-en (scripts/lib/langue.mjs du pipeline) ; les retours de Rachelle sont traites
-  en session de production avec l'outillage anglais.
+  Depuis le 2026-11-12, les demandes partent a un robot ANGLAIS separe
+  (pipeline/scripts/process-edition-anglaise.mjs, battement « xguard-anglais@<machine> ») :
+  bouton « Fix » d'un mot -> correction_requests (intent word | pronunciation), crayon ->
+  sentence_flags (rewrite | regen | delete). Il corrige la source anglaise ou le dictionnaire
+  anglais, refait la voix et la publie ; les phrases refaites passent en vert
+  (voiceover_metadata.regenerated_sentence_indices). Les demons francais ignorent toujours
+  les cours <id>-en.
 
   Mise a niveau du 2026-11-11 (memes garanties que le chantier 03 du francais) :
   - tout appel reseau passe par lib/net.js : reessai, bandeau rouge qui reste, « Try again » ;
@@ -94,7 +112,8 @@
   <button class="spd" onclick="vitesse(.75,this)">0.75x</button>
   <button class="spd" onclick="vitesse(.5,this)">0.5x</button>
   <button class="btn ghost" id="bglitch" onclick="glitch()" title="The voice stutters, repeats or cuts out here">⚡ Glitch</button>
-  <div class="keys">Space: play or pause · ← and →: back or forward 5 seconds · J and K: 10 seconds · G: mark a glitch now · Ctrl+S: save · Double-click a word: play from there</div>
+  <button class="btn ghost" id="bfiltre" hidden onclick="filtrer()" title="Show only the sentences the robot redid (F)">🔍 Redone sentences only</button>
+  <div class="keys">Space: play or pause · ← and →: back or forward 5 seconds · J and K: 10 seconds · G: mark a glitch now · F: redone sentences only · Ctrl+S: save · Double-click a word: play from there</div>
 </div>
 
 <div class="layout">
@@ -110,6 +129,7 @@
       <button class="btn green" id="bapprove" onclick="ouvrir('m-approve')">✓ Approve lesson</button>
       <span class="msg" id="msg"></span>
     </div>
+    <div class="robot" id="robot"></div>
   </div>
 </div>
 
@@ -129,7 +149,7 @@
     <h3>Fix this sentence</h3>
     <div class="orig" id="s-orig"></div>
     <label><input type="radio" name="stype" value="rewrite" checked> The wording is wrong or awkward. I type the sentence I want to hear.</label>
-    <label><input type="radio" name="stype" value="regen"> The wording is fine, but the voice says it badly.</label>
+    <label><input type="radio" name="stype" value="regen"> The wording is fine, but the voice says it badly. Redo it.</label>
     <label><input type="radio" name="stype" value="delete"> This sentence should not be there at all.</label>
     <textarea id="s-new" rows="3" placeholder="Type the corrected sentence"></textarea>
     <input id="s-note" placeholder="Note (optional): what is wrong, how it should sound" style="width:100%;margin-top:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:5px;padding:6px 8px;font:inherit;font-size:13.5px">
@@ -161,6 +181,11 @@ var aReecouter = false;
 // Compteurs de modifications : `rev` monte a chaque geste, `revServeur` = derniere version que
 // le serveur a confirmee. Different = il reste du travail non enregistre.
 var rev = 0, revServeur = 0;
+// Etat des demandes envoyees au robot anglais, relu toutes les 20 s :
+//   demandes[index du mot] = derniere correction_requests de ce mot ;
+//   phrasesEnvoyees[n° de phrase] = dernier sentence_flags de cette phrase ;
+//   verts = phrases refaites par le robot (a re-ecouter), robot = son dernier battement.
+var demandes = {}, phrasesEnvoyees = {}, verts = [], robot = null, voixChargee = null;
 
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function fmt(s){ s = s || 0; return Math.floor(s/60) + ':' + ('0' + Math.floor(s%60)).slice(-2); }
@@ -259,6 +284,9 @@ Promise.all([
   rendreFlags(); rendreGlitches();
   chargerAudio();
   voisins();
+  voixChargee = L.voiceover_uploaded_at;
+  etats();
+  setInterval(etats, 20000);
 }).catch(function(e){
   XGNet.signaler(e, 'en chargement lecon');
   document.getElementById('title').textContent = 'This lesson could not be loaded';
@@ -352,15 +380,17 @@ function rendreTexte(sflags){
   var envoyees = {};
   sflags.forEach(function(s){ if (s.auto_status !== 'superseded') envoyees[s.sentence_index] = true; });
   var html = '', si = null;
+  // Chaque phrase se termine par son crayon et sa ligne d'etat (« Sent », « Fixed »…).
+  var fin = function(k){ return '<button class="pen" title="Fix this sentence" onclick="phrase(' + k + ')">✎</button><div class="st" id="st' + k + '"></div></div>'; };
   W.forEach(function(w, i){
     if (w.sentenceIndex !== si) {
-      if (si !== null) html += '<button class="pen" title="Fix this sentence" onclick="phrase(' + si + ')">✎</button></div>';
+      if (si !== null) html += fin(si);
       si = w.sentenceIndex;
       html += '<div class="s' + (envoyees[si] ? ' sent' : '') + '" id="s' + si + '">';
     }
     html += '<span class="w" data-i="' + i + '">' + esc(w.word) + '</span> ';
   });
-  if (si !== null) html += '<button class="pen" title="Fix this sentence" onclick="phrase(' + si + ')">✎</button></div>';
+  if (si !== null) html += fin(si);
   var box = document.getElementById('text');
   box.innerHTML = html || '<div class="empty">No text.</div>';
   els = [];
@@ -396,16 +426,29 @@ function rendreFlags(){
   document.getElementById('nflags').textContent = arr.length ? '(' + arr.length + ')' : '';
   document.getElementById('flags').innerHTML = arr.length ? arr.map(function(f){
     var vieux = anciens.has(f.index);
-    return '<div class="f' + (vieux ? ' old' : '') + '"><button class="rm" title="Remove" onclick="basculer(' + f.index + ')">✕</button>'
+    var d = demandes[f.index];
+    var corrige = d && d.status === 'done';
+    return '<div class="f' + (vieux && !corrige ? ' old' : '') + (corrige ? ' fixed' : '') + '"><button class="rm" title="Remove" onclick="basculer(' + f.index + ')">✕</button>'
       + '<b>' + esc(f.word) + '</b> <span class="counts">at ' + esc(f.time) + '</span>'
-      + (vieux ? '<span class="tag">before the new voice</span>' : '')
+      + (vieux && !corrige ? '<span class="tag">before the new voice</span>' : '')
       + '<div class="ctx">' + esc(f.context).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>') + '</div>'
       + '<select onchange="champ(' + f.index + ',\'category\',this.value)">' + CATEGORIES.map(function(c){ return '<option value="' + c[0] + '"' + (f.category === c[0] ? ' selected' : '') + '>' + c[1] + '</option>'; }).join('') + '</select>'
-      + '<input placeholder="How should it sound, or the right word" value="' + esc(f.note) + '" oninput="champ(' + f.index + ',\'note\',this.value)">'
+      + '<input placeholder="' + (f.category === 'typo' ? 'The right word' : 'How it should sound, e.g. wair-house') + '" value="' + esc(f.note) + '" oninput="champ(' + f.index + ',\'note\',this.value)">'
+      + '<div class="fixrow">'
+      + (corrige
+        ? '<button class="btn green" onclick="basculer(' + f.index + ')" title="The new voice sounds right: remove this note">✓ Sounds right now</button>'
+        : '<button class="btn red" id="bfix' + f.index + '" onclick="envoyerFix(' + f.index + ')" title="Send this fix to the robot, which redoes the voice">Fix</button>')
+      + '</div><div class="st" id="fst' + f.index + '"></div>'
       + '</div>';
   }).join('') : '<div class="empty">Click a word that sounds wrong.</div>';
+  appliquerEtats();
 }
-function champ(i, k, v){ var f = flags.get(i); if (f) { f[k] = v; anciens.delete(i); plusTard(); } }
+function champ(i, k, v){
+  var f = flags.get(i);
+  if (!f) return;
+  f[k] = v; anciens.delete(i); plusTard();
+  if (k === 'category') rendreFlags(); // le texte d'aide de la case change avec la categorie
+}
 
 function glitch(){
   if (!au || !L) return;
@@ -420,7 +463,9 @@ function rendreGlitches(){
   document.getElementById('glitches').innerHTML = glitches.length ? glitches.map(function(g, k){
     return '<div class="f"><button class="rm" title="Remove" onclick="glitches.splice(' + k + ',1);rendreGlitches();plusTard()">✕</button>'
       + '<b>' + esc(g.time) + '</b><div class="ctx">' + esc(g.context).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>') + '</div>'
-      + '<input placeholder="Note (optional)" value="' + esc(g.note) + '" oninput="glitches[' + k + '].note=this.value;plusTard()"></div>';
+      + '<input placeholder="Note (optional)" value="' + esc(g.note) + '" oninput="glitches[' + k + '].note=this.value;plusTard()">'
+      + (g.sentenceIndex != null ? '<div class="fixrow"><button class="btn ghost" onclick="refaireGlitch(' + k + ')" title="Ask the robot to redo this sentence">↻ Redo this sentence</button></div>' : '')
+      + '</div>';
   }).join('') : '<div class="empty">None marked.</div>';
 }
 
@@ -542,7 +587,6 @@ function envoyerPhrase(){
     payload.corrected_text = norm(document.getElementById('s-new').value);
     if (!payload.corrected_text || payload.corrected_text === norm(payload.original_text)) { dire('Please change the sentence first.', true); return; }
   }
-  if (type === 'regen' && !payload.note) { dire('Please say in the note what sounds wrong.', true); return; }
   envoiEnCours = true;
   var bouton = document.getElementById('s-send');
   bouton.disabled = true;
@@ -560,8 +604,9 @@ function envoyerPhrase(){
   }).then(function(){
     envoiEnCours = false; bouton.disabled = false;
     delete brouillonsPhrase[si];
-    dire('✓ Sent to the production team.');
+    dire('✓ Sent to the fix robot.');
     var el = document.getElementById('s' + si); if (el) el.classList.add('sent');
+    etats();
     setTimeout(function(){ if (phraseCourante === si) fermer('m-sentence'); }, 1100);
   }, function(){
     envoiEnCours = false; bouton.disabled = false;
@@ -580,6 +625,158 @@ function voisins(){
   }).catch(function(e){ XGNet.signaler(e, 'en liens precedent/suivant'); });
 }
 
+// ── Le robot anglais : envoyer, suivre, montrer ce qu'il a refait ──────
+var ROBOT_ID = 'xguard-anglais';
+function ilYA(min){
+  if (min < 1) return 'less than a minute ago';
+  if (min < 60) return Math.round(min) + ' min ago';
+  if (min < 48 * 60) return Math.round(min / 60) + ' h ago';
+  return Math.round(min / 1440) + ' days ago';
+}
+function etatRobot(rows){
+  var t = null;
+  (rows || []).forEach(function(r){ var x = Date.parse(r.last_heartbeat); if (!isNaN(x) && (t === null || x > t)) t = x; });
+  if (t === null) return { connu: false, vivant: false, age: '' };
+  var min = Math.max(0, (Date.now() - t) / 60000);
+  // Le robot bat toutes les 5 min : 15 min sans battement = il dort (Mac en veille) ou il est en panne.
+  return { connu: true, vivant: min <= 15, age: ilYA(min) };
+}
+function quand(iso){ var d = new Date(iso); return isNaN(d) ? '' : ' on ' + d.toLocaleString('en-CA', { month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }); }
+function enAttente(){
+  if (robot && robot.connu && robot.vivant) return { t: '✓ Sent. The fix robot will redo the voice in a few minutes.', c: 'pending' };
+  if (robot && robot.connu) return { t: '✓ Sent. The fix robot is asleep (last seen ' + robot.age + '); it will do it when it wakes up. You can move on.', c: 'pending' };
+  return { t: '✓ Sent. Waiting for the fix robot.', c: 'pending' };
+}
+function libelleDemande(d){
+  if (!d) return { t: '', c: '' };
+  if (d.status === 'pending') return enAttente();
+  if (d.status === 'processing') return { t: '⚙️ Being fixed now…', c: 'processing' };
+  if (d.status === 'done') {
+    var ou = d.applied_mode === 'dict-phrase' ? ' (pronunciation fixed in this phrase)' : d.applied_mode === 'dict-global' ? ' (pronunciation fixed in every lesson)' : '';
+    return { t: '✅ Fixed' + quand(d.completed_at) + ou + '. Listen to the green sentence again.', c: 'done' };
+  }
+  if (d.status === 'needs_review') return { t: '⏸ ' + (d.reason || 'Set aside for the team.'), c: 'review' };
+  if (d.status === 'superseded') return { t: '↪ Duplicate: another request is doing this fix.', c: 'pending' };
+  return { t: '⚠ ' + (d.last_error || d.status), c: 'review' };
+}
+function libellePhrase(f){
+  if (!f) return { t: '', c: '' };
+  if (f.applied) return { t: '✅ Sentence ' + (f.flag_type === 'regen' ? 'redone' : 'fixed') + quand(f.applied_at) + '. Listen again.', c: 'done' };
+  if (f.auto_status === 'skipped' || f.auto_status === 'dismissed') return { t: '⏸ ' + (f.skip_reason || 'Set aside for the team.'), c: 'review' };
+  if (f.auto_status === 'processing') return { t: '⚙️ Being fixed now…', c: 'processing' };
+  if (f.auto_status === null || f.auto_status === undefined) return enAttente();
+  return { t: '', c: '' };
+}
+function poser(id, l){
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = l.t;
+  el.className = 'st' + (l.c ? ' ' + l.c : '');
+}
+
+// Relit l'etat (silencieux : c'est de l'information, un echec ne merite pas de bandeau).
+function etats(){
+  if (!L) return Promise.resolve();
+  var k = encodeURIComponent(cle);
+  var lireDoux = function(q){ return XGNet.requete(API + '/' + q, { headers: H }, { silencieux: true, essais: 2 }); };
+  return Promise.all([
+    lireDoux('correction_requests?lesson_key=eq.' + k + '&select=phrase_index,status,reason,last_error,applied_mode,completed_at,created_at,correction_note&order=created_at.asc'),
+    lireDoux('sentence_flags?lesson_key=eq.' + k + '&select=sentence_index,flag_type,applied,applied_at,auto_status,skip_reason,created_at&order=created_at.asc'),
+    lireDoux('voiceover_metadata?lesson_key=eq.' + k + '&select=regenerated_sentence_indices,regen_source,voiceover_uploaded_at'),
+    lireDoux('watchdog_heartbeat?id=like.' + ROBOT_ID + '*&select=id,last_heartbeat,status'),
+  ]).then(function(r){
+    demandes = {}; phrasesEnvoyees = {};
+    (r[0] || []).forEach(function(d){ demandes[d.phrase_index] = d; });           // le plus recent gagne
+    (r[1] || []).forEach(function(f){ if (f.auto_status !== 'superseded' && f.auto_status !== 'obsolete') phrasesEnvoyees[f.sentence_index] = f; });
+    robot = etatRobot(r[3]);
+    var vm = (r[2] || [])[0] || {};
+    // Vert = phrases refaites par le robot, tant qu'elle n'a pas approuve la voix qui en sort.
+    var approuveApres = approuve && L.latest_review_at && vm.voiceover_uploaded_at && Date.parse(L.latest_review_at) > Date.parse(vm.voiceover_uploaded_at);
+    verts = vm.regen_source === 'en-correction-bot' && !approuveApres ? (vm.regenerated_sentence_indices || []) : [];
+    // Nouvelle voix publiee pendant qu'elle travaille : on le dit, sans recharger de force.
+    if (vm.voiceover_uploaded_at && voixChargee && Date.parse(vm.voiceover_uploaded_at) > Date.parse(voixChargee)) {
+      XGNet.afficherErreur('nouvelle-voix', 'A new voice is ready for this lesson: the robot applied your fixes. Click Try again to load it (your notes are kept).');
+    }
+    rendreFlags();
+  }).catch(function(e){ XGNet.signaler(e, 'en etats robot'); });
+}
+function appliquerEtats(){
+  Object.keys(demandes).forEach(function(i){ poser('fst' + i, libelleDemande(demandes[i])); });
+  document.querySelectorAll('#text .s').forEach(function(el){
+    var si = +el.id.slice(1);
+    el.classList.toggle('green', verts.indexOf(si) !== -1);
+    poser('st' + si, libellePhrase(phrasesEnvoyees[si]));
+  });
+  document.getElementById('bfiltre').hidden = !verts.length;
+  var rb = document.getElementById('robot');
+  if (robot && robot.connu) {
+    rb.className = 'robot ' + (robot.vivant ? 'on' : 'off');
+    rb.textContent = robot.vivant ? 'Fix robot running (last seen ' + robot.age + ').' : 'Fix robot asleep (last seen ' + robot.age + '). Your requests will wait for it.';
+  } else { rb.className = 'robot'; rb.textContent = ''; }
+}
+
+// Bouton « Fix » d'un mot. La categorie dit ce que la case contient : le bon mot (typo) ou le
+// son voulu (prononciation). Meme format de demande que l'app francaise (« mot → valeur »).
+function nettoyerMot(s){ return String(s || '').trim().replace(/^[\s'"«»“”(]+/, '').replace(/[\s'"«»“”).,;:!?…]+$/, ''); }
+function construireFix(f){
+  if (f.category === 'rewrite') return { phrase: true };
+  var mot = nettoyerMot(f.word), val = nettoyerMot(f.note);
+  var typo = f.category === 'typo';
+  if (!val) return { erreur: typo ? 'Type the right word in the box first.' : 'Type in the box how the word should sound (for example: wair-house).' };
+  if (val.toLowerCase() === mot.toLowerCase()) {
+    return { erreur: typo ? 'That is already the word in the text. If the voice says it badly, choose “Mispronounced”.' : 'Type how the word should SOUND, not the word as it is written (for example: wair-house).' };
+  }
+  return { intent: typo ? 'word' : 'pronunciation', note: mot + ' → ' + val };
+}
+function envoyerFix(i){
+  var f = flags.get(i);
+  if (!f || !L) return;
+  var rn = nom();
+  if (!rn) { poser('fst' + i, { t: 'Type your name at the top of the page first.', c: 'review' }); demanderNom(); return; }
+  var b = construireFix(f);
+  if (b.phrase) { if (f.sentenceIndex != null) phrase(f.sentenceIndex); return; }
+  if (b.erreur) { poser('fst' + i, { t: b.erreur, c: 'review' }); return; }
+  var d = demandes[i];
+  if (d && (d.status === 'pending' || d.status === 'processing') && d.correction_note === b.note) {
+    poser('fst' + i, { t: 'Already sent. ' + libelleDemande(d).t, c: 'pending' });
+    return;
+  }
+  var bouton = document.getElementById('bfix' + i);
+  if (bouton) bouton.disabled = true;
+  poser('fst' + i, { t: 'Sending…', c: 'pending' });
+  sauver(false); // la note du mot part aussi dans la revue
+  XGNet.requete(API + '/correction_requests', {
+    method: 'POST',
+    headers: Object.assign({}, H, { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+    body: JSON.stringify({ lesson_key: cle, phrase_index: i, sentence_index: f.sentenceIndex != null ? f.sentenceIndex : null,
+      phrase_text: f.context || null, correction_note: b.note, intent: b.intent, reviewer_note: null, requested_by: rn }),
+  }, { action: 'send your fix', cle: 'fix-' + i, json: false, reessayer: function(){ envoyerFix(i); } }).then(function(){
+    demandes[i] = { phrase_index: i, status: 'pending', correction_note: b.note };
+    rendreFlags();
+    etats();
+  }, function(){
+    if (bouton) bouton.disabled = false;
+    poser('fst' + i, { t: 'Not sent yet. Use Try again at the top of the page.', c: 'review' });
+  });
+}
+
+// « Redo this sentence » depuis un glitch : une demande de re-tirage pour sa phrase.
+function refaireGlitch(k){
+  var g = glitches[k];
+  if (!g || g.sentenceIndex == null) return;
+  phrase(g.sentenceIndex);
+  document.querySelector('input[name="stype"][value="regen"]').checked = true;
+  if (g.note) document.getElementById('s-note').value = g.note;
+  garderPhrase();
+}
+
+function filtrer(){
+  if (!verts.length) return;
+  var t = document.getElementById('text');
+  var on = t.classList.toggle('filtre');
+  document.getElementById('bfiltre').textContent = on ? '🔍 Show the whole lesson' : '🔍 Redone sentences only';
+}
+
 document.addEventListener('keydown', function(e){
   if (e.key === 'Escape') { fermer('m-approve'); fermer('m-sentence'); return; }
   if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) { e.preventDefault(); sauver(false); return; }
@@ -591,6 +788,7 @@ document.addEventListener('keydown', function(e){
   else if (e.key === 'j' || e.key === 'J') sauter(-10);
   else if (e.key === 'k' || e.key === 'K') sauter(10);
   else if (e.key === 'g' || e.key === 'G') glitch();
+  else if (e.key === 'f' || e.key === 'F') filtrer();
 });
 
 // Filet anti-perte : onglet cache ou ferme avec du travail non confirme -> brouillon local

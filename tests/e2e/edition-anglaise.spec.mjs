@@ -21,8 +21,8 @@ function lecon(over = {}) {
 }
 
 // Mock AVEC MEMOIRE : les POST voice_reviews sont gardes et relus au rechargement (upsert).
-async function mockEn(page, { coupe = () => false, lesson = lecon(), review = null } = {}) {
-  const etat = { posts: [], review };
+async function mockEn(page, { coupe = () => false, lesson = lecon(), review = null, demandes = [], metadata = [], battements = [] } = {}) {
+  const etat = { posts: [], review, demandes: [...demandes] };
   await page.route('**/js.sentry-cdn.com/**', (r) => r.abort());
   await page.route('**/storage/v1/**', (route) => {
     if (route.request().url().includes('timestamps')) {
@@ -40,8 +40,15 @@ async function mockEn(page, { coupe = () => false, lesson = lecon(), review = nu
       etat.review = body;
       return route.fulfill({ status: 201, body: '' });
     }
+    if (url.includes('/correction_requests') && req.method() === 'POST') {
+      etat.demandes.push({ ...JSON.parse(req.postData() || '{}'), status: 'pending' });
+      return route.fulfill({ status: 201, body: '' });
+    }
     let data = [];
-    if (url.includes('/lesson_status_full')) data = [lesson];
+    if (url.includes('/correction_requests?')) data = etat.demandes;
+    else if (url.includes('/voiceover_metadata?')) data = metadata;
+    else if (url.includes('/watchdog_heartbeat?')) data = battements;
+    else if (url.includes('/lesson_status_full')) data = [lesson];
     else if (url.includes('/voice_reviews?')) data = etat.review ? [etat.review] : [];
     else if (url.includes('/courses?')) data = [{ id: 'demo-en', title: 'Demo course', short_title: 'Demo', lesson_count: 1 }];
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
@@ -111,4 +118,56 @@ test('anglais : l’accueil met les leçons à ré-écouter en tête', async ({ 
   await page.goto('/en/index.html');
   await expect(page.locator('#recheck h2')).toHaveText('Listen again (1)');
   await expect(page.locator('#recheck .row')).toHaveAttribute('href', 'review.html?key=' + encodeURIComponent(CLE));
+});
+
+// ── Robot anglais (2026-11-12) ─────────────────────────────────────────
+const VIVANT = [{ id: 'xguard-anglais@mac', last_heartbeat: new Date().toISOString(), status: 'alive' }];
+
+test('anglais : « Fix » envoie la prononciation au robot, au format « mot → son »', async ({ page }) => {
+  const etat = await mockEn(page, { battements: VIVANT });
+  await page.addInitScript(() => localStorage.setItem('rn', 'Rachelle'));
+  await page.goto(URL_REVUE);
+  await page.locator('.w', { hasText: 'monde' }).click();
+  await expect(page.locator('#robot')).toContainText('Fix robot running');
+  // Sans son tape : la page explique quoi faire, rien ne part.
+  await page.locator('.f button', { hasText: 'Fix' }).click();
+  await expect(page.locator('.f .st')).toContainText('how the word should sound');
+  expect(etat.demandes).toHaveLength(0);
+  await page.locator('.f input').fill('mond');
+  await page.locator('.f button', { hasText: 'Fix' }).click();
+  await expect(page.locator('.f .st')).toContainText('The fix robot will redo the voice');
+  expect(etat.demandes).toHaveLength(1);
+  expect(etat.demandes[0]).toMatchObject({ lesson_key: CLE, phrase_index: 1, sentence_index: 0, intent: 'pronunciation', correction_note: 'monde → mond', requested_by: 'Rachelle' });
+});
+
+test('anglais : mot corrigé par le robot -> carte verte, phrase refaite en vert, filtre', async ({ page }) => {
+  const review = { lesson_key: CLE, reviewer_name: 'Rachelle', approved: false, updated_at: '2026-11-12T09:00:00Z',
+    flags: [{ index: 1, word: 'monde', context: 'Bonjour **monde**', time: '0:00', sentenceIndex: 0, note: 'mond', category: 'pronunciation' }], glitches: [] };
+  await mockEn(page, {
+    review,
+    lesson: lecon({ status: 'needs_recheck', voiceover_uploaded_at: '2026-11-12T10:05:00Z', latest_review_at: '2026-11-12T09:00:00Z' }),
+    demandes: [{ phrase_index: 1, status: 'done', applied_mode: 'dict-phrase', completed_at: '2026-11-12T10:05:00Z', correction_note: 'monde → mond' }],
+    metadata: [{ regenerated_sentence_indices: [0], regen_source: 'en-correction-bot', voiceover_uploaded_at: '2026-11-12T10:05:00Z' }],
+    battements: VIVANT,
+  });
+  await page.addInitScript(() => localStorage.setItem('rn', 'Rachelle'));
+  await page.goto(URL_REVUE);
+  await expect(page.locator('.f.fixed')).toContainText('Fixed');
+  await expect(page.locator('#s0')).toHaveClass(/green/);
+  await expect(page.locator('#s1')).not.toHaveClass(/green/);
+  await page.locator('#bfiltre').click();
+  await expect(page.locator('#s1')).toBeHidden();
+  await expect(page.locator('#s0')).toBeVisible();
+  // « Sounds right now » retire la note.
+  await page.locator('.f button', { hasText: 'Sounds right now' }).click();
+  await expect(page.locator('.f')).toHaveCount(0);
+});
+
+test('anglais : un refus du robot se lit, avec sa raison', async ({ page }) => {
+  const review = { lesson_key: CLE, reviewer_name: 'Rachelle', approved: false, updated_at: '2026-11-12T09:00:00Z',
+    flags: [{ index: 2, word: 'deuxieme', context: '**deuxieme** phrase', time: '0:01', sentenceIndex: 1, note: '', category: 'pronunciation' }], glitches: [] };
+  await mockEn(page, { review, demandes: [{ phrase_index: 2, status: 'needs_review', reason: 'Noted for the team.' }] });
+  await page.addInitScript(() => localStorage.setItem('rn', 'Rachelle'));
+  await page.goto(URL_REVUE);
+  await expect(page.locator('.f .st')).toHaveText('⏸ Noted for the team.');
 });
