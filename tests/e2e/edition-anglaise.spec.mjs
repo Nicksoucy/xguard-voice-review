@@ -249,3 +249,10 @@ test('anglais : vidéo -> un problème bloquant la renvoie, un problème de voix
   expect(dernier).toMatchObject({ lesson_key: CLE, rejected: true, approved: false, video_version: 1 });
   expect(dernier.flags[0]).toMatchObject({ category: 'typo', severity: 'blocker', note: 'Recieve on screen' });
 });
+
+test('anglais : une vidéo prête dont la voix est encore en révision se regarde déjà', async ({ page }) => {
+  await mockEn(page, { lesson: lecon({ pipeline_stage: 'voice_review', has_video: true, module_id: 'm1' }) });
+  await page.goto('/en/index.html#video');
+  await expect(page.locator('#tabs button.on .tcount')).toHaveText('1');
+  await expect(page.locator('#view a.row')).toContainText('voice not approved yet');
+});

@@ -121,7 +121,7 @@ function rendre(){
   var L = DATA.lessons, pc = parCours();
   var nb = {
     audio: compte(L, ['voice_review', 'voice_recheck']),
-    video: compte(L, ['video_review']),
+    video: L.filter(aRegarder).length,
     prod: compte(L, ['video_production', 'video_redo']),
     done: finis().length,
     ghl: finis().length,
@@ -178,9 +178,16 @@ function rendreAudio(pc){
 }
 
 // ── Video review ─────────────────────────────────────────────────────
+// A regarder : etape video_review, PLUS une video deja produite dont la voix est encore en
+// revision (la video pilote du 2026-11-12, cariste-en m00-l01) : on peut la regarder, la
+// page video previent que la voix peut encore changer.
+function aRegarder(l){
+  if (l.pipeline_stage === 'video_review') return true;
+  return !!l.has_video && /^voice_/.test(l.pipeline_stage || '') && !l.video_approved && !l.video_rejected;
+}
 function rendreVideo(pc){
   var parC = DATA.courses.map(function(c){
-    return { c: c, ls: (pc[c.id] || []).filter(function(l){ return l.pipeline_stage === 'video_review'; }) };
+    return { c: c, ls: (pc[c.id] || []).filter(aRegarder) };
   }).filter(function(x){ return x.ls.length; });
   if (!parC.length) {
     var voixOk = compte(DATA.lessons, ['video_production', 'video_review', 'video_redo', 'done']);
@@ -191,7 +198,9 @@ function rendreVideo(pc){
   return parC.map(function(x){
     return '<div class="card"><div class="course-title"><span>' + esc(x.c.title) + '</span><span class="counts">' + x.ls.length + ' to watch</span></div>'
       + x.ls.map(function(l){
-        return '<a class="row" href="review-video.html?key=' + encodeURIComponent(l.lesson_key) + '"><span class="t">Module ' + esc(l.module_index) + ' · ' + esc(l.title) + '</span><span class="chip todo">Watch</span></a>';
+        var avance = l.pipeline_stage !== 'video_review';
+        return '<a class="row" href="review-video.html?key=' + encodeURIComponent(l.lesson_key) + '"><span class="t">Module ' + esc(l.module_index) + ' · ' + esc(l.title)
+          + (avance ? ' <span class="counts">· voice not approved yet</span>' : '') + '</span><span class="chip todo">Watch</span></a>';
       }).join('') + '</div>';
   }).join('');
 }
@@ -248,7 +257,7 @@ function rendreGhl(){
 
 Promise.all([
   XG.api('courses?visible=eq.true&order=sort_order.asc,id.asc&select=id,title,short_title,lesson_count'),
-  XG.apiAll('lesson_status_full?course_id=like.*-en&select=lesson_key,course_id,module_id,module_index,lesson_index,sort_order,title,status,pipeline_stage,voiceover_uploaded_at,latest_approved,latest_reviewer,latest_review_at,flags_count,glitches_count&order=sort_order.asc,lesson_key.asc'),
+  XG.apiAll('lesson_status_full?course_id=like.*-en&select=lesson_key,course_id,module_id,module_index,lesson_index,sort_order,title,status,pipeline_stage,has_video,video_approved,video_rejected,voiceover_uploaded_at,latest_approved,latest_reviewer,latest_review_at,flags_count,glitches_count&order=sort_order.asc,lesson_key.asc'),
   XG.api('course_lms_status?target=eq.ghl&course_id=like.*-en&select=course_id,status,exported_at,imported_at,live_at').catch(function(e){ XGNet.signaler(e, 'en accueil lms'); return []; }),
 ]).then(function(res){
   DATA = { courses: res[0] || [], lessons: res[1] || [], lms: res[2] || [] };
