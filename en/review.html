@@ -11,10 +11,10 @@
 .pb{width:42px;height:42px;border-radius:50%;border:none;background:#C0392B;color:#fff;font-size:17px;cursor:pointer}
 .pbar{flex:1;min-width:160px;height:8px;background:rgba(255,255,255,0.1);border-radius:4px;cursor:pointer;position:relative}
 .pfill{position:absolute;left:0;top:0;bottom:0;background:#E74C3C;border-radius:4px;width:0}
-.tm{font-variant-numeric:tabular-nums;color:#94A3B8;font-size:12.5px;min-width:86px;text-align:center}
-.spd{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#cfd6e4;border-radius:5px;padding:5px 9px;font:inherit;font-size:12px;cursor:pointer}
+.tm{font-variant-numeric:tabular-nums;color:#94A3B8;font-size:13px;min-width:90px;text-align:center}
+.spd{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#cfd6e4;border-radius:5px;padding:6px 10px;font:inherit;font-size:13px;cursor:pointer}
 .spd.on{background:#C0392B;border-color:#C0392B;color:#fff}
-.keys{color:#64748B;font-size:11.5px;width:100%}
+.keys{color:#94A3B8;font-size:13px;width:100%}
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;margin-top:14px}
 @media (max-width:820px){.layout{grid-template-columns:1fr}}
 .text{font-size:17px;line-height:1.85}
@@ -23,26 +23,32 @@
 .w:hover{background:rgba(255,255,255,0.1)}
 .w.cur{background:rgba(52,152,219,0.35)}
 .w.flag{background:rgba(231,76,60,0.45);color:#fff}
-.pen{border:none;background:none;color:#64748B;cursor:pointer;font-size:14px;margin-left:4px}
+.pen{border:none;background:none;color:#94A3B8;cursor:pointer;font-size:15px;margin-left:4px}
 .pen:hover{color:#fff}
 .s.sent .pen{color:#F39C12}
-.side h2{font-size:14px;margin:4px 0 8px}
-.f{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:13px}
-.f .ctx{color:#94A3B8;font-size:12px;margin:3px 0}
+.side h2{font-size:15px;margin:4px 0 8px}
+.f{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:13.5px}
+.f.old{border-color:rgba(243,156,18,0.45)}
+.f .tag{font-size:12px;color:#F8C471;margin-left:4px}
+.f .ctx{color:#B4BFCF;font-size:13px;margin:3px 0}
 .f .ctx b{color:#F1948A}
-.f select,.f input,textarea{width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:5px;padding:5px 7px;font:inherit;font-size:12.5px;margin-top:4px}
+.f select,.f input,textarea{width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:5px;padding:6px 8px;font:inherit;font-size:13.5px;margin-top:4px}
 .f select option{color:#000}
-.f .rm{float:right;border:none;background:none;color:#94A3B8;cursor:pointer}
+.f .rm{float:right;border:none;background:none;color:#B4BFCF;cursor:pointer;font-size:15px}
 .acts{display:flex;flex-direction:column;gap:8px;margin-top:12px}
-.msg{font-size:12.5px;color:#7DCEA0;min-height:18px}
-.banner{border-radius:8px;padding:10px 14px;margin:8px 0;font-size:13.5px}
+.btn:disabled{opacity:.6;cursor:default}
+.msg{font-size:13.5px;color:#7DCEA0;min-height:18px}
+.msg.err{color:#F5B7B1}
+.banner{border-radius:8px;padding:10px 14px;margin:8px 0;font-size:14px;line-height:1.5}
 .banner.ok{background:rgba(39,174,96,0.15);color:#7DCEA0}
+.banner.warn{background:rgba(243,156,18,0.15);color:#F8C471}
+.banner.info{background:rgba(52,152,219,0.15);color:#AED6F1}
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
 .modal-bg.on{display:flex}
 .modal{background:#141A2B;border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:18px;max-width:560px;width:100%}
 .modal h3{margin-bottom:8px}
-.modal .orig{color:#cfd6e4;font-size:13.5px;background:rgba(255,255,255,0.05);padding:8px 10px;border-radius:6px;margin-bottom:10px}
-.modal label{display:block;font-size:13px;margin:6px 0;cursor:pointer}
+.modal .orig{color:#cfd6e4;font-size:14px;background:rgba(255,255,255,0.05);padding:8px 10px;border-radius:6px;margin-bottom:10px}
+.modal label{display:block;font-size:14px;margin:6px 0;cursor:pointer}
 .modal .row-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
 </style>
 </head>
@@ -55,6 +61,16 @@
   Difference voulue : aucun bouton qui declenche un robot. Les demons francais ignorent les
   cours <id>-en (scripts/lib/langue.mjs du pipeline) ; les retours de Rachelle sont traites
   en session de production avec l'outillage anglais.
+
+  Mise a niveau du 2026-11-11 (memes garanties que le chantier 03 du francais) :
+  - tout appel reseau passe par lib/net.js : reessai, bandeau rouge qui reste, « Try again » ;
+  - « Saved » et « approved » seulement apres la reponse du serveur ;
+  - la saisie est gardee sur l'ordinateur (localStorage) tant que le serveur ne l'a pas,
+    et reproposee a la reouverture : une coupure ne fait plus rien perdre ;
+  - suivi des erreurs Sentry (tag langue=en) ;
+  - lecon « a re-ecouter » (voix refaite apres sa revue) : bandeau, anciennes notes
+    marquees, bouton « I listened again » ;
+  - vitesse 0.5x, fleches gauche/droite, Ctrl+S, Echap.
 -->
 <div class="top">
   <div>
@@ -67,6 +83,7 @@
     <a class="navlink" id="next" hidden>Next lesson →</a>
   </div>
 </div>
+<div id="banner-name"></div>
 <div id="banner"></div>
 
 <div class="player">
@@ -75,8 +92,9 @@
   <span class="tm" id="tm">0:00 / 0:00</span>
   <button class="spd on" onclick="vitesse(1,this)">1x</button>
   <button class="spd" onclick="vitesse(.75,this)">0.75x</button>
+  <button class="spd" onclick="vitesse(.5,this)">0.5x</button>
   <button class="btn ghost" id="bglitch" onclick="glitch()" title="The voice stutters, repeats or cuts out here">⚡ Glitch</button>
-  <div class="keys">Space: play or pause · J and K: back or forward 10 seconds · G: mark a glitch at the current moment</div>
+  <div class="keys">Space: play or pause · ← and →: back or forward 5 seconds · J and K: 10 seconds · G: mark a glitch now · Ctrl+S: save · Double-click a word: play from there</div>
 </div>
 
 <div class="layout">
@@ -87,8 +105,9 @@
     <h2 style="margin-top:14px">Glitches <span class="counts" id="nglitches"></span></h2>
     <div id="glitches"><div class="empty">None marked.</div></div>
     <div class="acts">
-      <button class="btn ghost" onclick="sauver(false)">Save now</button>
-      <button class="btn green" onclick="ouvrir('m-approve')">✓ Approve lesson</button>
+      <button class="btn ghost" id="bsave" onclick="sauver(false)">Save now</button>
+      <button class="btn ghost" id="brecheck" hidden onclick="reecoute()" title="You listened to the new voice. This takes the lesson out of “Listen again” without approving it.">✓ I listened again</button>
+      <button class="btn green" id="bapprove" onclick="ouvrir('m-approve')">✓ Approve lesson</button>
       <span class="msg" id="msg"></span>
     </div>
   </div>
@@ -113,17 +132,20 @@
     <label><input type="radio" name="stype" value="regen"> The wording is fine, but the voice says it badly.</label>
     <label><input type="radio" name="stype" value="delete"> This sentence should not be there at all.</label>
     <textarea id="s-new" rows="3" placeholder="Type the corrected sentence"></textarea>
-    <input id="s-note" placeholder="Note (optional): what is wrong, how it should sound" style="width:100%;margin-top:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:5px;padding:6px 8px;font:inherit;font-size:12.5px">
+    <input id="s-note" placeholder="Note (optional): what is wrong, how it should sound" style="width:100%;margin-top:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:5px;padding:6px 8px;font:inherit;font-size:13.5px">
     <div class="msg" id="s-msg"></div>
     <div class="row-btns">
       <button class="btn ghost" onclick="fermer('m-sentence')">Cancel</button>
-      <button class="btn red" onclick="envoyerPhrase()">Send</button>
+      <button class="btn red" id="s-send" onclick="envoyerPhrase()">Send</button>
     </div>
   </div>
 </div>
 
+<script src="https://js.sentry-cdn.com/ab9916085bc6c9e93779c21fad74456f.min.js" crossorigin="anonymous"></script>
+<script src="../sentry-init.js?v=4c1eea9"></script>
 <script src="../lib/app-config.js?v=4c1eea9"></script>
 <script src="../lib/review-logic.js?v=4c1eea9"></script>
+<script src="../lib/net.js?v=4c1eea9"></script>
 <script>
 var XG = window.XG, API = XG.API, H = XG.H;
 var STORAGE = XG.SUPA_URL + '/storage/v1/object/public/voiceovers';
@@ -132,11 +154,20 @@ var L = null, W = [], els = [], au = null;
 var flags = new Map();      // index du mot -> flag (meme forme que l'app francaise)
 var glitches = [];
 var approuve = false, minuterie = null;
+// Notes posees AVANT la voix actuelle (lecon « a re-ecouter ») : indices de mots, en memoire
+// seulement — on n'ajoute aucun champ aux flags enregistres.
+var anciens = new Set();
+var aReecouter = false;
+// Compteurs de modifications : `rev` monte a chaque geste, `revServeur` = derniere version que
+// le serveur a confirmee. Different = il reste du travail non enregistre.
+var rev = 0, revServeur = 0;
 
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function fmt(s){ s = s || 0; return Math.floor(s/60) + ':' + ('0' + Math.floor(s%60)).slice(-2); }
-function nom(){ try { return (localStorage.getItem('rn') || '').trim(); } catch (e) { return ''; } }
-function msg(t){ document.getElementById('msg').textContent = t; }
+function date(iso){ var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('en-CA', { month: 'long', day: 'numeric' }); }
+function heure(ms){ return new Date(ms).toLocaleString('en-CA', { month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }); }
+function nom(){ try { return (localStorage.getItem('rn') || '').trim(); } catch (e) { console.warn('localStorage unavailable', e); return ''; } }
+function msg(t, erreur){ var m = document.getElementById('msg'); m.textContent = t; m.classList.toggle('err', !!erreur); }
 function ouvrir(id){ document.getElementById(id).classList.add('on'); }
 function fermer(id){ document.getElementById(id).classList.remove('on'); }
 function ctx(i){ return window.XGReview ? XGReview.getCtx(W, i) : (W[i] ? W[i].word : ''); }
@@ -147,35 +178,62 @@ if (!XG.estAnglais(cle)) {
   document.getElementById('text').innerHTML = '<div class="empty"><a class="navlink" href="index.html">Back to the English courses</a></div>';
   throw new Error('cle non anglaise : ' + cle);
 }
-// Nom de la reviseuse : demande dans la page (pas de prompt(), bloque par certains navigateurs).
-function demanderNom(){
-  if (nom()) return;
-  var b = document.getElementById('banner');
-  b.innerHTML = '<div class="banner" style="background:rgba(243,156,18,0.15);color:#F8C471">Please type your name before you start. It signs your review. '
-    + '<input id="rn-here" placeholder="Your name" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:5px;padding:4px 8px;font:inherit;margin-left:6px"> '
-    + '<button class="btn ghost" onclick="var v=document.getElementById(\'rn-here\').value.trim();if(v){try{localStorage.setItem(\'rn\',v)}catch(e){console.warn(e)};location.reload()}">Save</button></div>';
+
+// ── Brouillon local ─────────────────────────────────────────────────
+// Tant que le serveur n'a pas confirme, la revue vit AUSSI dans le navigateur. Une coupure,
+// un onglet ferme ou un rechargement ne perdent donc rien : la page la repropose au retour.
+var CLE_BROUILLON = 'xg-en-brouillon:' + cle;
+function garderBrouillon(){
+  try { localStorage.setItem(CLE_BROUILLON, JSON.stringify({ rn: nom(), flags: Array.from(flags.values()), glitches: glitches, t: Date.now() })); }
+  catch (e) { XGNet.signaler(e, 'en brouillon ecriture'); }
+}
+function lireBrouillon(){
+  try { return JSON.parse(localStorage.getItem(CLE_BROUILLON) || 'null'); }
+  catch (e) { XGNet.signaler(e, 'en brouillon lecture'); return null; }
+}
+function oublierBrouillon(){
+  try { localStorage.removeItem(CLE_BROUILLON); } catch (e) { XGNet.signaler(e, 'en brouillon effacement'); }
 }
 
-function json(url){ return fetch(url, { headers: H }).then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }); }
+// Nom de la reviseuse : demande dans la page (pas de prompt(), bloque par certains navigateurs).
+// Le brouillon est garde avant le rechargement : les mots deja marques reviennent.
+function demanderNom(){
+  if (nom()) return;
+  document.getElementById('banner-name').innerHTML = '<div class="banner warn">Please type your name before you start. It signs your review. '
+    + '<input id="rn-here" placeholder="Your name" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:5px;padding:5px 8px;font:inherit;margin-left:6px"> '
+    + '<button class="btn ghost" onclick="enregistrerNom()">Save</button></div>';
+}
+function enregistrerNom(){
+  var v = document.getElementById('rn-here').value.trim();
+  if (!v) return;
+  if (flags.size || glitches.length) garderBrouillon();
+  try { localStorage.setItem('rn', v); } catch (e) { XGNet.signaler(e, 'en nom'); }
+  location.reload();
+}
 
-// Timestamps : chemin final d'abord, preview ensuite (meme ordre que l'app francaise).
+// Lecture JSON via lib/net.js : 3 essais, puis bandeau rouge avec « Try again » (recharge).
+function lire(url, action){ return XGNet.requete(url, { headers: H }, { action: action }); }
+
+// Timestamps : chemin final d'abord, preview ensuite (meme ordre que l'app francaise). Un 404
+// est attendu sur les chemins essayes en premier : pas de bandeau ici, seulement a la fin.
 function chargerMots(){
   var bust = '?v=' + Date.now();
   var essais = ['/' + cle + '/voiceover-timestamps.json', '/' + cle + '/timestamps.json', '/preview/' + cle + '/voiceover-timestamps.json'];
   function essai(k){
-    if (k >= essais.length) return Promise.reject(new Error('timestamps introuvables'));
-    return fetch(STORAGE + essais[k] + bust).then(function(r){ return r.ok ? r.json() : Promise.reject(); })
-      .then(function(j){ var a = Array.isArray(j) ? j : (j && j.words) || []; if (!a.length) throw 0; return a; })
-      .catch(function(){ return essai(k + 1); });
+    if (k >= essais.length) return Promise.reject(new Error('the text of this voice was not found'));
+    return fetch(STORAGE + essais[k] + bust).then(function(r){ return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
+      .then(function(j){ var a = Array.isArray(j) ? j : (j && j.words) || []; if (!a.length) throw new Error('vide'); return a; })
+      .catch(function(e){ console.info('timestamps : essai suivant apres', essais[k], e.message); return essai(k + 1); });
   }
   return essai(0);
 }
 
 Promise.all([
-  json(API + '/lesson_status_full?lesson_key=eq.' + encodeURIComponent(cle) + '&select=*'),
+  lire(API + '/lesson_status_full?lesson_key=eq.' + encodeURIComponent(cle) + '&select=*', 'load the lesson'),
   chargerMots(),
-  nom() ? json(API + '/voice_reviews?lesson_key=eq.' + encodeURIComponent(cle) + '&reviewer_name=eq.' + encodeURIComponent(nom()) + '&select=flags,glitches,approved') : Promise.resolve([]),
-  json(API + '/sentence_flags?lesson_key=eq.' + encodeURIComponent(cle) + '&select=sentence_index,flag_type,applied,auto_status').catch(function(){ return []; }),
+  nom() ? lire(API + '/voice_reviews?lesson_key=eq.' + encodeURIComponent(cle) + '&reviewer_name=eq.' + encodeURIComponent(nom()) + '&select=flags,glitches,approved,updated_at', 'load your review') : Promise.resolve([]),
+  XGNet.requete(API + '/sentence_flags?lesson_key=eq.' + encodeURIComponent(cle) + '&select=sentence_index,flag_type,applied,auto_status', { headers: H }, { silencieux: true })
+    .catch(function(e){ XGNet.signaler(e, 'en sentence_flags lecture'); return []; }),
 ]).then(function(res){
   L = res[0][0];
   if (!L) throw new Error('lesson not found');
@@ -190,28 +248,82 @@ Promise.all([
   document.getElementById('title').textContent = L.title;
   document.getElementById('subtitle').textContent = 'Module ' + L.module_index + ', lesson ' + L.lesson_index;
   demanderNom();
-  if (approuve) document.getElementById('banner').innerHTML = '<div class="banner ok">You approved this lesson. You can still add notes; they will reopen it for the team.</div>';
+
+  // Voix refaite apres sa revue : tout ce qu'elle avait note date de l'ancienne voix.
+  aReecouter = L.status === 'needs_recheck';
+  if (aReecouter) flags.forEach(function(f, i){ anciens.add(i); });
+
+  reprendreBrouillon(rv);
+  banniere();
   rendreTexte(res[3] || []);
   rendreFlags(); rendreGlitches();
   chargerAudio();
   voisins();
 }).catch(function(e){
+  XGNet.signaler(e, 'en chargement lecon');
   document.getElementById('title').textContent = 'This lesson could not be loaded';
   document.getElementById('text').innerHTML = '<div class="empty">' + esc(e.message) + '. The voice may not be published yet. <a class="navlink" href="index.html">Back</a></div>';
 });
+
+// Un brouillon plus recent que ce que le serveur a : on le remet, et on l'enregistre.
+function reprendreBrouillon(rv){
+  var b = lireBrouillon();
+  if (!b) return;
+  var tServeur = rv && rv.updated_at ? Date.parse(rv.updated_at) : 0;
+  if (b.t <= tServeur || (b.rn && b.rn !== nom())) { oublierBrouillon(); return; }
+  if (b.rn) {
+    // Meme reviseuse : le brouillon EST la derniere version de sa revue.
+    flags = new Map();
+    (b.flags || []).forEach(function(f){ flags.set(f.index, f); });
+    glitches = b.glitches || [];
+  } else {
+    // Mots marques avant de taper son nom : on les ajoute a ce que le serveur a deja.
+    (b.flags || []).forEach(function(f){ flags.set(f.index, f); });
+    glitches = (b.glitches || []).concat(glitches);
+  }
+  (b.flags || []).forEach(function(f){ anciens.delete(f.index); });
+  document.getElementById('banner').innerHTML = '<div class="banner info">We brought back the notes you made on ' + esc(heure(b.t)) + ' that had not reached the server yet. They are being saved now.</div>';
+  if (nom()) { rev++; setTimeout(function(){ sauver(false); }, 0); }
+}
+
+function banniere(){
+  var b = document.getElementById('banner');
+  document.getElementById('brecheck').hidden = !aReecouter;
+  if (aReecouter) {
+    b.innerHTML = '<div class="banner warn"><b>Please listen again.</b> The voice was redone on ' + esc(date(L.voiceover_uploaded_at))
+      + ', after your review of ' + esc(date(L.latest_review_at)) + '. '
+      + (anciens.size ? 'Your earlier notes are marked “before the new voice” on the right. Remove each one that now sounds right (✕). ' : '')
+      + 'If the whole lesson sounds right, click Approve lesson. If you only listened again and have nothing to add, click I listened again.</div>';
+  } else if (approuve) {
+    b.innerHTML = '<div class="banner ok">You approved this lesson. You can still add notes; they will reopen it for the team.</div>';
+  } else if (!/brought back/.test(b.textContent)) {
+    b.innerHTML = '';
+  }
+}
 
 function chargerAudio(){
   var v = '?v=' + encodeURIComponent(L.voiceover_uploaded_at || Date.now());
   var final = STORAGE + '/' + cle + '/voiceover.mp3' + v;
   au = new Audio(final);
-  fetch(final, { method: 'HEAD' }).then(function(r){ if (!r.ok) au.src = STORAGE + '/preview/' + cle + '/voiceover.mp3' + v; });
+  fetch(final, { method: 'HEAD' }).then(function(r){ if (!r.ok) au.src = STORAGE + '/preview/' + cle + '/voiceover.mp3' + v; })
+    .catch(function(e){ XGNet.signaler(e, 'en audio HEAD'); });
   au.ontimeupdate = suivre;
   au.onplay = function(){ document.getElementById('bp').textContent = '❚❚'; };
   au.onpause = function(){ document.getElementById('bp').textContent = '▶'; };
   au.onloadedmetadata = suivre;
+  au.onerror = function(){
+    XGNet.signaler(new Error('audio illisible ' + au.src), 'en audio');
+    XGNet.afficherErreur('audio', 'The voice of this lesson could not be played. Please check your internet, then try again.');
+  };
 }
-function lecture(){ if (!au) return; if (au.paused) au.play(); else au.pause(); }
+function lecture(){
+  if (!au) return;
+  if (au.paused) au.play().catch(function(e){ XGNet.signaler(e, 'en lecture audio'); });
+  else au.pause();
+}
 function vitesse(v, b){ if (!au) return; au.playbackRate = v; document.querySelectorAll('.spd').forEach(function(x){ x.classList.remove('on'); }); b.classList.add('on'); }
+function sauter(s){ if (au) au.currentTime = Math.max(0, Math.min(au.duration || 0, au.currentTime + s)); }
+function jouerDepuis(i){ if (au && W[i]) { au.currentTime = W[i].start; if (au.paused) lecture(); } }
 document.getElementById('pbar').addEventListener('click', function(e){
   if (!au || !au.duration) return;
   var r = this.getBoundingClientRect(); au.currentTime = au.duration * (e.clientX - r.left) / r.width;
@@ -256,16 +368,17 @@ function rendreTexte(sflags){
   box.addEventListener('click', function(e){
     var el = e.target.closest('.w'); if (!el) return;
     var i = +el.dataset.i;
-    if (e.altKey || e.metaKey) { if (au) { au.currentTime = W[i].start; au.play(); } return; }
+    if (e.altKey || e.metaKey) { jouerDepuis(i); return; }
     basculer(i);
   });
   box.addEventListener('dblclick', function(e){
-    var el = e.target.closest('.w'); if (el && au) { au.currentTime = W[+el.dataset.i].start; au.play(); }
+    var el = e.target.closest('.w'); if (el) jouerDepuis(+el.dataset.i);
   });
 }
 
 function basculer(i){
-  if (flags.has(i)) { flags.delete(i); els[i].classList.remove('flag'); }
+  if (!L) return; // lecture seule tant que la revue n'est pas chargee
+  if (flags.has(i)) { flags.delete(i); anciens.delete(i); els[i].classList.remove('flag'); }
   else {
     flags.set(i, { index: i, word: W[i].word, context: ctx(i), time: fmt(W[i].start), sentenceIndex: W[i].sentenceIndex, note: '', category: 'pronunciation' });
     els[i].classList.add('flag');
@@ -282,18 +395,20 @@ function rendreFlags(){
   var arr = Array.from(flags.values()).sort(function(a, b){ return a.index - b.index; });
   document.getElementById('nflags').textContent = arr.length ? '(' + arr.length + ')' : '';
   document.getElementById('flags').innerHTML = arr.length ? arr.map(function(f){
-    return '<div class="f"><button class="rm" title="Remove" onclick="basculer(' + f.index + ')">✕</button>'
+    var vieux = anciens.has(f.index);
+    return '<div class="f' + (vieux ? ' old' : '') + '"><button class="rm" title="Remove" onclick="basculer(' + f.index + ')">✕</button>'
       + '<b>' + esc(f.word) + '</b> <span class="counts">at ' + esc(f.time) + '</span>'
+      + (vieux ? '<span class="tag">before the new voice</span>' : '')
       + '<div class="ctx">' + esc(f.context).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>') + '</div>'
       + '<select onchange="champ(' + f.index + ',\'category\',this.value)">' + CATEGORIES.map(function(c){ return '<option value="' + c[0] + '"' + (f.category === c[0] ? ' selected' : '') + '>' + c[1] + '</option>'; }).join('') + '</select>'
       + '<input placeholder="How should it sound, or the right word" value="' + esc(f.note) + '" oninput="champ(' + f.index + ',\'note\',this.value)">'
       + '</div>';
   }).join('') : '<div class="empty">Click a word that sounds wrong.</div>';
 }
-function champ(i, k, v){ var f = flags.get(i); if (f) { f[k] = v; plusTard(); } }
+function champ(i, k, v){ var f = flags.get(i); if (f) { f[k] = v; anciens.delete(i); plusTard(); } }
 
 function glitch(){
-  if (!au) return;
+  if (!au || !L) return;
   var t = au.currentTime, i = 0;
   for (var j = 0; j < W.length; j++) if (W[j].start <= t) i = j;
   glitches.unshift({ time: fmt(t), timeSec: t, context: ctx(i), sentenceIndex: W[i] ? W[i].sentenceIndex : null, note: '' });
@@ -309,19 +424,34 @@ function rendreGlitches(){
   }).join('') : '<div class="empty">None marked.</div>';
 }
 
-// Sauvegarde : meme ligne voice_reviews que l'app francaise (lesson_key + reviewer_name).
-function plusTard(){ clearTimeout(minuterie); minuterie = setTimeout(function(){ sauver(false, true); }, 2000); msg('Unsaved changes…'); }
-function sauver(approuver, auto){
-  if (!L) return;
-  var rn = nom();
-  if (!rn) { msg('Type your name at the top of the page first.'); demanderNom(); return; }
-  if (approuver) approuve = true;
-  // Une note posee apres approbation rouvre la lecon : on ne garde pas « approuve » avec des mots a corriger.
-  if (!approuver && (flags.size || glitches.length) && approuve) approuve = false;
+// ── Sauvegarde ──────────────────────────────────────────────────────
+// Meme ligne voice_reviews que l'app francaise (lesson_key + reviewer_name). Chaque geste
+// est d'abord garde dans le navigateur, puis envoye 2 s plus tard.
+function plusTard(){
+  rev++;
+  garderBrouillon();
   clearTimeout(minuterie);
-  msg(auto ? 'Saving…' : 'Saving…');
-  fetch(API + '/voice_reviews?on_conflict=lesson_key,reviewer_name', {
+  minuterie = setTimeout(function(){ sauver(false); }, 2000);
+  msg('Unsaved changes…');
+}
+
+// Rend une promesse : true si le serveur a confirme, false sinon. Rien n'est annonce
+// (« Saved », « approved ») avant sa reponse.
+function sauver(approuver, opts){
+  opts = opts || {};
+  if (!L) return Promise.resolve(false);
+  var rn = nom();
+  if (!rn) { msg('Type your name at the top of the page first.', true); demanderNom(); return Promise.resolve(false); }
+  clearTimeout(minuterie); minuterie = null;
+  // Une note posee apres approbation rouvre la lecon : on ne garde pas « approuve » avec des mots a corriger.
+  var approuveApres = approuver ? true : ((flags.size || glitches.length) ? false : approuve);
+  var revEnvoyee = rev;
+  var boutons = ['bsave', 'bapprove', 'brecheck'].map(function(id){ return document.getElementById(id); });
+  boutons.forEach(function(b){ b.disabled = true; });
+  msg(approuver ? 'Approving…' : 'Saving…');
+  return XGNet.requete(API + '/voice_reviews?on_conflict=lesson_key,reviewer_name', {
     method: 'POST',
+    keepalive: !!opts.keepalive,
     headers: Object.assign({}, H, { 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal' }),
     body: JSON.stringify({
       lesson_key: L.lesson_key,
@@ -331,68 +461,151 @@ function sauver(approuver, auto){
       reviewer_name: rn,
       flags: Array.from(flags.values()),
       glitches: glitches,
-      approved: approuve,
+      approved: approuveApres,
       updated_at: new Date().toISOString(),
     }),
-  }).then(function(r){
-    if (!r.ok) { msg('Could not save (error ' + r.status + '). Please try again.'); return; }
+  }, {
+    // L'upsert est idempotent : on peut le reessayer sans risque de doublon.
+    action: approuver ? 'approve the lesson' : 'save your review',
+    cle: 'sauver',
+    essais: opts.keepalive ? 1 : 3,
+    json: false,
+    reessayer: function(){ sauver(approuver); },
+  }).then(function(){
+    boutons.forEach(function(b){ b.disabled = false; });
+    approuve = approuveApres;
+    revServeur = Math.max(revServeur, revEnvoyee);
+    // Un geste fait PENDANT l'envoi reste dans le brouillon et repartira tout seul.
+    if (rev === revEnvoyee) oublierBrouillon();
+    // Le bandeau « Please listen again » reste pendant qu'elle retire ses anciennes notes ;
+    // il part quand elle approuve ou confirme sa re-ecoute.
+    if (approuver || opts.reecoute) aReecouter = false;
     msg(approuver ? '✓ Lesson approved. Thank you!' : '✓ Saved');
-    document.getElementById('banner').innerHTML = approuve ? '<div class="banner ok">You approved this lesson.</div>' : '';
-  }).catch(function(e){ msg('Network problem: ' + e.message + '. Your changes are not saved yet.'); });
+    banniere();
+    return true;
+  }, function(){
+    boutons.forEach(function(b){ b.disabled = false; });
+    if (approuver) msg('Not approved yet. Use Try again at the top of the page.', true);
+    else msg('Not saved yet. Your notes are kept on this computer. Use Try again at the top of the page.', true);
+    return false;
+  });
 }
 
-var phraseCourante = null;
+// « J'ai re-ecoute » : ecrire la revue telle quelle pousse voice_reviews.updated_at devant
+// voiceover_uploaded_at, ce qui sort la lecon de needs_recheck sans l'approuver (meme geste
+// que confirmerReecoute() du francais).
+function reecoute(){
+  anciens.clear();
+  rendreFlags();
+  rev++;
+  sauver(false, { reecoute: true });
+}
+
+// ── Reecriture de phrase ───────────────────────────────────────────
+// Ce qui est tape dans la fenetre est garde par phrase : fermer la fenetre par erreur, ou
+// un envoi qui echoue, ne l'efface plus.
+var phraseCourante = null, brouillonsPhrase = {}, envoiEnCours = false;
 function texteDePhrase(si){ return W.filter(function(w){ return w.sentenceIndex === si; }).map(function(w){ return w.word; }).join(' '); }
 function phrase(si){
   phraseCourante = si;
+  var b = brouillonsPhrase[si];
   document.getElementById('s-orig').textContent = texteDePhrase(si);
-  document.getElementById('s-new').value = texteDePhrase(si);
-  document.getElementById('s-note').value = '';
+  document.getElementById('s-new').value = b ? b.texte : texteDePhrase(si);
+  document.getElementById('s-note').value = b ? b.note : '';
+  document.querySelector('input[name="stype"][value="' + (b ? b.type : 'rewrite') + '"]').checked = true;
   document.getElementById('s-msg').textContent = '';
+  document.getElementById('s-msg').classList.remove('err');
   ouvrir('m-sentence');
 }
+function garderPhrase(){
+  if (phraseCourante === null) return;
+  brouillonsPhrase[phraseCourante] = {
+    type: document.querySelector('input[name="stype"]:checked').value,
+    texte: document.getElementById('s-new').value,
+    note: document.getElementById('s-note').value,
+  };
+}
+['s-new', 's-note'].forEach(function(id){ document.getElementById(id).addEventListener('input', garderPhrase); });
+document.querySelectorAll('input[name="stype"]').forEach(function(r){ r.addEventListener('change', garderPhrase); });
+
 function envoyerPhrase(){
+  if (envoiEnCours) return;
+  var si = phraseCourante;
+  var sm = document.getElementById('s-msg');
+  function dire(t, erreur){ sm.textContent = t; sm.classList.toggle('err', !!erreur); }
   var type = document.querySelector('input[name="stype"]:checked').value;
   var rn = nom();
-  if (!rn) { document.getElementById('s-msg').textContent = 'Type your name at the top of the page first.'; return; }
-  var norm = function(s){ return String(s || '').replace(/ /g, ' ').replace(/\s+/g, ' ').trim(); };
-  var payload = { lesson_key: cle, sentence_index: phraseCourante, flag_type: type, original_text: texteDePhrase(phraseCourante), note: norm(document.getElementById('s-note').value) || null, reviewer_name: rn };
+  if (!rn) { dire('Type your name at the top of the page first.', true); return; }
+  var norm = function(s){ return String(s || '').replace(/ /g, ' ').replace(/\s+/g, ' ').trim(); };
+  var payload = { lesson_key: cle, sentence_index: si, flag_type: type, original_text: texteDePhrase(si), note: norm(document.getElementById('s-note').value) || null, reviewer_name: rn };
   if (type === 'rewrite') {
     payload.corrected_text = norm(document.getElementById('s-new').value);
-    if (!payload.corrected_text || payload.corrected_text === norm(payload.original_text)) { document.getElementById('s-msg').textContent = 'Please change the sentence first.'; return; }
+    if (!payload.corrected_text || payload.corrected_text === norm(payload.original_text)) { dire('Please change the sentence first.', true); return; }
   }
-  if (type === 'regen' && !payload.note) { document.getElementById('s-msg').textContent = 'Please say in the note what sounds wrong.'; return; }
-  document.getElementById('s-msg').textContent = 'Sending…';
-  fetch(API + '/sentence_flags', {
+  if (type === 'regen' && !payload.note) { dire('Please say in the note what sounds wrong.', true); return; }
+  envoiEnCours = true;
+  var bouton = document.getElementById('s-send');
+  bouton.disabled = true;
+  dire('Sending…');
+  // Une seule tentative : un POST repete creerait deux demandes. « Try again » est un geste.
+  XGNet.requete(API + '/sentence_flags', {
     method: 'POST',
     headers: Object.assign({}, H, { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
     body: JSON.stringify(payload),
-  }).then(function(r){
-    if (!r.ok) { document.getElementById('s-msg').textContent = 'Could not send (error ' + r.status + ').'; return; }
-    document.getElementById('s-msg').textContent = '✓ Sent to the production team.';
-    var el = document.getElementById('s' + phraseCourante); if (el) el.classList.add('sent');
-    setTimeout(function(){ fermer('m-sentence'); }, 1100);
-  }).catch(function(e){ document.getElementById('s-msg').textContent = 'Network problem: ' + e.message; });
+  }, {
+    action: 'send your sentence fix',
+    cle: 'phrase-' + si,
+    json: false,
+    reessayer: function(){ phrase(si); envoyerPhrase(); },
+  }).then(function(){
+    envoiEnCours = false; bouton.disabled = false;
+    delete brouillonsPhrase[si];
+    dire('✓ Sent to the production team.');
+    var el = document.getElementById('s' + si); if (el) el.classList.add('sent');
+    setTimeout(function(){ if (phraseCourante === si) fermer('m-sentence'); }, 1100);
+  }, function(){
+    envoiEnCours = false; bouton.disabled = false;
+    dire('Not sent yet. Your text is kept. Use Try again at the top of the page.', true);
+  });
 }
 
 function voisins(){
-  json(API + '/lesson_status_full?course_id=eq.' + encodeURIComponent(L.course_id) + '&select=lesson_key,voiceover_uploaded_at&order=sort_order.asc,lesson_key.asc').then(function(ls){
+  XGNet.requete(API + '/lesson_status_full?course_id=eq.' + encodeURIComponent(L.course_id) + '&select=lesson_key,voiceover_uploaded_at&order=sort_order.asc,lesson_key.asc',
+    { headers: H }, { silencieux: true, essais: 2 }).then(function(ls){
     var k = ls.findIndex(function(x){ return x.lesson_key === cle; });
     [['prev', ls[k - 1]], ['next', ls[k + 1]]].forEach(function(p){
       var a = document.getElementById(p[0]);
       if (p[1] && p[1].voiceover_uploaded_at) { a.href = 'review.html?key=' + encodeURIComponent(p[1].lesson_key); a.hidden = false; }
     });
-  }).catch(function(e){ console.warn('previous/next links unavailable', e); if (window.captureWithContext) captureWithContext(e, {action:'en_prev_next'}); });
+  }).catch(function(e){ XGNet.signaler(e, 'en liens precedent/suivant'); });
 }
 
 document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape') { fermer('m-approve'); fermer('m-sentence'); return; }
+  if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) { e.preventDefault(); sauver(false); return; }
   if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.code === 'Space') { e.preventDefault(); lecture(); }
-  else if (e.key === 'j' || e.key === 'J') { if (au) au.currentTime = Math.max(0, au.currentTime - 10); }
-  else if (e.key === 'k' || e.key === 'K') { if (au) au.currentTime = au.currentTime + 10; }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); sauter(-5); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); sauter(5); }
+  else if (e.key === 'j' || e.key === 'J') sauter(-10);
+  else if (e.key === 'k' || e.key === 'K') sauter(10);
   else if (e.key === 'g' || e.key === 'G') glitch();
 });
-window.addEventListener('beforeunload', function(e){ if (minuterie) { sauver(false, true); } });
+
+// Filet anti-perte : onglet cache ou ferme avec du travail non confirme -> brouillon local
+// (deja a jour) + un dernier envoi « keepalive », qui survit a la fermeture de la page.
+function rienAPerdre(){ return rev === revServeur; }
+document.addEventListener('visibilitychange', function(){
+  if (document.visibilityState === 'hidden' && !rienAPerdre()) { garderBrouillon(); sauver(false, { keepalive: true }); }
+});
+window.addEventListener('beforeunload', function(e){
+  if (rienAPerdre()) return;
+  garderBrouillon();
+  sauver(false, { keepalive: true });
+  e.preventDefault();
+  e.returnValue = '';
+});
 </script>
 </body>
 </html>

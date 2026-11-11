@@ -30,14 +30,18 @@
     <li>Click any word that sounds wrong. Choose whether it is mispronounced or the wrong word, and add a short note if it helps.</li>
     <li>If a whole sentence reads badly, click the pencil at the end of it and type the sentence you would like to hear.</li>
     <li>Press the Glitch button (or the G key) if the voice stutters or cuts out.</li>
-    <li>When the lesson sounds right, click Approve lesson. Your work saves automatically as you go.</li>
+    <li>When the lesson sounds right, click Approve lesson. Your work saves automatically as you go. If your internet drops, your notes stay on this computer and are sent when you come back.</li>
   </ul>
-  <p style="margin-top:8px">Your notes are read by the production team, who fix the text or the pronunciation and send the lesson back to you. You only need to listen and point things out.</p>
+  <p style="margin-top:8px">Your notes are read by the production team, who fix the text or the pronunciation and send the lesson back to you. It then shows up under “Listen again” at the top of this page. You only need to listen and point things out.</p>
 </div>
 
+<div id="recheck"></div>
 <div id="courses"><div class="empty">Loading…</div></div>
 
+<script src="https://js.sentry-cdn.com/ab9916085bc6c9e93779c21fad74456f.min.js" crossorigin="anonymous"></script>
+<script src="../sentry-init.js?v=4c1eea9"></script>
 <script src="../lib/app-config.js?v=4c1eea9"></script>
+<script src="../lib/net.js?v=4c1eea9"></script>
 <script>
 var XG = window.XG;
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
@@ -52,8 +56,11 @@ function saveName(){
 }
 
 // Etat d'une lecon, du point de vue de la reviseuse anglaise.
+// « Listen again » passe AVANT « Approved » : la voix a ete refaite apres sa revue
+// (status needs_recheck de la vue lesson_status_full), son approbation ne vaut plus.
 function etat(l){
   if (!l.voiceover_uploaded_at) return { cls:'wait', txt:'Voice not ready' };
+  if (l.status === 'needs_recheck') return { cls:'recheck', txt:'Listen again' };
   if (l.latest_approved) return { cls:'ok', txt:'Approved' };
   if ((l.flags_count || 0) + (l.glitches_count || 0) > 0) return { cls:'flags', txt:(l.flags_count||0) + (l.glitches_count||0) + ' note(s)' };
   if (l.latest_review_at) return { cls:'todo', txt:'In progress' };
@@ -62,13 +69,27 @@ function etat(l){
 
 Promise.all([
   XG.api('courses?visible=eq.true&order=sort_order.asc,id.asc&select=id,title,short_title,lesson_count'),
-  XG.apiAll('lesson_status_full?course_id=like.*-en&select=lesson_key,course_id,module_id,module_index,lesson_index,sort_order,title,voiceover_uploaded_at,latest_approved,latest_reviewer,latest_review_at,flags_count,glitches_count&order=sort_order.asc,lesson_key.asc'),
+  XG.apiAll('lesson_status_full?course_id=like.*-en&select=lesson_key,course_id,module_id,module_index,lesson_index,sort_order,title,status,voiceover_uploaded_at,latest_approved,latest_reviewer,latest_review_at,flags_count,glitches_count&order=sort_order.asc,lesson_key.asc'),
 ]).then(function(res){
   var courses = res[0] || [];
   var lessons = res[1] || [];
   var parCours = {};
   lessons.forEach(function(l){ (parCours[l.course_id] = parCours[l.course_id] || []).push(l); });
   if (!courses.length) { document.getElementById('courses').innerHTML = '<div class="empty">No English course yet.</div>'; return; }
+
+  // Lecons a re-ecouter, tous cours confondus, en tete de page : c'est le travail qui l'attend.
+  var titres = {};
+  courses.forEach(function(c){ titres[c.id] = c.short_title || c.title; });
+  var aReecouter = lessons.filter(function(l){ return l.voiceover_uploaded_at && l.status === 'needs_recheck'; });
+  document.getElementById('recheck').innerHTML = aReecouter.length
+    ? '<div class="card recheck-card"><h2>Listen again (' + aReecouter.length + ')</h2>'
+      + '<p class="help">The team redid the voice of these lessons after your review. Please listen to them again.</p>'
+      + aReecouter.map(function(l){
+        return '<a class="row" href="review.html?key=' + encodeURIComponent(l.lesson_key) + '"><span class="t">' + esc(l.title)
+          + ' <span class="counts">· ' + esc(titres[l.course_id] || l.course_id) + ', module ' + esc(l.module_index) + '</span></span>'
+          + '<span class="chip recheck">Listen again</span></a>';
+      }).join('') + '</div>'
+    : '';
   document.getElementById('courses').innerHTML = courses.map(function(c, ci){
     var ls = parCours[c.id] || [];
     var ok = ls.filter(function(l){ return l.latest_approved; }).length;
@@ -90,7 +111,11 @@ Promise.all([
       + '<div class="corps"' + (ci > 0 ? ' hidden' : '') + '>' + corps + '</div></div>';
   }).join('');
 }).catch(function(e){
-  document.getElementById('courses').innerHTML = '<div class="empty">Could not load the courses (' + esc(e.message) + '). Please refresh the page.</div>';
+  // Bandeau rouge persistant de lib/net.js : « Try again » recharge la page.
+  XGNet.signaler(e, 'en accueil chargement');
+  var m = /HTTP (\d+)/.exec(e.message || '');
+  XGNet.afficherErreur('accueil', XGNet.messageErreur('load the courses', { status: m ? +m[1] : 0 }, 'en'));
+  document.getElementById('courses').innerHTML = '<div class="empty">The courses could not be loaded. Use Try again at the top of the page.</div>';
 });
 </script>
 </body>

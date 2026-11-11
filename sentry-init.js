@@ -124,6 +124,8 @@
     Sentry.setTag('environment', env);
     var page = location.pathname.split('/').pop().replace('.html', '') || 'index';
     Sentry.setTag('page', page);
+    // Edition anglaise (dossier en/) : memes noms de page que le francais, on les distingue ici.
+    Sentry.setTag('langue', /\/en(\/|$)/.test(location.pathname) ? 'en' : 'fr');
 
     // Tag global : lesson_key si present dans l'URL
     try {

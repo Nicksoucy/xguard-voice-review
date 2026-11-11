@@ -29,6 +29,10 @@ describe('messageErreur', () => {
   it('erreur serveur : donne le code', () => {
     expect(messageErreur('charger la leçon', { status: 503 })).toMatch(/code 503/);
   });
+  it('edition anglaise : message en anglais (Rachelle ne lit pas le français)', () => {
+    expect(messageErreur('save your review', { status: 0 }, 'en')).toBe('Could not save your review: no connection to the server. Please check your internet.');
+    expect(messageErreur('approve the lesson', { status: 502 }, 'en')).toMatch(/^Could not approve the lesson: .*code 502/);
+  });
 });
 
 describe('ageEnMots', () => {
