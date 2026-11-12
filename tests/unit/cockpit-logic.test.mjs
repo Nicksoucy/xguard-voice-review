@@ -201,11 +201,12 @@ describe('machinesState', () => {
     expect(cockpit.machinesState(rows, NOW, 0).machines[0].level).toBe('idle');
   });
 
-  it('version divergente entre machines vivantes -> perimee (error)', () => {
+  it('version divergente APRES le nouveau code ailleurs -> perimee (error)', () => {
     const r = cockpit.machinesState(
       [
         { id: 'xguard-correction@MAC', status: 'alive', last_heartbeat: beat(1), version: 'neuf' },
-        { id: 'xguard-correction@NITRO', status: 'alive', last_heartbeat: beat(5), version: 'vieux' },
+        { id: 'xguard-sflags@MAC', status: 'alive', last_heartbeat: beat(4), version: 'neuf' },
+        { id: 'xguard-correction@NITRO', status: 'alive', last_heartbeat: beat(2), version: 'vieux' },
       ],
       NOW,
       0,
@@ -213,6 +214,23 @@ describe('machinesState', () => {
     const nitro = r.machines.find((m) => m.host === 'NITRO');
     expect(nitro.staleVersion).toBe(true);
     expect(nitro.level).toBe('error');
+  });
+
+  // 2026-11-12 08 h 13 : deux commits pousses a 08 h 07 et 08 h 11, les demons permanents
+  // redemarres dessus, les jobs horaires encore sur le commit de leur dernier passage.
+  it('job horaire pas encore repasse depuis le commit -> pas perime', () => {
+    const r = cockpit.machinesState(
+      [
+        { id: 'xguard-studio@mac', status: 'alive', last_heartbeat: beat(1), version: '3527b53 (code)' },
+        { id: 'xguard-anglais@mac', status: 'alive', last_heartbeat: beat(4), version: '3527b53 (code)' },
+        { id: 'xguard-triage@mac', status: 'alive', last_heartbeat: beat(11), version: '6962f02 (code)' },
+        { id: 'xguard-healthcheck@mac', status: 'alive', last_heartbeat: beat(12), version: '6962f02 (code)' },
+      ],
+      NOW,
+      0,
+    );
+    expect(r.machines.filter((m) => m.staleVersion)).toEqual([]);
+    expect(r.machines.every((m) => m.level === 'ok')).toBe(true);
   });
 });
 
