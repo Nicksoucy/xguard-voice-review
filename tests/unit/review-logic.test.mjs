@@ -255,6 +255,16 @@ describe('gardes lecture-seule / approbation (robustesse 2026-06-25)', () => {
     expect(review.peutReprendreRevue('héla', 'Anonyme')).toBe(false);
     expect(review.peutReprendreRevue('héla', 'Héla')).toBe(false); // meme personne, autre casse
   });
+  it('choisirRevues (page anglaise) : ma revue sans casse, sinon celle d’une autre avec des mots', () => {
+    const hela = { reviewer_name: 'héla', flags: [{ index: 3 }] };
+    const vide = { reviewer_name: 'nicolas', flags: [] };
+    const moi = { reviewer_name: 'Rawen', flags: [] };
+    expect(review.choisirRevues([hela, moi], 'rawen')).toEqual({ mine: moi, autre: null });
+    expect(review.choisirRevues([vide, hela], 'rawen')).toEqual({ mine: null, autre: hela });
+    expect(review.choisirRevues([vide], 'rawen')).toEqual({ mine: null, autre: null });
+    expect(review.choisirRevues([hela], 'Anonyme').autre).toBe(null);
+    expect(review.choisirRevues(null, 'rawen')).toEqual({ mine: null, autre: null });
+  });
   it('shouldWriteReview : ecrit si PAS lecture seule OU approbation forcee (le bug d’approbation)', () => {
     expect(review.shouldWriteReview(null, false)).toBe(true);
     expect(review.shouldWriteReview(null, true)).toBe(true);

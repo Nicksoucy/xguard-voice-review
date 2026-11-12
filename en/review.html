@@ -174,6 +174,9 @@ var L = null, W = [], els = [], au = null;
 var flags = new Map();      // index du mot -> flag (meme forme que l'app francaise)
 var glitches = [];
 var approuve = false, minuterie = null;
+// Mots repris de la revue d'une AUTRE personne (2026-11-12, meme correctif que l'app
+// francaise) : { nom, n } tant qu'ils ne sont pas encore enregistres dans la mienne.
+var repris = null;
 // Notes posees AVANT la voix actuelle (lecon « a re-ecouter ») : indices de mots, en memoire
 // seulement — on n'ajoute aucun champ aux flags enregistres.
 var anciens = new Set();
@@ -256,18 +259,32 @@ function chargerMots(){
 Promise.all([
   lire(API + '/lesson_status_full?lesson_key=eq.' + encodeURIComponent(cle) + '&select=*', 'load the lesson'),
   chargerMots(),
-  nom() ? lire(API + '/voice_reviews?lesson_key=eq.' + encodeURIComponent(cle) + '&reviewer_name=eq.' + encodeURIComponent(nom()) + '&select=flags,glitches,approved,updated_at', 'load your review') : Promise.resolve([]),
+  // Toutes les revues de la lecon : la mienne (nom compare sans casse), sinon celle d'une autre
+  // personne a reprendre. Avant, seule la mienne etait lue, au nom exact.
+  nom() ? lire(API + '/voice_reviews?lesson_key=eq.' + encodeURIComponent(cle) + '&select=reviewer_name,flags,glitches,approved,updated_at&order=updated_at.desc', 'load your review') : Promise.resolve([]),
   XGNet.requete(API + '/sentence_flags?lesson_key=eq.' + encodeURIComponent(cle) + '&select=sentence_index,flag_type,applied,auto_status', { headers: H }, { silencieux: true })
     .catch(function(e){ XGNet.signaler(e, 'en sentence_flags lecture'); return []; }),
 ]).then(function(res){
   L = res[0][0];
   if (!L) throw new Error('lesson not found');
   W = res[1];
-  var rv = res[2] && res[2][0];
+  var choix = XGReview.choisirRevues(res[2], nom());
+  var rv = choix.mine;
+  // Ma revue enregistree sous une autre casse (« Rawen » / « rawen ») : on garde le nom
+  // enregistre, sinon la sauvegarde creerait une deuxieme ligne a mon nom.
+  if (rv && rv.reviewer_name !== nom()) {
+    try { localStorage.setItem('rn', rv.reviewer_name); } catch (e) { XGNet.signaler(e, 'en nom'); }
+  }
   if (rv) {
     (rv.flags || []).forEach(function(f){ flags.set(f.index, f); });
     glitches = rv.glitches || [];
     approuve = !!rv.approved;
+  } else if (choix.autre) {
+    // Pas encore de revue a moi : je pars des mots deja marques par l'autre personne. Ils
+    // entrent dans MA ligne au premier enregistrement ; la sienne n'est jamais touchee.
+    (choix.autre.flags || []).forEach(function(f){ flags.set(f.index, f); });
+    glitches = choix.autre.glitches || [];
+    repris = { nom: choix.autre.reviewer_name, n: flags.size };
   }
   document.title = L.title + ' — Lesson review';
   document.getElementById('title').textContent = L.title;
@@ -298,7 +315,7 @@ function reprendreBrouillon(rv){
   var b = lireBrouillon();
   if (!b) return;
   var tServeur = rv && rv.updated_at ? Date.parse(rv.updated_at) : 0;
-  if (b.t <= tServeur || (b.rn && b.rn !== nom())) { oublierBrouillon(); return; }
+  if (b.t <= tServeur || (b.rn && !XGReview.memeReviseur(b.rn, nom()))) { oublierBrouillon(); return; }
   if (b.rn) {
     // Meme reviseuse : le brouillon EST la derniere version de sa revue.
     flags = new Map();
@@ -317,15 +334,18 @@ function reprendreBrouillon(rv){
 function banniere(){
   var b = document.getElementById('banner');
   document.getElementById('brecheck').hidden = !aReecouter;
+  var rep = repris ? '<div class="banner info">' + esc(repris.nom) + ' already marked ' + repris.n + ' word' + (repris.n > 1 ? 's' : '')
+    + ' in this lesson. They are shown here and become part of your review as soon as you change anything. '
+    + esc(repris.nom) + '’s own review does not change.</div>' : '';
   if (aReecouter) {
-    b.innerHTML = '<div class="banner warn"><b>Please listen again.</b> The voice was redone on ' + esc(date(L.voiceover_uploaded_at))
+    b.innerHTML = rep + '<div class="banner warn"><b>Please listen again.</b> The voice was redone on ' + esc(date(L.voiceover_uploaded_at))
       + ', after your review of ' + esc(date(L.latest_review_at)) + '. '
       + (anciens.size ? 'Your earlier notes are marked “before the new voice” on the right. Remove each one that now sounds right (✕). ' : '')
       + 'If the whole lesson sounds right, click Approve lesson. If you only listened again and have nothing to add, click I listened again.</div>';
   } else if (approuve) {
-    b.innerHTML = '<div class="banner ok">You approved this lesson. You can still add notes; they will reopen it for the team.</div>';
+    b.innerHTML = rep + '<div class="banner ok">You approved this lesson. You can still add notes; they will reopen it for the team.</div>';
   } else if (!/brought back/.test(b.textContent)) {
-    b.innerHTML = '';
+    b.innerHTML = rep;
   }
 }
 
@@ -525,6 +545,7 @@ function sauver(approuver, opts){
     // Le bandeau « Please listen again » reste pendant qu'elle retire ses anciennes notes ;
     // il part quand elle approuve ou confirme sa re-ecoute.
     if (approuver || opts.reecoute) aReecouter = false;
+    repris = null; // les mots repris sont maintenant dans MA revue
     msg(approuver ? '✓ Lesson approved. Thank you!' : '✓ Saved');
     banniere();
     return true;

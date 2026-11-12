@@ -130,7 +130,7 @@ function roGuard() {
     if (XGReview.peutReprendreRevue(autre, monNom)
         && window.confirm('Commencer ta propre revue de cette leçon ?\n\n'
           + 'Les mots déjà marqués par ' + autre + ' sont repris dans ta revue. '
-          + 'Sa revue à elle ne change pas.')) {
+          + 'La revue de ' + autre + ' ne change pas.')) {
       window.viewingOtherReview = null;
       var banniere = document.getElementById('viewing-banner');
       if (banniere) banniere.classList.add('hidden');

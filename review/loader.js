@@ -145,7 +145,7 @@ function showViewingBanner(name){
   // Correctif 13 : le nom vient de la base -> echappe.
   el.innerHTML = '<strong>\u{1F441}️ Tu regardes la revue de ' + escAttr(name || '?') + '</strong><br>'
     + 'Tu vois ses mots flaggés et, dans « Corrections faites », ce qui a été corrigé. '
-    + 'Clique sur un mot pour commencer ta propre revue : ses mots marqués sont repris, sa revue à elle ne change pas.';
+    + 'Clique sur un mot pour commencer ta propre revue : ces mots marqués sont repris, la revue de ' + escAttr(name || '?') + ' ne change pas.';
   el.classList.remove('hidden');
 }
 
