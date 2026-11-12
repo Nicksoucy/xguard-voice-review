@@ -123,7 +123,21 @@ function roGuard() {
     return true;
   }
   if (!XGReview.canEditReview(window.viewingOtherReview)) {
-    if (typeof showMsg === 'function') showMsg('\u{1F441}\u{FE0F} Lecture seule — revue de ' + window.viewingOtherReview, '');
+    // Reprise (2026-11-12) : au premier geste, on propose de commencer SA revue a partir de
+    // celle de l'autre reviseur, au lieu d'ignorer le clic (voir XGReview.peutReprendreRevue).
+    var autre = window.viewingOtherReview;
+    var monNom = (localStorage.getItem('rn') || '').trim();
+    if (XGReview.peutReprendreRevue(autre, monNom)
+        && window.confirm('Commencer ta propre revue de cette leçon ?\n\n'
+          + 'Les mots déjà marqués par ' + autre + ' sont repris dans ta revue. '
+          + 'Sa revue à elle ne change pas.')) {
+      window.viewingOtherReview = null;
+      var banniere = document.getElementById('viewing-banner');
+      if (banniere) banniere.classList.add('hidden');
+      if (typeof showMsg === 'function') showMsg('✓ Ta revue commence — tu peux marquer les mots.');
+      return false;
+    }
+    if (typeof showMsg === 'function') showMsg('\u{1F441}\u{FE0F} Lecture seule — revue de ' + autre, '');
     return true;
   }
   return false;

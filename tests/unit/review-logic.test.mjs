@@ -246,6 +246,15 @@ describe('gardes lecture-seule / approbation (robustesse 2026-06-25)', () => {
     expect(review.canEditReview('')).toBe(true);
     expect(review.canEditReview('Hela')).toBe(false);
   });
+  // 2026-11-12 : Rawen ne pouvait cliquer sur aucun mot de hauteur m02-l05 (revue d'Hela de juillet).
+  it('peutReprendreRevue : un vrai nom, different de celui de la revue affichee', () => {
+    expect(review.peutReprendreRevue('héla', 'rawen')).toBe(true);
+    expect(review.peutReprendreRevue('héla', 'Rawen ')).toBe(true);
+    expect(review.peutReprendreRevue(null, 'rawen')).toBe(false); // deja sa propre revue
+    expect(review.peutReprendreRevue('héla', '')).toBe(false); // sans nom : on n'ecrit rien
+    expect(review.peutReprendreRevue('héla', 'Anonyme')).toBe(false);
+    expect(review.peutReprendreRevue('héla', 'Héla')).toBe(false); // meme personne, autre casse
+  });
   it('shouldWriteReview : ecrit si PAS lecture seule OU approbation forcee (le bug d’approbation)', () => {
     expect(review.shouldWriteReview(null, false)).toBe(true);
     expect(review.shouldWriteReview(null, true)).toBe(true);
