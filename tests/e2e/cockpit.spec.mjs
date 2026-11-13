@@ -43,3 +43,23 @@ test("l'onglet Import GHL liste les formations finies pas encore en ligne", asyn
   await expect(page.getByText(/Surete aeroportuaire MET/)).toBeVisible();
   await expect(page.locator('.gstat.live')).toHaveCount(1);
 });
+
+test('la barre de recherche trouve formations et leçons, et Échap la vide', async ({ page }) => {
+  await mockSupabase(page);
+  await page.goto('/index.html');
+  await expect(page.locator('.tabs button')).toHaveCount(5);
+  const champ = page.locator('#recherche');
+  await champ.fill('tireur actif');
+  await expect(page.locator('#view .res-titre').first()).toContainText('formation');
+  await expect(page.locator('#view')).toContainText('Sensibilisation aux situations de tireur actif');
+  await expect(page.locator('#subtitle')).toContainText('Recherche');
+  await champ.fill('zzzz-introuvable');
+  await expect(page.locator('#view .res-vide')).toContainText('Rien trouvé');
+  await champ.press('Escape');
+  await expect(champ).toHaveValue('');
+  await expect(page.locator('#view .res-vide')).toHaveCount(0);
+  // Raccourci « / » depuis la page.
+  await page.locator('body').click();
+  await page.keyboard.press('/');
+  await expect(champ).toBeFocused();
+});

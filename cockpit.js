@@ -100,6 +100,79 @@ document.addEventListener('visibilitychange', function(){
   if (document.visibilityState === 'visible' && Date.now() - dernierChargement > 30000) chargerCockpit();
 });
 
+// ───────────────────────── Recherche (2026-11-13) ─────────────────────────
+// Formations et leçons, tous onglets confondus, dans les données déjà chargées (logique
+// pure : XGCockpit.rechercher). Une leçon mène à sa page selon son étape (voix, vidéo, ou
+// la fiche de la formation quand elle est prête).
+var champRecherche = document.getElementById('recherche');
+var boutonEffacer = document.getElementById('recherche-effacer');
+function requeteRecherche(){ return champRecherche ? champRecherche.value.trim() : ''; }
+var minuterieRecherche = null;
+if (champRecherche) {
+  champRecherche.addEventListener('input', function(){
+    boutonEffacer.hidden = !champRecherche.value;
+    clearTimeout(minuterieRecherche);
+    minuterieRecherche = setTimeout(render, 150);
+  });
+  champRecherche.addEventListener('keydown', function(e){ if (e.key === 'Escape') effacerRecherche(); });
+  boutonEffacer.addEventListener('click', effacerRecherche);
+}
+function effacerRecherche(){
+  champRecherche.value = '';
+  boutonEffacer.hidden = true;
+  render();
+  champRecherche.focus();
+}
+// Raccourci « / » : aller à la recherche depuis n'importe où (sauf en train de taper).
+document.addEventListener('keydown', function(e){
+  if (e.key !== '/' || /INPUT|TEXTAREA|SELECT/.test((e.target && e.target.tagName) || '')) return;
+  e.preventDefault();
+  if (champRecherche) champRecherche.focus();
+});
+
+function lienLecon(l){
+  if (l.pipeline_stage === 'done') return 'course.html?course=' + encodeURIComponent(l.course_id);
+  var st = STAGE[l.pipeline_stage];
+  return (st ? st.link : 'review.html') + '?key=' + encodeURIComponent(l.lesson_key);
+}
+function renderRecherche(){
+  var q = requeteRecherche();
+  var r = XGCockpit.rechercher(q, DATA.courses, DATA.lessons, 80);
+  document.getElementById('subtitle').textContent = 'Recherche — « ' + q + ' »';
+  if (!r.cours.length && !r.total) {
+    document.getElementById('view').innerHTML = '<div class="res-vide">Rien trouvé pour « ' + esc(q) + ' ». Essaie un seul mot, ou un numéro comme « m03 l02 ».</div>';
+    return;
+  }
+  var pc = perCourseCounts();
+  var html = '';
+  if (r.cours.length) {
+    html += '<div class="res-titre">' + r.cours.length + ' formation' + (r.cours.length > 1 ? 's' : '') + '</div>';
+    html += r.cours.map(function(c){
+      var s = pc[c.id] || {};
+      var total = STAGE_ORDER.reduce(function(a, k){ return a + (s[k] || 0); }, 0);
+      return '<a class="qrow" style="--c:#E74C3C" href="course.html?course=' + encodeURIComponent(c.id) + '">'
+        + '<span class="qname">' + esc(c.title || c.id) + '</span>'
+        + '<span class="qctx">' + total + ' leçon' + (total > 1 ? 's' : '') + ' · ' + (s.done || 0) + ' prête' + ((s.done || 0) > 1 ? 's' : '') + '</span>'
+        + '<span class="qarrow">→</span></a>';
+    }).join('');
+  }
+  if (r.total) {
+    html += '<div class="res-titre">' + r.total + ' leçon' + (r.total > 1 ? 's' : '')
+      + (r.total > r.lecons.length ? ' — les ' + r.lecons.length + ' premières, précise ta recherche' : '') + '</div>';
+    html += r.lecons.map(function(l){
+      var st = STAGE[l.pipeline_stage] || {};
+      var num = (l.module_index != null ? 'M' + l.module_index : '') + (l.lesson_index != null ? '·L' + l.lesson_index : '');
+      return '<a class="qrow" style="--c:' + (st.color || '#3B82F6') + '" href="' + lienLecon(l) + '">'
+        + '<span class="qstage">' + (st.emoji || '') + '</span>'
+        + '<span class="qname">' + esc(XGCockpit.lessonName(l)) + '</span>'
+        + '<span class="qctx">' + esc((CT[l.course_id] || l.course_id) + (num ? ' · ' + num : '')) + '</span>'
+        + '<span class="qwhy">' + esc(st.label || l.pipeline_stage || '') + '</span>'
+        + '<span class="qarrow">→</span></a>';
+    }).join('');
+  }
+  document.getElementById('view').innerHTML = html;
+}
+
 // ───────────────────────── Helpers partagés ─────────────────────────
 
 // Logique pure deleguee a lib/cockpit-logic.js (window.XGCockpit) — testee par vitest.
@@ -273,6 +346,8 @@ function render(){
   // Une machine morte ou périmée doit se voir partout.
   document.getElementById('health').innerHTML = healthBannerHtml();
 
+  // Une recherche en cours remplace la vue de l'onglet (les onglets restent visibles).
+  if (requeteRecherche()) { renderRecherche(); return; }
   if (t==='audio')      renderReviewCards(AUDIO_STAGES, pc, 'Rien à réviser côté voix pour l\'instant.');
   else if (t==='video') renderReviewCards(VIDEO_STAGES, pc, 'Aucune vidéo à regarder pour l\'instant.');
   else if (t==='prod')  renderProduction(pc);

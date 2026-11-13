@@ -336,3 +336,32 @@ describe('videoBlocks — pourquoi une video ne bouge pas', () => {
     expect(videoBlocks(LECONS[2], undefined)).toEqual([]);
   });
 });
+
+// Barre de recherche du cockpit (2026-11-13).
+describe('rechercher', () => {
+  const C = [
+    { id: 'cariste', title: 'Cariste — chariot élévateur' },
+    { id: 'pemp', title: 'Plateformes élévatrices (PEMP)' },
+  ];
+  const L = [
+    { lesson_key: 'cariste/module-03/02-plaque', course_id: 'cariste', title: 'Plaque signalétique et charge nominale', module_index: 3, lesson_index: 2, sort_order: 2 },
+    { lesson_key: 'cariste/module-01/01-lsst', course_id: 'cariste', title: 'LSST : qui doit quoi', module_index: 1, lesson_index: 1, sort_order: 1 },
+    { lesson_key: 'pemp/module-02/01-types', course_id: 'pemp', title: 'Les types de plateformes', module_index: 2, lesson_index: 1 },
+  ];
+  it('ignore casse et accents, exige tous les mots', () => {
+    expect(cockpit.rechercher('SIGNALETIQUE', C, L).lecons.map((l) => l.lesson_key)).toEqual(['cariste/module-03/02-plaque']);
+    expect(cockpit.rechercher('plaque pemp', C, L).total).toBe(0);
+  });
+  it('trouve par le titre de la formation et par numero (m03 l02, module 3)', () => {
+    expect(cockpit.rechercher('cariste', C, L).total).toBe(2);
+    expect(cockpit.rechercher('cariste m03 l02', C, L).lecons.map((l) => l.title)).toEqual(['Plaque signalétique et charge nominale']);
+    expect(cockpit.rechercher('module 2', C, L).lecons.map((l) => l.course_id)).toEqual(['pemp']);
+  });
+  it('formations trouvees, ordre du cours, limite et requete vide', () => {
+    expect(cockpit.rechercher('élévatrices', C, L).cours.map((c) => c.id)).toEqual(['pemp']);
+    expect(cockpit.rechercher('cariste', C, L).lecons.map((l) => l.sort_order)).toEqual([1, 2]);
+    expect(cockpit.rechercher('cariste', C, L, 1)).toMatchObject({ total: 2 });
+    expect(cockpit.rechercher('cariste', C, L, 1).lecons).toHaveLength(1);
+    expect(cockpit.rechercher('   ', C, L)).toEqual({ cours: [], lecons: [], total: 0 });
+  });
+});

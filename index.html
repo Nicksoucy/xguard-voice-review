@@ -24,6 +24,14 @@ a{text-decoration:none;color:inherit}
 
 .info{background:rgba(255,255,255,0.04);border-left:3px solid #E74C3C;padding:10px 14px;margin-bottom:16px;border-radius:0 8px 8px 0}
 .info label{color:#94A3B8;font-size:13px;margin-right:8px}
+/* Barre de recherche (2026-11-13) : formations et lecons, tous onglets confondus. */
+.recherche{position:relative;margin:0 0 12px}
+.recherche input{width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);color:#F0F0F0;border-radius:8px;padding:10px 38px 10px 36px;font:inherit;font-size:14px}
+.recherche input:focus{outline:none;border-color:#E74C3C;background:rgba(255,255,255,0.08)}
+.recherche .loupe{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#94A3B8;font-size:14px;pointer-events:none}
+.recherche .effacer{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:#94A3B8;font-size:16px;cursor:pointer;padding:4px 8px}
+.res-titre{font-size:13px;font-weight:700;color:#CBD5E1;margin:14px 0 8px}
+.res-vide{color:#A3ACB9;font-size:14px;padding:18px;text-align:center}
 .info input{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:6px 12px;color:#F0F0F0;font-size:14px;width:200px}
 
 /* Section header */
@@ -103,6 +111,11 @@ a{text-decoration:none;color:inherit}
 <p class="sub" id="subtitle">Pipeline de production des formations</p>
 
 <div class="tabs" id="tabs"></div>
+<div class="recherche">
+  <span class="loupe" aria-hidden="true">🔍</span>
+  <input type="search" id="recherche" placeholder="Rechercher une formation ou une leçon (ex. : cariste plaque, m03 l02)" aria-label="Rechercher une formation ou une leçon" autocomplete="off">
+  <button type="button" class="effacer" id="recherche-effacer" aria-label="Effacer la recherche" hidden>✕</button>
+</div>
 <div id="maj-cockpit" style="font-size:12px;color:#A3ACB9;margin:-6px 0 10px"></div>
 
 <div class="info"><label for="name">Ton nom :</label><input type="text" id="name" placeholder="Ex: Héla" oninput="localStorage.setItem('rn',this.value)"></div>
