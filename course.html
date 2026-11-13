@@ -312,7 +312,10 @@ resolveCourseId(function(courseId){
       + (globalStats.needs_recheck ? ' · <span style="color:#E74C3C">'+globalStats.needs_recheck+' a revoir</span>' : '')
       + (globalStats.flagged ? ' · <span style="color:#F39C12">'+globalStats.flagged+' flaggees</span>' : '')
       + (newFlagsCount ? ' · <span style="color:#FF6B5B;font-weight:700">🔴 '+newFlagsCount+' nouveau(x) depuis la voix refaite</span>' : '')
-      + (globalStats.not_reviewed ? ' · <span style="color:#94A3B8">'+globalStats.not_reviewed+' a faire</span>' : '');
+      + (globalStats.not_reviewed ? ' · <span style="color:#94A3B8">'+globalStats.not_reviewed+' a faire</span>' : '')
+      // Les compteurs ci-dessus ne parlent que des VOIX (2026-11-12) : en phase video, Rawen
+      // voyait « 43 / 43 approuvees » sans que ses approbations de videos n'y changent rien.
+      + ' · 🎬 <strong style="color:#F0F0F0">'+videosApprouvees(realLessons)+' / '+total+' vidéos approuvées</strong>';
     document.getElementById('cph-bar').innerHTML = buildBar(globalStats, total);
     document.getElementById('course-progress-header').style.display = 'block';
     document.getElementById('filters').style.display = 'flex';
@@ -353,6 +356,7 @@ resolveCourseId(function(courseId){
       header.innerHTML =
         'Module ' + mod.index
         + '<span class="mod-pct"><strong>'+modPct+'%</strong> · '+modStats.approved+'/'+modReal+' approuvees'
+        + ' · 🎬 '+videosApprouvees(mod.lessons.filter(function(l){ return l.voiceover_uploaded_at; }))+'/'+modReal
         + (modNewCount ? ' · <span style="color:#FF6B5B">🔴 '+modNewCount+' NEW</span>' : '')
         + '</span>';
       list.appendChild(header);
@@ -380,7 +384,11 @@ resolveCourseId(function(courseId){
             metaR += '<span class="tag-flags-old" title="Mots notés AVANT la dernière voix refaite — déjà repris dans la nouvelle voix">'+activeCount+' (voix déjà refaite)</span>';
           }
         }
-        if (l.latest_reviewer) metaR += '<span class="tag-reviewer">'+escCours(l.latest_reviewer)+'</span>';
+        // Qui a revise quoi (2026-11-12). Avant, seul le nom de la revue VOIX s'affichait :
+        // Rawen approuvait une video et voyait encore « héla » a cote (« ça me met pas
+        // travaillé »). Le nom de la video n'est montre que pour la version en ligne.
+        if (l.latest_reviewer) metaR += '<span class="tag-reviewer" title="Voix révisée par">🎙 '+escCours(l.latest_reviewer)+'</span>';
+        if (l.video_latest_reviewer && !l.video_stale) metaR += '<span class="tag-reviewer" title="Vidéo révisée par">🎬 '+escCours(l.video_latest_reviewer)+'</span>';
 
         // Garde-fou BROUILLON : une lecon-conteneur (scaffold) n'a pas de voiceover produit
         // (voiceover_uploaded_at null). Avant, elle s'affichait comme une lecon cliquable 🎙 --
@@ -557,5 +565,38 @@ async function markCoursePushed() {
 document.getElementById('lms-modal-bg').addEventListener('click', function(e){
   if (e.target === this) closeLmsModal();
 });
+
+// Videos dont la version EN LIGNE est approuvee (une video perimee sera refaite : elle ne compte pas).
+function videosApprouvees(lecons) {
+  return lecons.filter(function(l){ return l.video_status === 'approved' && !l.video_stale; }).length;
+}
+
+// RETOUR SUR LA PAGE (2026-11-12). La page ne relisait jamais la base : Rawen approuvait une
+// video, revenait ici (bouton Retour du navigateur, ou onglet reste ouvert) et voyait la
+// video encore « à regarder » — « ça n'a pas été enregistré ». On recharge donc la page quand
+// le navigateur la ressort de son cache, ou quand on revient sur l'onglet apres 15 s ailleurs
+// (comme le cockpit). Le filtre choisi est garde. Jamais pendant l'export GHL ouvert.
+var CLE_FILTRE = 'xg-course-filtre:' + location.search;
+window.addEventListener('pageshow', function(e){ if (e.persisted) location.reload(); });
+var cacheDepuis = null;
+document.addEventListener('visibilitychange', function(){
+  if (document.visibilityState === 'hidden') { cacheDepuis = Date.now(); return; }
+  var exportOuvert = document.getElementById('lms-modal-bg').style.display === 'flex';
+  if (cacheDepuis && Date.now() - cacheDepuis > 15000 && !exportOuvert) location.reload();
+});
+document.addEventListener('click', function(e){
+  var b = e.target.closest && e.target.closest('.f-btn');
+  if (!b) return;
+  try { sessionStorage.setItem(CLE_FILTRE, b.getAttribute('data-filter')); } catch (err) { console.warn('sessionStorage indisponible', err); }
+});
+// Remettre le filtre choisi avant le rechargement, une fois la liste construite.
+(function remettreFiltre(essais){
+  var f = null;
+  try { f = sessionStorage.getItem(CLE_FILTRE); } catch (err) { return; }
+  if (!f || f === 'all') return;
+  var b = document.querySelector('.f-btn[data-filter="' + f + '"]');
+  if (b && b.onclick && document.querySelector('.item')) { b.onclick(); return; }
+  if (essais > 0) setTimeout(function(){ remettreFiltre(essais - 1); }, 300);
+})(20);
 </script>
 </body></html>
