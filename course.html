@@ -32,6 +32,8 @@ h1{color:#E74C3C;font-size:18px;margin-bottom:4px}
 .f-btn{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#94A3B8;font-size:11px;padding:5px 11px;border-radius:4px;cursor:pointer;font-family:inherit}
 .f-btn:hover{background:rgba(255,255,255,0.12);color:#fff}
 .f-btn.on{background:#C0392B;border-color:#C0392B;color:#fff}
+.f-label{font-size:11px;color:#94A3B8;align-self:center;margin:0 2px 0 6px}
+.f-count{opacity:0.6;margin-left:4px}
 
 .mod-header{color:#E74C3C;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin:14px 0 6px 0;padding-left:4px;display:flex;justify-content:space-between;align-items:baseline}
 .mod-header:first-child{margin-top:0}
@@ -102,6 +104,7 @@ a{text-decoration:none}
 
 <div class="filters" id="filters" style="display:none">
   <button class="f-btn on" data-filter="all">Tout</button>
+  <span class="f-label">🎙 Voix :</span>
   <button class="f-btn" data-filter="not_reviewed">A faire</button>
   <button class="f-btn" data-filter="in_review">En cours</button>
   <button class="f-btn" data-filter="flagged">⚠ Flaggees</button>
@@ -109,6 +112,16 @@ a{text-decoration:none}
   <button class="f-btn" data-filter="needs_recheck">↻ A revoir</button>
   <span style="flex:1"></span>
   <button class="f-btn" id="lms-export-btn" onclick="exportToGhl()" title="Exporter le cours pour GHL Memberships" style="background:rgba(155,89,182,0.15);color:#bb8fce;border-color:rgba(155,89,182,0.4);display:none">🚀 Exporter pour GHL</button>
+</div>
+<!-- Filtres VIDEO (2026-11-13) : memes etats que le bouton 🎬 de chaque lecon (data-video). -->
+<div class="filters" id="filters-video" style="display:none;margin-top:-8px">
+  <span class="f-label">🎬 Vidéo :</span>
+  <button class="f-btn" data-filter="v:todo" title="Vidéo prête ou refaite, pas encore regardée">À regarder</button>
+  <button class="f-btn" data-filter="v:in_review" title="Révision commencée, pas encore terminée">En cours</button>
+  <button class="f-btn" data-filter="v:rejected" title="Renvoyée à corriger">✗ Refusées</button>
+  <button class="f-btn" data-filter="v:redo" title="La voix a changé : la vidéo sera refaite, rien à faire">Sera refaite</button>
+  <button class="f-btn" data-filter="v:approved">✓ Approuvées</button>
+  <button class="f-btn" data-filter="v:waiting" title="Pas encore produite, ou attend que la voix soit approuvée">⏳ Pas prête</button>
 </div>
 
 <div id="legend" style="display:none;font-size:11px;color:#94A3B8;margin:-4px 0 12px;gap:14px;flex-wrap:wrap;align-items:center;line-height:1.8">
@@ -319,6 +332,7 @@ resolveCourseId(function(courseId){
     document.getElementById('cph-bar').innerHTML = buildBar(globalStats, total);
     document.getElementById('course-progress-header').style.display = 'block';
     document.getElementById('filters').style.display = 'flex';
+    document.getElementById('filters-video').style.display = 'flex';
     document.getElementById('legend').style.display = 'flex';
 
     // Phase 3 : show LMS export button if at least 1 lesson approved
@@ -399,6 +413,7 @@ resolveCourseId(function(courseId){
           voiceBtn = '<span class="action-btn voice draft" title="Brouillon — pas encore de voiceover produit">📝 brouillon</span>';
           videoBtn = '<span class="action-btn video disabled" title="Pas de voiceover — rien a produire">🎬 🔒</span>';
           item.setAttribute('data-draft', '1');
+          item.setAttribute('data-video', 'waiting');
           item.innerHTML =
             '<span class="n">'+l.lesson_index+'</span>'
             + '<span class="t">'+(l.short_title || l.title)+'</span>'
@@ -418,15 +433,20 @@ resolveCourseId(function(courseId){
         var videoTitle = '';
         var videoLabel = '🎬';
         var videoHref = 'review-video.html?key='+encodeURIComponent(l.lesson_key);
+        // Etat video pour les filtres 🎬 : une valeur par branche ci-dessous.
+        var etatVideo;
         if (l.status !== 'approved') {
           videoCls += ' disabled';
           videoTitle = 'Le voiceover doit etre approuve d\'abord';
           videoLabel = '🎬 🔒';
+          etatVideo = 'waiting';
         } else if (!l.has_video) {
           videoCls += ' disabled';
           videoTitle = 'Video pas encore produite';
           videoLabel = '🎬 ⏳';
+          etatVideo = 'waiting';
         } else if (l.video_stale) {
+          etatVideo = 'redo';
           // Voix regeneree apres la video -> video perimee, sera re-produite.
           // Libelle en MOTS (audit 2026-06-10) : le ↻ etait le meme symbole que
           // « voix a re-reviser », Hela ne comprenait pas le badge orange.
@@ -434,20 +454,24 @@ resolveCourseId(function(courseId){
           videoTitle = 'La voix de cette leçon a été refaite après le montage : la vidéo sera remontée avec la nouvelle voix et reviendra ici. Rien à faire pour l’instant.';
           videoLabel = '🎬 sera refaite';
         } else if (l.video_status === 'approved') {
+          etatVideo = 'approved';
           videoCls += ' done';
           videoTitle = 'Video approuvee — rien a faire';
           videoLabel = '🎬 ✓';
         } else if (l.video_status === 'rejected') {
           // Rejetee par Hela (renvoyee pour correction) -> ROUGE, pas vert : a refaire.
+          etatVideo = 'rejected';
           videoCls += ' rejected';
           videoTitle = 'Tu as envoyé cette vidéo à corriger (' + (l.video_flags_count || 0) + ' problème(s) noté(s)). Elle sera refaite et reviendra ici en nouvelle version. Tu peux passer à la suivante.';
           videoLabel = '🎬 ✗ refusée';
         } else if (l.video_status === 'in_review') {
+          etatVideo = 'in_review';
           videoTitle = 'Révision commencée — ' + (l.video_flags_count || 0) + ' problème(s) noté(s). Clique « J’ai fini cette vidéo » quand tu as tout regardé.';
           videoLabel = '🎬 en cours (' + (l.video_flags_count || 0) + ')';
         } else {
           // not_reviewed mais video prete (ou nouvelle version produite depuis
           // ta derniere visite : la vue retombe a not_reviewed dans ce cas).
+          etatVideo = 'todo';
           videoCls += ' todo';
           videoTitle = (l.video_version > 1)
             ? 'NOUVELLE VERSION (v' + l.video_version + ') depuis ton dernier passage — la video a ete refaite, a regarder'
@@ -455,6 +479,7 @@ resolveCourseId(function(courseId){
           videoLabel = (l.video_version > 1) ? '🎬 NOUVELLE v' + l.video_version : '🎬 NOUVELLE';
         }
         var videoBtn = '<a href="'+videoHref+'" class="'+videoCls+'" title="'+escCours(videoTitle)+'">'+videoLabel+'</a>';
+        item.setAttribute('data-video', etatVideo);
 
         // Correctif 13 : titre et numero viennent de la base -> echappes.
         item.innerHTML =
@@ -466,15 +491,29 @@ resolveCourseId(function(courseId){
       });
     });
 
-    // Filtres
-    document.querySelectorAll('.f-btn').forEach(function(btn){
+    // Filtres. Un seul actif a la fois, voix OU video : « v:<etat> » lit data-video (2026-11-13),
+    // le reste lit data-status (la voix). [data-filter] seulement : avant, la boucle prenait
+    // aussi « Exporter pour GHL » (classe f-btn) et remplacait son onclick — le bouton filtrait
+    // la liste (et cachait tout) au lieu d'ouvrir l'export.
+    function valeurFiltree(it, filter) {
+      return filter.indexOf('v:') === 0 ? it.getAttribute('data-video') === filter.slice(2)
+        : it.getAttribute('data-status') === filter;
+    }
+    // Nombre de lecons par filtre, affiche sur le bouton (brouillons compris, comme la liste).
+    document.querySelectorAll('.f-btn[data-filter]').forEach(function(btn){
+      var f = btn.getAttribute('data-filter');
+      if (f === 'all') return;
+      var n = Array.prototype.filter.call(document.querySelectorAll('.item'), function(it){ return valeurFiltree(it, f); }).length;
+      btn.insertAdjacentHTML('beforeend', '<span class="f-count">' + n + '</span>');
+    });
+    document.querySelectorAll('.f-btn[data-filter]').forEach(function(btn){
       btn.onclick = function(){
-        document.querySelectorAll('.f-btn').forEach(function(b){b.classList.remove('on')});
+        document.querySelectorAll('.f-btn[data-filter]').forEach(function(b){b.classList.remove('on')});
         btn.classList.add('on');
         var filter = btn.getAttribute('data-filter');
         var visibleModules = {};
         document.querySelectorAll('.item').forEach(function(it){
-          var shouldShow = (filter === 'all' || it.getAttribute('data-status') === filter);
+          var shouldShow = (filter === 'all' || valeurFiltree(it, filter));
           if (shouldShow) {
             it.classList.remove('hidden');
             visibleModules[it.getAttribute('data-module-id')] = true;
@@ -585,7 +624,7 @@ document.addEventListener('visibilitychange', function(){
   if (cacheDepuis && Date.now() - cacheDepuis > 15000 && !exportOuvert) location.reload();
 });
 document.addEventListener('click', function(e){
-  var b = e.target.closest && e.target.closest('.f-btn');
+  var b = e.target.closest && e.target.closest('.f-btn[data-filter]');
   if (!b) return;
   try { sessionStorage.setItem(CLE_FILTRE, b.getAttribute('data-filter')); } catch (err) { console.warn('sessionStorage indisponible', err); }
 });
