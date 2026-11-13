@@ -45,3 +45,11 @@ h2{font-size:16px;margin:0 0 8px}
 .tabs .tcount{background:rgba(255,255,255,0.18);border-radius:10px;padding:0 7px;font-size:12px;font-weight:700}
 .tabs .tcount.zero{opacity:.55}
 .allgood h2{color:#F0F0F0}
+
+/* Barre de recherche (2026-11-13), comme le cockpit francais. */
+.recherche{position:relative;margin:0 0 14px}
+.recherche input{width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);color:#F0F0F0;border-radius:8px;padding:10px 38px 10px 36px;font:inherit;font-size:14.5px}
+.recherche input:focus{outline:none;border-color:#E74C3C;background:rgba(255,255,255,0.08)}
+.recherche .loupe{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#94A3B8;font-size:14px;pointer-events:none}
+.recherche .effacer{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:#94A3B8;font-size:16px;cursor:pointer;padding:4px 8px}
+.res-titre{color:#A8B3C4;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin:6px 2px 8px}

@@ -256,3 +256,25 @@ test('anglais : une vidéo prête dont la voix est encore en révision se regard
   await expect(page.locator('#tabs button.on .tcount')).toHaveText('1');
   await expect(page.locator('#view a.row')).toContainText('voice not approved yet');
 });
+
+// ── Recherche (2026-11-13) ─────────────────────────────────────────────
+test('anglais : la recherche trouve formations et leçons, et Échap ramène l’onglet', async ({ page }) => {
+  await mockEn(page, { lesson: lecon({ pipeline_stage: 'voice_review', module_id: 'm1' }) });
+  await page.goto('/en/index.html');
+  await expect(page.locator('#courses')).toBeVisible();
+  await page.keyboard.press('/');
+  const champ = page.locator('#recherche');
+  await expect(champ).toBeFocused();
+  await champ.fill('demo lesson');
+  await expect(page.locator('#subtitle')).toContainText('Search');
+  await expect(page.locator('#view a.row')).toHaveAttribute('href', URL_REVUE.replace('/en/', ''));
+  await champ.fill('m01 l01');
+  await expect(page.locator('#view')).toContainText('1 lesson');
+  await champ.fill('m02');
+  await expect(page.locator('#view')).toContainText('Nothing found');
+  await champ.fill('demo course');
+  await expect(page.locator('#view')).toContainText('1 course');
+  await champ.press('Escape');
+  await expect(champ).toHaveValue('');
+  await expect(page.locator('#courses')).toBeVisible();
+});

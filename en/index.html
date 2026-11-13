@@ -31,6 +31,11 @@
 </div>
 
 <div class="tabs" id="tabs" role="tablist"></div>
+<div class="recherche">
+  <span class="loupe" aria-hidden="true">🔍</span>
+  <input type="search" id="recherche" placeholder="Search a course or a lesson (e.g. forklift plate, m03 l02)" aria-label="Search a course or a lesson" autocomplete="off">
+  <button type="button" class="effacer" id="recherche-effacer" aria-label="Clear the search" hidden>✕</button>
+</div>
 <div id="view"><div class="empty">Loading…</div></div>
 
 <template id="aide-audio">
@@ -51,6 +56,7 @@
 <script src="../sentry-init.js?v=4f5f41a"></script>
 <script src="../lib/app-config.js?v=4f5f41a"></script>
 <script src="../lib/net.js?v=4f5f41a"></script>
+<script src="../lib/cockpit-logic.js?v=4f5f41a"></script>
 <script>
 var XG = window.XG;
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
@@ -130,6 +136,8 @@ function rendre(){
     return '<button role="tab" aria-selected="' + (tb.id === t) + '" class="' + (tb.id === t ? 'on' : '') + '" onclick="choisir(\'' + tb.id + '\')">'
       + tb.emoji + ' ' + esc(tb.label) + '<span class="tcount' + (nb[tb.id] ? '' : ' zero') + '">' + nb[tb.id] + '</span></button>';
   }).join('');
+  // Une recherche en cours remplace la vue de l'onglet (les onglets restent visibles).
+  if (requeteRecherche()) { rendreRecherche(pc); return; }
   document.getElementById('subtitle').textContent = TABS.filter(function(x){ return x.id === t; })[0].sub;
   var v = document.getElementById('view');
   if (t === 'audio') v.innerHTML = rendreAudio(pc);
@@ -137,6 +145,87 @@ function rendre(){
   else if (t === 'prod') v.innerHTML = rendreProduction(pc);
   else if (t === 'done') v.innerHTML = rendreFinis(pc);
   else v.innerHTML = rendreGhl();
+}
+
+// ── Recherche (2026-11-13) ───────────────────────────────────────────
+// Meme moteur que le cockpit francais (lib/cockpit-logic.js, XGCockpit.rechercher, teste par
+// vitest) : formations et lecons deja chargees, tous onglets confondus, sans appel reseau.
+// Insensible a la casse, aux accents et a l'ordre des mots ; « m03 l02 » / « module 3 lesson 2 ».
+var champRecherche = document.getElementById('recherche');
+var boutonEffacer = document.getElementById('recherche-effacer');
+function requeteRecherche(){ return champRecherche.value.trim(); }
+var minuterieRecherche = null;
+champRecherche.addEventListener('input', function(){
+  boutonEffacer.hidden = !champRecherche.value;
+  clearTimeout(minuterieRecherche);
+  minuterieRecherche = setTimeout(rendre, 150);
+});
+champRecherche.addEventListener('keydown', function(e){ if (e.key === 'Escape') effacerRecherche(); });
+boutonEffacer.addEventListener('click', effacerRecherche);
+function effacerRecherche(){
+  champRecherche.value = '';
+  boutonEffacer.hidden = true;
+  rendre();
+  champRecherche.focus();
+}
+// Raccourci « / » : aller a la recherche depuis n'importe ou (sauf en train de taper).
+document.addEventListener('keydown', function(e){
+  if (e.key !== '/' || /INPUT|TEXTAREA|SELECT/.test((e.target && e.target.tagName) || '')) return;
+  e.preventDefault();
+  champRecherche.focus();
+});
+// Ou mene une lecon trouvee : sa video si elle en a une a regarder (ou si la voix est deja
+// approuvee), sinon sa voix ; rien tant que la voix n'existe pas.
+function lienLecon(l){
+  var k = encodeURIComponent(l.lesson_key);
+  if (aRegarder(l) || (l.has_video && !/^voice_/.test(l.pipeline_stage || ''))) return 'review-video.html?key=' + k;
+  return l.voiceover_uploaded_at ? 'review.html?key=' + k : '';
+}
+function rendreRecherche(pc){
+  var q = requeteRecherche();
+  var r = XGCockpit.rechercher(q, DATA.courses, DATA.lessons, 80);
+  document.getElementById('subtitle').textContent = 'Search — “' + q + '”';
+  var v = document.getElementById('view');
+  if (!r.cours.length && !r.total) {
+    v.innerHTML = '<div class="empty">Nothing found for “' + esc(q) + '”. Try a single word, or a number such as “m03 l02”.</div>';
+    return;
+  }
+  var titres = {};
+  DATA.courses.forEach(function(c){ titres[c.id] = c.short_title || c.title; });
+  var html = '';
+  if (r.cours.length) {
+    html += '<div class="res-titre">' + r.cours.length + ' course' + (r.cours.length > 1 ? 's' : '') + '</div><div class="card">'
+      + r.cours.map(function(c){
+        var ls = pc[c.id] || [];
+        var ok = ls.filter(function(l){ return l.latest_approved; }).length;
+        return '<a class="row" href="#audio" onclick="ouvrirCours(\'' + esc(c.id) + '\');return false"><span class="t">' + esc(c.title) + '</span>'
+          + '<span class="counts">' + ok + ' / ' + ls.length + ' approved</span></a>';
+      }).join('') + '</div>';
+  }
+  if (r.total) {
+    html += '<div class="res-titre">' + r.total + ' lesson' + (r.total > 1 ? 's' : '')
+      + (r.total > r.lecons.length ? ' — the first ' + r.lecons.length + ', narrow your search' : '') + '</div><div class="card">'
+      + r.lecons.map(function(l){
+        var e = /^voice_/.test(l.pipeline_stage || '') || !l.pipeline_stage ? etat(l) : { cls: l.pipeline_stage === 'done' ? 'ok' : 'todo', txt: ETAPES[l.pipeline_stage] || l.pipeline_stage };
+        var lien = lienLecon(l);
+        return '<a class="row"' + (lien ? ' href="' + lien + '"' : '') + '><span class="t">' + esc(l.title)
+          + ' <span class="counts">· ' + esc(titres[l.course_id] || l.course_id) + ', module ' + esc(l.module_index) + ', lesson ' + esc(l.lesson_index) + '</span></span>'
+          + '<span class="chip ' + e.cls + '">' + esc(e.txt) + '</span></a>';
+      }).join('') + '</div>';
+  }
+  v.innerHTML = html;
+}
+// Clic sur une formation trouvee : vider la recherche, ouvrir l'onglet Audio sur cette formation.
+function ouvrirCours(id){
+  champRecherche.value = '';
+  boutonEffacer.hidden = true;
+  choisir('audio');
+  var i = DATA.courses.map(function(c){ return c.id; }).indexOf(id);
+  var cartes = document.querySelectorAll('#courses > .card');
+  if (cartes[i]) {
+    cartes.forEach(function(c, j){ var b = c.querySelector('.corps'); if (b) b.hidden = j !== i; });
+    cartes[i].scrollIntoView({ block: 'start' });
+  }
 }
 
 // ── Audio review ─────────────────────────────────────────────────────
