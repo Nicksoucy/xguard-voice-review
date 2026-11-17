@@ -250,6 +250,41 @@ test('anglais : vidéo -> un problème bloquant la renvoie, un problème de voix
   expect(dernier.flags[0]).toMatchObject({ category: 'typo', severity: 'blocker', note: 'Recieve on screen' });
 });
 
+// 2026-11-17 : la page video perdait toute note prise SANS nom enregistre (aucun brouillon,
+// seul un lien vers l'accueil). Cas de Rachelle : 0 revue anglaise en base apres ses debuts.
+test('anglais : vidéo sans nom -> la note est gardée, puis envoyée une fois le nom tapé', async ({ page }) => {
+  const etat = await mockEn(page, {
+    lesson: lecon({ latest_approved: false, pipeline_stage: 'voice_review', has_video: true }),
+    video: { lesson_key: CLE, video_path: 'demo-en/v1.mp4', version: 1, produced_at: '2026-11-12T10:00:00Z' },
+  });
+  await page.goto('/en/review-video.html?key=' + encodeURIComponent(CLE));
+  // Le nom est demande DANS la page.
+  await expect(page.locator('#rn-here')).toBeVisible();
+  await expect(page.locator('#layout')).toBeVisible();
+  await page.locator('#badd').click();
+  await page.locator('input[name="cat"][value="typo"]').check();
+  await page.locator('#p-note').fill('Recieve on screen');
+  await page.locator('#p-ok').click();
+  await expect(page.locator('#flags .f')).toHaveCount(1);
+  await expect(page.locator('#msg')).toContainText('Kept on this computer', { timeout: 5000 });
+  expect(etat.videoPosts).toHaveLength(0);
+  // Elle quitte puis revient : la note est toujours la.
+  await page.reload();
+  await expect(page.locator('#flags .f')).toHaveCount(1);
+  await expect(page.locator('#banner')).toContainText('Type your name at the top of the page to send them');
+  // Elle tape son nom : la page recharge, remet la note et l'envoie.
+  await page.locator('#rn-here').fill('Rachelle');
+  await page.locator('#rn-here').press('Enter');
+  await expect(page.locator('#banner')).toContainText('They are being saved now');
+  await expect.poll(() => etat.videoPosts.length).toBeGreaterThan(0);
+  const envoi = etat.videoPosts.at(-1);
+  expect(envoi).toMatchObject({ lesson_key: CLE, reviewer_name: 'Rachelle', video_version: 1 });
+  expect(envoi.flags[0]).toMatchObject({ category: 'typo', note: 'Recieve on screen' });
+  await expect(page.locator('#msg')).toContainText('Saved');
+  // Le serveur l'a : le brouillon est efface.
+  expect(await page.evaluate((k) => localStorage.getItem('xg-en-video-brouillon:' + k), CLE)).toBeNull();
+});
+
 test('anglais : une vidéo prête dont la voix est encore en révision se regarde déjà', async ({ page }) => {
   await mockEn(page, { lesson: lecon({ pipeline_stage: 'voice_review', has_video: true, module_id: 'm1' }) });
   await page.goto('/en/index.html#video');

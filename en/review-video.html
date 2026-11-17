@@ -154,8 +154,66 @@ if (!XG.estAnglais(cle)) {
   document.getElementById('title').textContent = 'This lesson is not part of the English edition.';
   throw new Error('cle non anglaise : ' + cle);
 }
-if (!nom()) {
-  document.getElementById('banner-name').innerHTML = '<div class="banner warn">Please type your name on the <a class="navlink" href="index.html">home page</a> before you start. It signs your review.</div>';
+// ── Brouillon local (2026-11-17) ────────────────────────────────────
+// Comme la page voix : tant que le serveur n'a pas confirme, la revue vit AUSSI dans le
+// navigateur. Avant, une note prise SANS nom enregistre (ou pendant une coupure) n'existait
+// qu'en memoire : quitter la page la perdait, et le seul signe etait un petit message gris.
+// Le brouillon porte la version de la video : un flag horodate sur un autre montage ne
+// veut plus rien dire, on l'oublie.
+var CLE_BROUILLON = 'xg-en-video-brouillon:' + cle;
+function garderBrouillon(){
+  try { localStorage.setItem(CLE_BROUILLON, JSON.stringify({ rn: nom(), flags: flags, verdict: verdict, version: VM ? (VM.version || 1) : null, t: Date.now() })); }
+  catch (e) { XGNet.signaler(e, 'en video brouillon ecriture'); }
+}
+function lireBrouillon(){
+  try { return JSON.parse(localStorage.getItem(CLE_BROUILLON) || 'null'); }
+  catch (e) { XGNet.signaler(e, 'en video brouillon lecture'); return null; }
+}
+function oublierBrouillon(){
+  try { localStorage.removeItem(CLE_BROUILLON); } catch (e) { XGNet.signaler(e, 'en video brouillon effacement'); }
+}
+
+// Nom de la reviseuse : demande DANS la page (avant : un lien vers l'accueil, facile a
+// ignorer). Les notes deja prises sont gardees avant le rechargement et reviennent.
+function demanderNom(){
+  if (nom()) return;
+  document.getElementById('banner-name').innerHTML = '<div class="banner warn">Please type your name before you start. It signs your review, and nothing is sent without it. '
+    + '<input id="rn-here" placeholder="Your name" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:5px;padding:5px 8px;font:inherit;margin-left:6px" onkeydown="if(event.key===\'Enter\')enregistrerNom()"> '
+    + '<button class="btn ghost" onclick="enregistrerNom()">Save</button></div>';
+}
+function enregistrerNom(){
+  var v = document.getElementById('rn-here').value.trim();
+  if (!v) return;
+  if (flags.length) garderBrouillon();
+  try { localStorage.setItem('rn', v); } catch (e) { XGNet.signaler(e, 'en nom'); }
+  minuterie = null; // le brouillon est garde : pas d'alerte « quitter la page »
+  location.reload();
+}
+demanderNom();
+
+// Un brouillon plus recent que ce que le serveur a, pour CETTE version : on le remet et on
+// l'enregistre. tServeur = date de ma revue sur cette version (0 si aucune).
+function reprendreBrouillon(tServeur){
+  var b = lireBrouillon();
+  if (!b) return;
+  var vCour = VM.version || 1;
+  if (b.version !== vCour || b.t <= tServeur || (b.rn && !XGReview.memeReviseur(b.rn, nom()))) { oublierBrouillon(); return; }
+  if (b.rn) {
+    // Meme reviseuse : le brouillon EST la derniere version de sa revue.
+    flags = (b.flags || []).slice();
+    verdict = b.verdict || verdict;
+  } else {
+    // Notes prises avant de taper son nom : on les ajoute a ce que le serveur a deja.
+    var ids = {}; flags.forEach(function(f){ ids[f.id] = 1; });
+    (b.flags || []).forEach(function(f){ if (!ids[f.id]) flags.push(f); });
+    // Un probleme bloquant ajoute retire l'approbation, comme dans ajouterProbleme.
+    if (verdict.approved && flags.some(function(f){ return f.severity !== 'minor' && f.category !== 'voice'; })) verdict.approved = false;
+  }
+  flags.sort(function(a, b2){ return a.time - b2.time; });
+  var quand = new Date(b.t).toLocaleString('en-CA', { month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  banniere('info', 'We brought back the problems you noted on ' + esc(quand) + ' that had not reached the server yet.'
+    + (nom() ? ' They are being saved now.' : ' Type your name at the top of the page to send them.'));
+  if (nom()) setTimeout(function(){ sauver().catch(function(e){ XGNet.signaler(e, 'en video brouillon envoi'); }); }, 0);
 }
 
 var lire = function(q, action){ return XGNet.requete(API + '/' + q, { headers: H }, { action: action }); };
@@ -183,7 +241,8 @@ Promise.all([
 
   // Sa revue a elle (meme reviseuse sans tenir compte de la casse), et seulement si elle
   // porte sur CETTE version : un flag horodate sur un autre montage ne veut plus rien dire.
-  var moi = (r[2] || []).filter(function(x){ return XGReview.memeReviseur(x.reviewer_name, nom()); })[0];
+  var moi = nom() ? (r[2] || []).filter(function(x){ return XGReview.memeReviseur(x.reviewer_name, nom()); })[0] : null;
+  var tServeur = 0;
   if (moi) {
     var vRevue = moi.video_version || 1, vCour = VM.version || 1;
     if (vCour > vRevue) {
@@ -191,11 +250,13 @@ Promise.all([
     } else {
       flags = (moi.flags || []).slice().sort(function(a, b){ return a.time - b.time; });
       verdict = { approved: !!moi.approved, rejected: !!moi.rejected, reason: moi.reject_reason || null };
+      tServeur = Date.parse(moi.updated_at) || 0;
       if (verdict.approved) banniere('ok', 'You approved this video on ' + esc(jour(moi.updated_at)) + '.');
       else if (verdict.rejected) banniere('warn', 'You sent this video back to be fixed on ' + esc(jour(moi.updated_at)) + '. A new version will come back here.');
     }
   }
   revueChargee = true;
+  reprendreBrouillon(tServeur);
   var vp = String(VM.video_path);
   if (/^https?:\/\//i.test(vp) && vp.indexOf(XG.SUPA_URL + '/storage/') !== 0) throw new Error('video address refused');
   document.getElementById('vid').src = /^https?:\/\//i.test(vp) ? vp
@@ -305,12 +366,23 @@ function envoyerVoix(note){
 
 function bloquants(){ return flags.filter(function(f){ return f.severity !== 'minor' && f.category !== 'voice'; }); }
 
-function plusTard(){ clearTimeout(minuterie); minuterie = setTimeout(function(){ sauver(); }, 2000); msg('Unsaved changes…'); }
+function plusTard(){
+  garderBrouillon(); // la note existe dans le navigateur avant meme d'etre envoyee
+  clearTimeout(minuterie);
+  minuterie = setTimeout(function(){ sauver().catch(function(e){ XGNet.signaler(e, 'en video sauvegarde differee'); }); }, 2000);
+  msg('Unsaved changes…');
+}
 // Rend une promesse resolue seulement apres une reponse 2xx du serveur.
 function sauver(){
   if (!L || !revueChargee) return Promise.reject(new Error('revue non chargee'));
   var rn = nom();
-  if (!rn) { msg('Type your name on the home page first.', true); return Promise.reject(new Error('sans nom')); }
+  garderBrouillon();
+  if (!rn) {
+    clearTimeout(minuterie); minuterie = null;
+    demanderNom();
+    msg('Kept on this computer only. Type your name at the top of the page to send it.', true);
+    return Promise.reject(new Error('sans nom'));
+  }
   clearTimeout(minuterie); minuterie = null;
   msg('Saving…');
   return XGNet.requete(API + '/video_reviews?on_conflict=lesson_key,reviewer_name', {
@@ -323,7 +395,12 @@ function sauver(){
       updated_at: new Date().toISOString(),
     }),
   }, { action: 'save your video review', cle: 'sauver-video', essais: 3, json: false, reessayer: function(){ sauver(); } })
-    .then(function(){ msg('✓ Saved'); return true; }, function(e){ msg('Not saved yet. Use Try again at the top of the page.', true); throw e; });
+    .then(function(){
+      // Le serveur a la revue : le brouillon ne sert plus, sauf si une note est arrivee
+      // pendant l'envoi (une nouvelle sauvegarde est alors deja programmee).
+      if (!minuterie) oublierBrouillon();
+      msg('✓ Saved'); return true;
+    }, function(e){ msg('Not saved yet, but kept on this computer. Use Try again at the top of the page.', true); throw e; });
 }
 
 // « I'm done » decide : aucun probleme bloquant = approuvee ; sinon = a corriger.
