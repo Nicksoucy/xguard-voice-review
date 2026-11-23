@@ -594,6 +594,24 @@ function lmsMap(){ var m={}; DATA.lms.forEach(function(r){ m[r.course_id]=r; });
 
 function gStatusOf(rec){ return XGCockpit.gStatusOf(rec); }
 
+// Filtre par statut GHL (demande de Nicolas, 2026-11-23) : n'afficher que les formations
+// prêtes, exportées, importées ou en ligne. Les clés sont celles de gStatusOf. Le choix est
+// gardé dans ce navigateur seulement (try/catch : navigation privée = « Toutes »).
+var GHL_FILTRES = [
+  { key:'all',      label:'Toutes' },
+  { key:'pret',     label:'Prêtes',       title:'Terminées, JSON pas encore exporté' },
+  { key:'exported', label:'Exportées',    title:'JSON téléchargé, pas encore marqué importé' },
+  { key:'imported', label:'✅ Importées', title:'Importées dans GHL, pas encore en ligne' },
+  { key:'live',     label:'🌐 En ligne',  title:'Publiées dans GHL' }
+];
+function ghlFiltre(){
+  var f = null;
+  try { f = localStorage.getItem('ghl_filtre'); } catch(e){}
+  return GHL_FILTRES.some(function(x){ return x.key===f; }) ? f : 'all';
+}
+function setGhlFiltre(f){ try { localStorage.setItem('ghl_filtre', f); } catch(e){} render(); }
+window.setGhlFiltre = setGhlFiltre;
+
 function renderGhl(pc){
   var fin = finishedCourses(pc).sort(function(a,b){ return (a.sort_order||0)-(b.sort_order||0); });
   if (!fin.length){ document.getElementById('view').innerHTML = '<div class="allgood">Aucune formation prête à importer pour l\'instant. Termine d\'abord la révision audio + vidéo.</div>'; return; }
@@ -606,9 +624,24 @@ function renderGhl(pc){
   allFolders.sort(function(a,b){ return a.localeCompare(b,'fr'); });
   var datalist = '<datalist id="ghl-folders">' + allFolders.map(function(f){ return '<option value="'+esc(f)+'">'; }).join('') + '</datalist>';
 
+  // Filtre par statut : compte de chaque statut (affiché sur les boutons), puis on ne garde
+  // que les formations du statut choisi. L'autocomplétion des dossiers, elle, garde tout.
+  var filtre = ghlFiltre();
+  var compte = { all: fin.length, pret: 0, exported: 0, imported: 0, live: 0 };
+  fin.forEach(function(c){ compte[gStatusOf(lm[c.id]).key]++; });
+  var vis = filtre==='all' ? fin : fin.filter(function(c){ return gStatusOf(lm[c.id]).key===filtre; });
+  var barre = '<div class="ghlfiltres" role="group" aria-label="Filtrer par statut GHL">'
+    + GHL_FILTRES.map(function(x){
+        return '<button type="button" class="ghlfilt'+(x.key===filtre?' on':'')+'"'
+          + ' aria-pressed="'+(x.key===filtre)+'"'
+          + (x.title?' title="'+esc(x.title)+'"':'')
+          + ' onclick="setGhlFiltre(\''+x.key+'\')">'+x.label+' <span class="n">'+compte[x.key]+'</span></button>';
+      }).join('')
+    + '</div>';
+
   // Grouper par dossier : dossiers alpha d'abord, « Sans dossier » en dernier.
   var groups = {};
-  fin.forEach(function(c){ (groups[folderOf(c)] = groups[folderOf(c)]||[]).push(c); });
+  vis.forEach(function(c){ (groups[folderOf(c)] = groups[folderOf(c)]||[]).push(c); });
   var folderKeys = Object.keys(groups).filter(function(f){return f;}).sort(function(a,b){ return a.localeCompare(b,'fr'); });
   if (groups['']) folderKeys.push('');
 
@@ -639,6 +672,11 @@ function renderGhl(pc){
   }
 
   var html = datalist + '<div class="sec"><div class="hint">Formations 100% terminées, rangées par dossier. Exporte le JSON, uploade-le dans GoHighLevel Memberships, puis marque-la comme importée. Tape un dossier sur une formation pour la regrouper (l\'autocomplétion propose les dossiers existants).</div></div>';
+  html += barre;
+  if (!vis.length){
+    var noms = { pret:'prête à exporter', exported:'exportée', imported:'importée', live:'en ligne' };
+    html += '<div class="allgood">Aucune formation '+noms[filtre]+' pour l\'instant.</div>';
+  }
   folderKeys.forEach(function(f){
     var label = f ? '📁 '+esc(f) : '📂 Sans dossier';
     html += '<div class="ghlfolderhead" style="margin:18px 0 9px;font-size:13px;font-weight:700;color:#CBD5E1;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:5px">'+label+' <span style="color:#7681a0;font-weight:500">('+groups[f].length+')</span></div>';
