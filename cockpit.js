@@ -39,12 +39,13 @@ var TABS = [
   {id:'audio', emoji:'🎙️', label:'Révision audio'},
   {id:'video', emoji:'🎬', label:'Révision vidéo'},
   {id:'prod',  emoji:'🛠️', label:'Production'},
-  {id:'done',  emoji:'✅', label:'Formations finies'},
   {id:'ghl',   emoji:'🚀', label:'Import GHL'}
 ];
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
-function tab(){ var t = localStorage.getItem('tab'); return TABS.some(function(x){return x.id===t}) ? t : 'audio'; }
+// L'onglet « Formations finies » (id 'done') a ete fusionne dans Import GHL le 2026-11-23 :
+// il listait les memes formations. Un navigateur qui l'avait memorise atterrit sur Import GHL.
+function tab(){ var t = localStorage.getItem('tab'); if (t==='done') t = 'ghl'; return TABS.some(function(x){return x.id===t}) ? t : 'audio'; }
 function setTab(t){ localStorage.setItem('tab', t); render(); }
 window.setTab = setTab;
 
@@ -339,7 +340,7 @@ function render(){
   document.getElementById('nav').innerHTML = (t==='prod')
     ? JOURNAL + '<a class="navlink" href="studio.html">🎛️ Atelier du son</a><a class="navlink" href="analytics.html">📊 Analytics</a><a class="navlink" href="exports.html">📥 Exports</a><a class="navlink" href="guide.html">📖 Guide</a>'
     : JOURNAL + '<a class="navlink" href="studio.html">🎛️ Atelier du son</a><a class="navlink" href="guide.html">📖 Guide</a>';
-  var SUBS = {audio:'Révision audio — écoute et flag les voix',video:'Révision vidéo — regarde et approuve les vidéos',prod:'Production — la file avance toute seule ; ici, ce qui demande une décision',done:'Formations 100% terminées',ghl:'Formations prêtes à importer dans GoHighLevel'};
+  var SUBS = {audio:'Révision audio — écoute et flag les voix',video:'Révision vidéo — regarde et approuve les vidéos',prod:'Production — la file avance toute seule ; ici, ce qui demande une décision',ghl:'Formations prêtes à importer dans GoHighLevel'};
   document.getElementById('subtitle').textContent = SUBS[t]||'Pipeline de production des formations';
 
   // Bandeau santé : sur TOUS les onglets (Héla vit dans « audio », pas dans « prod »).
@@ -351,7 +352,6 @@ function render(){
   if (t==='audio')      renderReviewCards(AUDIO_STAGES, pc, 'Rien à réviser côté voix pour l\'instant.');
   else if (t==='video') renderReviewCards(VIDEO_STAGES, pc, 'Aucune vidéo à regarder pour l\'instant.');
   else if (t==='prod')  renderProduction(pc);
-  else if (t==='done')  renderFinies(pc);
   else if (t==='ghl')   renderGhl(pc);
 }
 
@@ -572,22 +572,6 @@ function renderProduction(pc){
   document.getElementById('view').innerHTML = html;
 }
 
-// ───────────────────────── Onglet Formations finies ─────────────────────────
-
-function renderFinies(pc){
-  var fin = finishedCourses(pc).sort(function(a,b){ return (a.sort_order||0)-(b.sort_order||0); });
-  if (!fin.length){ document.getElementById('view').innerHTML = '<div class="allgood">Aucune formation 100% terminée pour l\'instant.</div>'; return; }
-  var html = '<div class="sec"><div class="hint">'+fin.length+' formation'+(fin.length>1?'s':'')+' dont toutes les leçons sont approuvées (voix + vidéo).</div></div>';
-  html += fin.map(function(c){
-    var s = pc[c.id];
-    var t = STAGE_ORDER.reduce(function(a,k){return a+s[k]},0);
-    return '<a class="course" href="course.html?course='+encodeURIComponent(c.id)+'">'
-      + '<div class="title"><span>'+esc(c.title)+'</span><span class="phase ready">✅ Terminée</span></div>'
-      + '<div class="crow"><span><b>'+t+'</b> leçon'+(t>1?'s':'')+' prêtes</span><span>→ détail</span></div></a>';
-  }).join('');
-  document.getElementById('view').innerHTML = html;
-}
-
 // ───────────────────────── Onglet Import GHL ─────────────────────────
 
 function lmsMap(){ var m={}; DATA.lms.forEach(function(r){ m[r.course_id]=r; }); return m; }
@@ -726,7 +710,7 @@ function renderGhl(pc){
     return '<div class="ghlcard'+(coche?' sel':'')+'" id="ghlcard-'+c.id+'" data-id="'+esc(c.id)+'">'
       + '<div class="ghlhead"><label class="ghlpick"><input type="checkbox" class="ghlsel" data-id="'+esc(c.id)+'"'+(coche?' checked':'')
       +   ' onchange="ghlToggle(this.dataset.id, this.checked)" aria-label="Sélectionner '+esc(c.title)+'">'
-      +   '<span class="ghltitle">'+esc(c.title)+'</span></label><span class="gstat '+st.key+'">'+st.label+'</span></div>'
+      +   '</label><a class="ghltitle" href="course.html?course='+encodeURIComponent(c.id)+'" title="Voir le détail des leçons">'+esc(c.title)+'</a><span class="gstat '+st.key+'">'+st.label+'</span></div>'
       + (meta?'<div class="ghlmeta">'+meta+'</div>':'')
       + '<div class="ghlbtns">'
       +   '<button class="ghlbtn primary" onclick="ghlExport(\''+c.id+'\')">⬇ Exporter le JSON GHL</button>'

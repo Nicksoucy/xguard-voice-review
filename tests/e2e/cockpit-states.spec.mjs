@@ -9,7 +9,7 @@ test('etat vide : aucune lecon → message « rien a reviser »', async ({ page 
   await expect(page.locator('.allgood')).toContainText(/Rien à réviser/i);
 });
 
-test('etat vide : onglet Formations finies sans formation finie', async ({ page }) => {
+test('etat vide : onglet Import GHL sans formation finie', async ({ page }) => {
   // Des cours existent mais aucun n'est 100% fini.
   await mockSupabase(page, {
     courses: [{ id: 'c1', title: 'Cours en cours', visible: true, sort_order: 1 }],
@@ -25,8 +25,8 @@ test('etat vide : onglet Formations finies sans formation finie', async ({ page 
     lms: [],
   });
   await page.goto('/index.html');
-  await page.getByRole('button', { name: /Formations finies/ }).click();
-  await expect(page.locator('.allgood')).toContainText(/Aucune formation 100% terminée/i);
+  await page.getByRole('button', { name: /Import GHL/ }).click();
+  await expect(page.locator('.allgood')).toContainText(/Aucune formation prête à importer/i);
 });
 
 test("etat erreur : une requete Supabase echoue → bandeau d'erreur", async ({ page }) => {
