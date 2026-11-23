@@ -612,6 +612,66 @@ function ghlFiltre(){
 function setGhlFiltre(f){ try { localStorage.setItem('ghl_filtre', f); } catch(e){} render(); }
 window.setGhlFiltre = setGhlFiltre;
 
+// Sélection multiple (demande de Nicolas, 2026-11-23) : cocher plusieurs formations et les
+// passer d'un coup à « importé » ou « en ligne ». La sélection vit en mémoire (pas dans le
+// navigateur) : elle survit au rafraîchissement automatique aux 2 min, pas au rechargement.
+// À chaque rendu, on ne garde que les formations visibles : changer de filtre ne laisse
+// jamais une formation cachée cochée en douce.
+var GHL_SEL = new Set();
+var GHL_VISIBLES = [];   // ids affichés au dernier rendu (pour « Tout sélectionner »)
+var GHL_EN_COURS = false; // une action groupée tourne : boutons gelés
+
+function ghlToggle(courseId, coche){
+  if (coche) GHL_SEL.add(courseId); else GHL_SEL.delete(courseId);
+  majBarreGroupee();
+}
+window.ghlToggle = ghlToggle;
+
+function ghlToutCocher(coche){
+  GHL_SEL.clear();
+  if (coche) GHL_VISIBLES.forEach(function(id){ GHL_SEL.add(id); });
+  document.querySelectorAll('.ghlsel').forEach(function(cb){ cb.checked = GHL_SEL.has(cb.dataset.id); });
+  majBarreGroupee();
+}
+window.ghlToutCocher = ghlToutCocher;
+
+// Met à jour la barre d'actions groupées sans redessiner les cartes.
+function majBarreGroupee(){
+  var n = GHL_SEL.size, tot = GHL_VISIBLES.length;
+  var tout = document.getElementById('ghl-tout');
+  if (tout){ tout.checked = tot>0 && n===tot; tout.indeterminate = n>0 && n<tot; }
+  var cpt = document.getElementById('ghl-sel-n');
+  if (cpt) cpt.textContent = n ? n+' sélectionnée'+(n>1?'s':'') : 'Aucune sélectionnée';
+  document.querySelectorAll('.ghlbulk-btn').forEach(function(b){ b.disabled = !n || GHL_EN_COURS; });
+  document.querySelectorAll('.ghlcard').forEach(function(card){ card.classList.toggle('sel', GHL_SEL.has(card.dataset.id)); });
+}
+
+// Applique un statut à toutes les formations cochées, une à la fois (pas de rafale sur
+// Supabase), après confirmation. Les échecs sont comptés et restent cochés pour réessayer.
+function ghlMarkSelection(status){
+  var ids = GHL_VISIBLES.filter(function(id){ return GHL_SEL.has(id); });
+  if (!ids.length || GHL_EN_COURS) return;
+  var quoi = status==='live' ? 'en ligne' : 'importée'+(ids.length>1?'s':'');
+  if (!window.confirm('Marquer '+ids.length+' formation'+(ids.length>1?'s':'')+' '+quoi+' ?')) return;
+  GHL_EN_COURS = true; majBarreGroupee();
+  var msg = document.getElementById('ghl-bulk-msg');
+  var ok = 0, echecs = [];
+  ids.reduce(function(p, id, i){
+    return p.then(function(){
+      if (msg) msg.textContent = 'Enregistrement '+(i+1)+' / '+ids.length+'…';
+      return ghlMarkPromise(id, status).then(function(){ ok++; GHL_SEL.delete(id); })
+        .catch(function(e){ echecs.push(id+' ('+e.message+')'); });
+    });
+  }, Promise.resolve()).then(function(){
+    GHL_EN_COURS = false;
+    render();
+    var m = document.getElementById('ghl-bulk-msg');
+    if (m) m.textContent = ok+' formation'+(ok>1?'s':'')+' mise'+(ok>1?'s':'')+' à jour'
+      + (echecs.length ? ' — '+echecs.length+' en erreur, toujours cochée'+(echecs.length>1?'s':'')+' : '+echecs.join(', ') : '.');
+  });
+}
+window.ghlMarkSelection = ghlMarkSelection;
+
 function renderGhl(pc){
   var fin = finishedCourses(pc).sort(function(a,b){ return (a.sort_order||0)-(b.sort_order||0); });
   if (!fin.length){ document.getElementById('view').innerHTML = '<div class="allgood">Aucune formation prête à importer pour l\'instant. Termine d\'abord la révision audio + vidéo.</div>'; return; }
@@ -630,6 +690,15 @@ function renderGhl(pc){
   var compte = { all: fin.length, pret: 0, exported: 0, imported: 0, live: 0 };
   fin.forEach(function(c){ compte[gStatusOf(lm[c.id]).key]++; });
   var vis = filtre==='all' ? fin : fin.filter(function(c){ return gStatusOf(lm[c.id]).key===filtre; });
+  GHL_VISIBLES = vis.map(function(c){ return c.id; });
+  Array.from(GHL_SEL).forEach(function(id){ if (GHL_VISIBLES.indexOf(id)===-1) GHL_SEL.delete(id); });
+  var groupee = !vis.length ? '' : '<div class="ghlbulk">'
+    + '<label class="ghlbulk-tout"><input type="checkbox" id="ghl-tout" onchange="ghlToutCocher(this.checked)"> Tout sélectionner ('+vis.length+')</label>'
+    + '<span id="ghl-sel-n" class="ghlbulk-n"></span>'
+    + '<button type="button" class="ghlbtn ghlbulk-btn" onclick="ghlMarkSelection(\'imported\')">✅ Marquer importé</button>'
+    + '<button type="button" class="ghlbtn ghlbulk-btn" onclick="ghlMarkSelection(\'live\')">🌐 Marquer en ligne</button>'
+    + '<span id="ghl-bulk-msg" class="ghlmeta" style="margin:0"></span>'
+    + '</div>';
   var barre = '<div class="ghlfiltres" role="group" aria-label="Filtrer par statut GHL">'
     + GHL_FILTRES.map(function(x){
         return '<button type="button" class="ghlfilt'+(x.key===filtre?' on':'')+'"'
@@ -653,8 +722,11 @@ function renderGhl(pc){
       else if (rec.exported_at) meta = 'Exporté le '+new Date(rec.exported_at).toLocaleDateString('fr-CA')+' — à uploader dans GHL';
     }
     var curFolder = (rec && rec.folder) ? rec.folder : '';
-    return '<div class="ghlcard" id="ghlcard-'+c.id+'">'
-      + '<div class="ghlhead"><span class="ghltitle">'+esc(c.title)+'</span><span class="gstat '+st.key+'">'+st.label+'</span></div>'
+    var coche = GHL_SEL.has(c.id);
+    return '<div class="ghlcard'+(coche?' sel':'')+'" id="ghlcard-'+c.id+'" data-id="'+esc(c.id)+'">'
+      + '<div class="ghlhead"><label class="ghlpick"><input type="checkbox" class="ghlsel" data-id="'+esc(c.id)+'"'+(coche?' checked':'')
+      +   ' onchange="ghlToggle(this.dataset.id, this.checked)" aria-label="Sélectionner '+esc(c.title)+'">'
+      +   '<span class="ghltitle">'+esc(c.title)+'</span></label><span class="gstat '+st.key+'">'+st.label+'</span></div>'
       + (meta?'<div class="ghlmeta">'+meta+'</div>':'')
       + '<div class="ghlbtns">'
       +   '<button class="ghlbtn primary" onclick="ghlExport(\''+c.id+'\')">⬇ Exporter le JSON GHL</button>'
@@ -672,7 +744,7 @@ function renderGhl(pc){
   }
 
   var html = datalist + '<div class="sec"><div class="hint">Formations 100% terminées, rangées par dossier. Exporte le JSON, uploade-le dans GoHighLevel Memberships, puis marque-la comme importée. Tape un dossier sur une formation pour la regrouper (l\'autocomplétion propose les dossiers existants).</div></div>';
-  html += barre;
+  html += barre + groupee;
   if (!vis.length){
     var noms = { pret:'prête à exporter', exported:'exportée', imported:'importée', live:'en ligne' };
     html += '<div class="allgood">Aucune formation '+noms[filtre]+' pour l\'instant.</div>';
@@ -683,6 +755,7 @@ function renderGhl(pc){
     html += groups[f].map(cardHtml).join('');
   });
   document.getElementById('view').innerHTML = html;
+  majBarreGroupee();
 }
 
 function ghlMsg(courseId, txt){ var e = document.getElementById('ghlmsg-'+courseId); if (e) e.textContent = txt; }
@@ -714,20 +787,26 @@ function ghlExport(courseId){
 }
 window.ghlExport = ghlExport;
 
-// Marquer un cours importé / en ligne.
-function ghlMark(courseId, status){
+// Enregistre le statut d'un cours (importé / en ligne) et met DATA.lms à jour, sans redessiner.
+// Partagé par le bouton d'une carte (ghlMark) et l'action groupée (ghlMarkSelection).
+function ghlMarkPromise(courseId, status){
   var patch = { status: status };
   if (status==='imported') patch.imported_at = new Date().toISOString();
   if (status==='live') patch.live_at = new Date().toISOString();
-  ghlMsg(courseId, 'Enregistrement…');
   // Marque aussi les leçons comme pushed côté GHL (suivi par leçon existant).
   var also = (status==='imported' && window.GhlPayload && window.GhlPayload.markCoursePushed)
     ? window.GhlPayload.markCoursePushed(courseId, 'ghl').catch(function(){return null}) : Promise.resolve();
-  Promise.all([upsertCourseLms(courseId, patch), also]).then(function(res){
+  return Promise.all([upsertCourseLms(courseId, patch), also]).then(function(res){
     var rec = (res[0]&&res[0][0]) || Object.assign({course_id:courseId}, patch);
     DATA.lms = DATA.lms.filter(function(x){return x.course_id!==courseId}); DATA.lms.push(rec);
-    render();
-  }).catch(function(e){ ghlMsg(courseId, 'Erreur : '+e.message); });
+  });
+}
+
+// Marquer un cours importé / en ligne (bouton d'une carte).
+function ghlMark(courseId, status){
+  ghlMsg(courseId, 'Enregistrement…');
+  ghlMarkPromise(courseId, status).then(function(){ render(); })
+    .catch(function(e){ ghlMsg(courseId, 'Erreur : '+e.message); });
 }
 window.ghlMark = ghlMark;
 
