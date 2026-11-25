@@ -46,3 +46,31 @@ test('cockpit, onglet Production : le temps de revue du jour', async ({ page }) 
   await page.goto('/index.html');
   await expect(page.getByText('Rawen : 1 h 35 aujourd’hui')).toBeVisible();
 });
+
+test('édition anglaise (Rachelle) : la page vidéo envoie la minute en video-en', async ({ page }) => {
+  await mockSupabase(page);
+  const envois = [];
+  await page.route('**/rest/v1/reviewer_presence', (route) => {
+    envois.push(JSON.parse(route.request().postData() || '{}'));
+    return route.fulfill({ status: 201, body: '' });
+  });
+  await page.addInitScript(() => localStorage.setItem('rn', 'Rachelle'));
+  await page.goto('/en/review-video.html?key=cariste-en%2Fmodule-01%2F01-intro');
+  await page.mouse.click(5, 5);
+  await expect.poll(() => envois.length).toBe(1);
+  expect(envois[0]).toMatchObject({ reviewer_name: 'Rachelle', page: 'video-en', lesson_key: 'cariste-en/module-01/01-intro' });
+});
+
+test('édition anglaise : la page d’accueil compte aussi', async ({ page }) => {
+  await mockSupabase(page);
+  const envois = [];
+  await page.route('**/rest/v1/reviewer_presence', (route) => {
+    envois.push(JSON.parse(route.request().postData() || '{}'));
+    return route.fulfill({ status: 201, body: '' });
+  });
+  await page.addInitScript(() => localStorage.setItem('rn', 'Rachelle'));
+  await page.goto('/en/');
+  await page.mouse.click(5, 5);
+  await expect.poll(() => envois.length).toBe(1);
+  expect(envois[0]).toMatchObject({ reviewer_name: 'Rachelle', page: 'accueil-en' });
+});

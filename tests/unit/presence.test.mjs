@@ -42,6 +42,8 @@ describe('typePage', () => {
     expect(P.typePage('/xguard-voice-review/en/review.html')).toBe('voice-en');
     expect(P.typePage('/xguard-voice-review/en/review-video.html')).toBe('video-en');
     expect(P.typePage('/xguard-voice-review/')).toBe('cockpit');
+    expect(P.typePage('/xguard-voice-review/en/')).toBe('accueil-en');
+    expect(P.typePage('/xguard-voice-review/en/index.html')).toBe('accueil-en');
   });
 });
 

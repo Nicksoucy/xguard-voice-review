@@ -454,7 +454,7 @@ function sectionTempsRevue(){
   var rows = gens.map(function(p){
     var a = p.aujourdhui;
     var detail = a
-      ? 'voix '+duree(a.voix)+' · vidéo '+duree(a.video)+(a.autres ? ' · cockpit '+duree(a.autres) : '')+' · de '+heure(a.debut)+' à '+heure(a.fin)
+      ? 'voix '+duree(a.voix)+' · vidéo '+duree(a.video)+(a.autres ? ' · listes '+duree(a.autres) : '')+' · de '+heure(a.debut)+' à '+heure(a.fin)
       : 'pas encore aujourd’hui';
     return '<div class="qrow" style="--c:#3B82F6;cursor:default">'
       + '<span class="qname">'+esc(p.nom)+' : '+(a ? duree(a.minutes) : '0 min')+' aujourd’hui</span>'
