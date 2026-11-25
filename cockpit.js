@@ -56,6 +56,11 @@ document.getElementById('name').value = localStorage.getItem('rn') || '';
 // Chargement des donnees, relance toutes les 2 minutes et au retour sur l'onglet
 // (correctif 11, chantier 03) : avant, le cockpit restait fige sur l'etat de l'ouverture.
 var dernierChargement = 0;
+// Date 'AAAA-MM-JJ' à Montréal, décalée de `decalageJours` (0 = aujourd'hui).
+function jourMontreal(decalageJours){
+  var d = new Date(Date.now() + (decalageJours||0)*86400000);
+  return d.toLocaleDateString('en-CA', {timeZone:'America/Montreal'});
+}
 function chargerCockpit(){
   dernierChargement = Date.now();
   return Promise.all([
@@ -75,12 +80,14 @@ function chargerCockpit(){
   // intelligent : on n'alarme que si du travail est coince, pas juste parce que le Mac dort.
   window.XG.api('correction_requests?status=eq.pending&select=lesson_key').catch(function(){return []}),
   // Reformulations de phrases (crayon) pas encore appliquees — nouvelle section Production.
-  window.XG.api('sentence_flags?applied=eq.false&select=id,lesson_key,sentence_index,flag_type,auto_status,skip_reason,reviewer_name,created_at&order=created_at.asc').catch(function(){return []})
+  window.XG.api('sentence_flags?applied=eq.false&select=id,lesson_key,sentence_index,flag_type,auto_status,skip_reason,reviewer_name,created_at&order=created_at.asc').catch(function(){return []}),
+  // Temps de revue réel des 7 derniers jours (lib/presence.js → vue temps_revue_jour).
+  window.XG.api('temps_revue_jour?jour=gte.'+jourMontreal(-6)+'&select=*').catch(function(){return []})
 ]).then(function(res){
   var hb = res[5]||[];
   var legacy = hb.filter(function(r){ return r.id === 'xguard-correction'; })[0] || null;
   DATA = { courses:res[0], lessons:res[1]||[], needsReview:res[2]||[], syncFailed:res[3]||[], failed:res[4]||[],
-           health:legacy, healthAll:hb, lms:res[6]||[], pending:(res[7]||[]).length, sflags:res[8]||[] };
+           health:legacy, healthAll:hb, lms:res[6]||[], pending:(res[7]||[]).length, sflags:res[8]||[], tempsRevue:res[9]||[] };
   // Voix encore en écoute, par cours : sert à dire POURQUOI une vidéo ne bouge pas.
   DATA.pendingVoices = XGCockpit.voicesPendingByCourse(DATA.lessons);
   render();
@@ -438,6 +445,26 @@ function renderReviewCards(taskStages, pc, emptyMsg){
 
 // ───────────────────────── Onglet Production (ex « Gestion ») ─────────────────────────
 
+// Temps de revue réel (2026-11-25) : minutes actives dans l'app (onglet visible + geste
+// ou média qui joue), par personne. Nicolas est caché : c'est le temps des réviseuses.
+function sectionTempsRevue(){
+  var gens = XGCockpit.tempsRevueParPersonne(DATA.tempsRevue, jourMontreal(0), ['nicolas']);
+  var duree = function(m){ m = Math.max(0, Math.round(m||0)); return m < 60 ? m+' min' : Math.floor(m/60)+' h'+(m%60 ? ' '+String(m%60).padStart(2,'0') : ''); };
+  var heure = function(iso){ return iso ? new Date(iso).toLocaleTimeString('fr-CA', {timeZone:'America/Montreal', hour:'2-digit', minute:'2-digit'}) : ''; };
+  var rows = gens.map(function(p){
+    var a = p.aujourdhui;
+    var detail = a
+      ? 'voix '+duree(a.voix)+' · vidéo '+duree(a.video)+(a.autres ? ' · cockpit '+duree(a.autres) : '')+' · de '+heure(a.debut)+' à '+heure(a.fin)
+      : 'pas encore aujourd’hui';
+    return '<div class="qrow" style="--c:#3B82F6;cursor:default">'
+      + '<span class="qname">'+esc(p.nom)+' : '+(a ? duree(a.minutes) : '0 min')+' aujourd’hui</span>'
+      + '<span class="qctx">'+esc(detail)+'</span>'
+      + '<span class="qwhy">7 jours : '+duree(p.semaine)+' ('+p.joursActifs+' j)</span></div>';
+  }).join('');
+  return '<div class="sec"><h2>⏱ Temps de revue</h2><div class="hint">Minutes réellement actives dans l’app : onglet ouvert devant elle, avec un geste dans les 2 dernières minutes ou un audio / une vidéo qui joue. Compté depuis le 25 novembre 2026.</div>'
+    + (rows || '<div class="hint">Personne n’a encore travaillé dans l’app depuis la mise en place.</div>') + '</div>';
+}
+
 function renderProduction(pc){
   var lessons = DATA.lessons;
   var m = byStage(lessons);
@@ -447,6 +474,8 @@ function renderProduction(pc){
   var pctv = tot ? Math.round(doneN/tot*100) : 0;
   var html = '<div class="sec"><h2>📈 Vue d\'ensemble</h2><div class="hint">'
     + DATA.courses.length + ' formations · ' + tot + ' leçons · ' + doneN + ' prêtes (' + pctv + '%)</div></div>';
+
+  html += sectionTempsRevue();
 
   html += sectionList('video_production', m.video_production);
   html += sectionList('video_redo', m.video_redo);
@@ -590,10 +619,10 @@ var GHL_FILTRES = [
 ];
 function ghlFiltre(){
   var f = null;
-  try { f = localStorage.getItem('ghl_filtre'); } catch(e){}
+  try { f = localStorage.getItem('ghl_filtre'); } catch(e){ console.warn('[cockpit] localStorage indisponible (filtre GHL)', e); }
   return GHL_FILTRES.some(function(x){ return x.key===f; }) ? f : 'all';
 }
-function setGhlFiltre(f){ try { localStorage.setItem('ghl_filtre', f); } catch(e){} render(); }
+function setGhlFiltre(f){ try { localStorage.setItem('ghl_filtre', f); } catch(e){ console.warn('[cockpit] localStorage indisponible (filtre GHL)', e); } render(); }
 window.setGhlFiltre = setGhlFiltre;
 
 // Sélection multiple (demande de Nicolas, 2026-11-23) : cocher plusieurs formations et les
